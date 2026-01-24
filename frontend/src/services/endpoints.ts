@@ -3,11 +3,13 @@ export const API_ENDPOINTS = {
         LOGIN: '/auth/login',
         REGISTER: '/auth/register',
         ME: '/auth/user',
+        USERS: '/auth/users',
     },
     CANDIDATES: {
         BASE: '/candidates',
         BY_ID: (id: string) => `/candidates/${id}`,
         PARSE_RESUME: '/candidates/parse-resume',
+        UPDATE_STATUS: (id: string) => `/candidates/${id}/status`,
     },
     FACE: {
         REGISTER: '/face/register',
@@ -18,12 +20,14 @@ export const API_ENDPOINTS = {
     QUESTIONS: {
         BASE: '/questions',
         VERIFY: (id: string) => `/questions/${id}/verify`,
+        BULK_UPLOAD: '/questions/bulk-upload',
     },
     INTERVIEWS: {
         START: '/interviews/start',
         RESPONSE: (id: string) => `/interviews/${id}/response`,
         COMPLETE: (id: string) => `/interviews/${id}/complete`,
         BY_ID: (id: string) => `/interviews/${id}`,
+        UPDATE_STATE: (id: string) => `/interviews/${id}/state`,
     },
     QUESTIONNAIRES: {
         BASE: '/questionnaires',
@@ -36,5 +40,9 @@ export const API_ENDPOINTS = {
     SESSIONS: {
         LIST: '/sessions',
         REPORT: (id: string) => `/sessions/${id}`,
+    },
+    SETTINGS: {
+        BASE: '/settings',
+        SEED: '/settings/seed',
     },
 };

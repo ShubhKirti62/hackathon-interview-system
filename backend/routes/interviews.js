@@ -8,16 +8,37 @@ router.post('/start', async (req, res) => {
     try {
         const { candidateId, domain, round } = req.body;
 
-        // Logic to select questions could be here or dynamic during interview
+        // Select 5 random questions for the domain
+        const questions = await Question.aggregate([
+            { $match: { domain } },
+            { $sample: { size: 5 } }
+        ]);
+
         const newInterview = new Interview({
             candidateId,
             domain,
             round,
+            questions: questions.map(q => q._id),
             status: 'In-Progress'
         });
 
         const savedInterview = await newInterview.save();
         res.status(201).json(savedInterview);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update Interview State (Persistence for refresh/net issues)
+router.patch('/:id/state', async (req, res) => {
+    try {
+        const { currentQuestionIndex, remainingTime } = req.body;
+        const updatedInterview = await Interview.findByIdAndUpdate(
+            req.params.id,
+            { currentQuestionIndex, remainingTime },
+            { new: true }
+        );
+        res.json(updatedInterview);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -127,6 +148,7 @@ router.get('/:id', async (req, res) => {
     try {
         const interview = await Interview.findById(req.params.id)
             .populate('candidateId')
+            .populate('questions')
             .populate('responses.questionId');
         res.json(interview);
     } catch (error) {

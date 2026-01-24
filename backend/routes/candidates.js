@@ -22,6 +22,7 @@ const uploadMemory = multer({ storage: memoryStorage });
 const upload = multer({ storage: storage });
 
 const { parseResume } = require('../utils/resumeParser');
+const auth = require('../middleware/auth');
 
 // Parse Resume Route (For filling the form)
 // Uses memory storage to avoid cluttering disk with temp files
@@ -86,8 +87,36 @@ router.post('/', upload.single('resume'), async (req, res) => {
 // Get All Candidates
 router.get('/', async (req, res) => {
     try {
-        const candidates = await Candidate.find().sort({ createdAt: -1 });
+        const candidates = await Candidate.find()
+            .populate('handledBy', 'name email role')
+            .sort({ internalReferred: -1, createdAt: -1 });
         res.json(candidates);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update Candidate Status (Shortlist/Reject)
+router.patch('/:id/status', auth, async (req, res) => {
+    try {
+        const { status, remarks } = req.body;
+        if (!['Shortlisted', 'Rejected', 'Pending', 'Interviewed'].includes(status)) {
+            return res.status(400).json({ error: 'Invalid status' });
+        }
+
+        const candidate = await Candidate.findByIdAndUpdate(
+            req.params.id,
+            {
+                status,
+                remarks,
+                handledBy: req.user.id,
+                handledAt: new Date()
+            },
+            { new: true }
+        ).populate('handledBy', 'name email role');
+
+        if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
+        res.json(candidate);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

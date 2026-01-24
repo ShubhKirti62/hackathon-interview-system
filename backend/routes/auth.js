@@ -140,4 +140,46 @@ router.get('/user', require('../middleware/auth'), async (req, res) => {
     }
 });
 
+// List Users by Role (Admin only)
+router.get('/users', require('../middleware/auth'), async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ msg: 'Access denied' });
+        }
+        const { role } = req.query;
+        let query = {};
+        if (role) query.role = role;
+
+        const users = await User.find(query).select('-password');
+        res.json(users);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+});
+
+// Remove HR Access (Delete User)
+router.delete('/users/:id', require('../middleware/auth'), async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ msg: 'Access denied' });
+        }
+
+        const userToRemove = await User.findById(req.params.id);
+        if (!userToRemove) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+
+        if (userToRemove.role === 'admin') {
+            return res.status(400).json({ msg: 'Cannot delete an admin' });
+        }
+
+        await User.findByIdAndDelete(req.params.id);
+        res.json({ msg: 'User access removed successfully' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+});
+
 module.exports = router;

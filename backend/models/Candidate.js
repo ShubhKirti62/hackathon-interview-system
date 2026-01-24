@@ -31,7 +31,10 @@ const CandidateSchema = new mongoose.Schema({
         confidence: { type: Number, min: 0, max: 5 },
         honesty: { type: Number, min: 0, max: 5 }
     },
-    overallScore: { type: Number }
+    overallScore: { type: Number },
+    handledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    handledAt: { type: Date },
+    remarks: { type: String }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Candidate', CandidateSchema);

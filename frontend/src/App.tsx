@@ -51,15 +51,15 @@ function App() {
               <Route path="/" element={<Layout />}>
                 <Route index element={
                   <RedirectIfAuthenticated>
-                     <RegisterPage />
+                    <RegisterPage />
                   </RedirectIfAuthenticated>
                 } />
 
-              <Route path={APP_ROUTES.LOGIN} element={
-                <RedirectIfAuthenticated>
-                 <LoginPage />
-                </RedirectIfAuthenticated>
-              } />
+                <Route path={APP_ROUTES.LOGIN} element={
+                  <RedirectIfAuthenticated>
+                    <LoginPage />
+                  </RedirectIfAuthenticated>
+                } />
 
                 <Route
                   path={APP_ROUTES.ADMIN.DASHBOARD}
