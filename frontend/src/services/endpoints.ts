@@ -7,6 +7,7 @@ export const API_ENDPOINTS = {
     CANDIDATES: {
         BASE: '/candidates',
         BY_ID: (id: string) => `/candidates/${id}`,
+        PARSE_RESUME: '/candidates/parse-resume',
     },
     QUESTIONS: {
         BASE: '/questions',

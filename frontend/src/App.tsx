@@ -3,8 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
-import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import InterviewPage from './pages/interview/InterviewPage';
 import { APP_ROUTES } from './routes';
@@ -23,6 +23,20 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactEleme
   return children;
 };
 
+// Redirect if already authenticated
+const RedirectIfAuthenticated = ({ children }: { children: React.ReactElement }) => {
+  const { user, isAuthenticated } = useAuth();
+
+  if (isAuthenticated && user) {
+    if (user.role === 'admin' || user.role === 'hr') {
+      return <Navigate to={APP_ROUTES.ADMIN.DASHBOARD} replace />;
+    }
+    return <Navigate to={APP_ROUTES.CANDIDATE.DASHBOARD} replace />;
+  }
+
+  return children;
+};
+
 function App() {
   return (
     <ThemeProvider>
@@ -30,8 +44,17 @@ function App() {
         <Router>
           <Routes>
             <Route path="/" element={<Layout />}>
-              <Route index element={<LandingPage />} />
-              <Route path={APP_ROUTES.LOGIN} element={<LoginPage />} />
+              <Route index element={
+                <RedirectIfAuthenticated>
+                  <LoginPage />
+                </RedirectIfAuthenticated>
+              } />
+
+              <Route path={APP_ROUTES.REGISTER} element={
+                <RedirectIfAuthenticated>
+                  <RegisterPage />
+                </RedirectIfAuthenticated>
+              } />
 
               <Route
                 path={APP_ROUTES.ADMIN.DASHBOARD}
@@ -45,7 +68,7 @@ function App() {
               <Route
                 path={APP_ROUTES.INTERVIEW.INTRO}
                 element={
-                  <ProtectedRoute allowedRoles={['admin', 'hr', 'interviewer']}>
+                  <ProtectedRoute allowedRoles={['admin', 'hr', 'interviewer', 'candidate']}>
                     <InterviewPage />
                   </ProtectedRoute>
                 }

@@ -33,10 +33,8 @@ router.post('/register', async (req, res) => {
 
         // Create Token
         const payload = {
-            user: {
-                id: user.id,
-                role: user.role
-            }
+            id: user.id,
+            role: user.role
         };
 
         jwt.sign(
@@ -59,34 +57,71 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
+        const Candidate = require('../models/Candidate');
 
-        // Check if user exists
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(400).json({ msg: 'Invalid Credentials' });
-        }
+        // 1. Check if user exists in User collection (Admin, HR, Interviewer)
+        let user = await User.findOne({ email });
 
-        // Validate password
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(400).json({ msg: 'Invalid Credentials' });
-        }
-
-        // Create Token
-        const payload = {
-            id: user.id,
-            role: user.role
-        };
-
-        jwt.sign(
-            payload,
-            JWT_SECRET,
-            { expiresIn: '24h' },
-            (err, token) => {
-                if (err) throw err;
-                res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+        if (user) {
+            // Validate password for User
+            const isMatch = await bcrypt.compare(password, user.password);
+            if (!isMatch) {
+                return res.status(400).json({ msg: 'Invalid Credentials' });
             }
-        );
+
+            // Create Token for User
+            const payload = {
+                id: user.id,
+                role: user.role
+            };
+
+            jwt.sign(
+                payload,
+                JWT_SECRET,
+                { expiresIn: '24h' },
+                (err, token) => {
+                    if (err) throw err;
+                    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+                }
+            );
+
+        } else {
+            // 2. If not in User, check Candidate collection
+            const candidate = await Candidate.findOne({ email });
+
+            if (candidate) {
+                // For candidates, we (currently) only check email existence.
+                // In a real app, you'd likely have a password or OTP.
+                // Treating as "candidate" role.
+
+                const payload = {
+                    id: candidate.id,
+                    role: 'candidate'
+                };
+
+                jwt.sign(
+                    payload,
+                    JWT_SECRET,
+                    { expiresIn: '24h' },
+                    (err, token) => {
+                        if (err) throw err;
+                        // Return candidate info structured like user
+                        res.json({
+                            token,
+                            user: {
+                                id: candidate.id,
+                                name: candidate.name,
+                                email: candidate.email,
+                                role: 'candidate'
+                            }
+                        });
+                    }
+                );
+            } else {
+                // Not found in either
+                return res.status(400).json({ msg: 'Invalid Credentials' });
+            }
+        }
 
     } catch (err) {
         console.error('Login error:', err);

@@ -1,6 +1,6 @@
 export const APP_ROUTES = {
     HOME: '/',
-    LOGIN: '/login',
+    LOGIN: '/',
     REGISTER: '/register',
     ADMIN: {
         DASHBOARD: '/admin/dashboard',
@@ -11,5 +11,8 @@ export const APP_ROUTES = {
         INTRO: '/interview',
         SESSION: '/interview/session/:id',
         RESULT: '/interview/result/:id',
+    },
+    CANDIDATE: {
+        DASHBOARD: '/interview',
     },
 };

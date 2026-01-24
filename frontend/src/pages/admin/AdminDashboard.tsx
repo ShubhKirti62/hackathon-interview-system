@@ -183,10 +183,51 @@ const AddCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void }
         phone: '',
         domain: 'Frontend',
         experienceLevel: 'Fresher/Intern',
-        internalReferred: false
+        internalReferred: false,
+        resumeUrl: '',
+        resumeText: ''
     });
+    const [resumeFile, setResumeFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
+    const [parsing, setParsing] = useState(false);
     const [error, setError] = useState('');
+
+    const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setResumeFile(file);
+            setParsing(true);
+            setError('');
+
+            const formDataUpload = new FormData();
+            formDataUpload.append('resume', file);
+
+            try {
+                const res = await api.post(API_ENDPOINTS.CANDIDATES.PARSE_RESUME, formDataUpload, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+
+                const { name, email, phone, domain, experienceLevel, resumeUrl, resumeText } = res.data;
+
+                setFormData(prev => ({
+                    ...prev,
+                    name: name || prev.name,
+                    email: email || prev.email,
+                    phone: phone || prev.phone,
+                    domain: domain || prev.domain,
+                    experienceLevel: experienceLevel || prev.experienceLevel,
+                    resumeUrl: resumeUrl,
+                    resumeText: resumeText
+                }));
+
+            } catch (err) {
+                console.error('Parse error:', err);
+                setError('Failed to parse resume. Please fill details manually.');
+            } finally {
+                setParsing(false);
+            }
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -194,7 +235,37 @@ const AddCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void }
         setError('');
 
         try {
-            await api.post(API_ENDPOINTS.CANDIDATES.BASE, formData);
+            // Use FormData to send file or fields
+            const submitData = new FormData();
+            submitData.append('name', formData.name);
+            submitData.append('email', formData.email);
+            submitData.append('phone', formData.phone);
+            submitData.append('domain', formData.domain);
+            submitData.append('experienceLevel', formData.experienceLevel);
+            submitData.append('internalReferred', formData.internalReferred.toString());
+
+            if (resumeFile) {
+                // If we have a file object (user selected one), send it.
+                // Note: If we already uploaded it for parsing, we could theoretically send the path,
+                // but sending the file again ensures the 'create' route logic is simple (req.file).
+                // However, we optimized the backend to accept 'resumeUrl' string too. 
+                // Let's send the string if we have it and no *new* file is needed, but here resumeFile matches.
+                // Actually, to be safe and simple, let's just send the file again if it's there.
+                // OR, if we want to avoid re-uploading:
+                if (formData.resumeUrl) {
+                    submitData.append('resumeUrl', formData.resumeUrl);
+                    submitData.append('resumeText', formData.resumeText);
+                } else {
+                    submitData.append('resume', resumeFile);
+                }
+            } else if (formData.resumeUrl) {
+                submitData.append('resumeUrl', formData.resumeUrl);
+                submitData.append('resumeText', formData.resumeText);
+            }
+
+            await api.post(API_ENDPOINTS.CANDIDATES.BASE, submitData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
             onSuccess();
             onClose();
         } catch (err: any) {
@@ -226,6 +297,16 @@ const AddCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void }
                 </div>
 
                 {error && <div style={{ color: 'var(--error)', marginBottom: '1rem', padding: '0.5rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '0.25rem' }}>{error}</div>}
+
+                <div style={{ marginBottom: '1.5rem', padding: '1rem', border: '1px dashed var(--primary)', borderRadius: '0.5rem', backgroundColor: 'rgba(59, 130, 246, 0.05)' }}>
+                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}>
+                        <Upload size={24} style={{ color: 'var(--primary)', marginBottom: '0.5rem' }} />
+                        <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>Auto-fill from Resume</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Upload PDF to extract details</span>
+                        <input type="file" accept=".pdf" onChange={handleResumeUpload} style={{ display: 'none' }} />
+                    </label>
+                    {parsing && <div style={{ textAlign: 'center', marginTop: '0.5rem', color: 'var(--text-secondary)' }}>Extracting info...</div>}
+                </div>
 
                 <form onSubmit={handleSubmit}>
                     <div style={{ marginBottom: '1rem' }}>
@@ -325,19 +406,76 @@ const AddQuestionModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         text: '',
         domain: 'Frontend',
         experienceLevel: 'Fresher/Intern',
-        difficulty: 'Medium'
+        difficulty: 'Medium',
+        type: 'MCQ',
+        options: ['', '', '', ''],
+        correctAnswers: [] as string[]
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
+
+    const handleOptionChange = (index: number, value: string) => {
+        const newOptions = [...formData.options];
+        newOptions[index] = value;
+        setFormData({ ...formData, options: newOptions });
+    };
+
+    const toggleCorrectAnswer = (option: string) => {
+        // If option is empty, don't toggle
+        if (!option.trim()) return;
+
+        const currentCorrect = formData.correctAnswers;
+        if (currentCorrect.includes(option)) {
+            setFormData({ ...formData, correctAnswers: currentCorrect.filter(a => a !== option) });
+        } else {
+            setFormData({ ...formData, correctAnswers: [...currentCorrect, option] });
+        }
+    };
+
+    const addOption = () => {
+        setFormData({ ...formData, options: [...formData.options, ''] });
+    };
+
+    const removeOption = (index: number) => {
+        const newOptions = formData.options.filter((_, i) => i !== index);
+        setFormData({ ...formData, options: newOptions });
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError('');
 
+        if (formData.type === 'MCQ') {
+            const validOptions = formData.options.filter(o => o.trim() !== '');
+            if (validOptions.length < 2) {
+                setError('Please provide at least 2 valid options for MCQ.');
+                setLoading(false);
+                return;
+            }
+            if (formData.correctAnswers.length === 0) {
+                setError('Please select at least one correct answer.');
+                setLoading(false);
+                return;
+            }
+            // Ensure correct answers are actually in the valid options
+            const validCorrectAnswers = formData.correctAnswers.filter(ans => validOptions.includes(ans));
+            if (validCorrectAnswers.length === 0) {
+                setError('Selected correct answer is no longer a valid option.');
+                setLoading(false);
+                return;
+            }
+        }
+
         try {
-            await api.post(API_ENDPOINTS.QUESTIONS.BASE, formData);
+            // Filter out empty options before sending
+            const payload = {
+                ...formData,
+                options: formData.type === 'MCQ' ? formData.options.filter(o => o.trim() !== '') : []
+            };
+
+            await api.post(API_ENDPOINTS.QUESTIONS.BASE, payload);
             setSuccess(true);
             setTimeout(() => {
                 onClose();
@@ -362,7 +500,7 @@ const AddQuestionModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             justifyContent: 'center',
             zIndex: 1000
         }}>
-            <div className="card" style={{ width: '100%', maxWidth: '500px' }}>
+            <div className="card" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflow: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                     <h2 style={{ fontSize: '1.5rem', color: 'var(--text-primary)' }}>Add Question</h2>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
@@ -382,7 +520,7 @@ const AddQuestionModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Question Text *</label>
                         <textarea
                             className="input"
-                            rows={4}
+                            rows={3}
                             value={formData.text}
                             onChange={(e) => setFormData({ ...formData, text: e.target.value })}
                             required
@@ -390,54 +528,120 @@ const AddQuestionModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         />
                     </div>
 
-                    <div style={{ marginBottom: '1rem' }}>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Domain *</label>
-                        <select
-                            className="input"
-                            value={formData.domain}
-                            onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-                            required
-                        >
-                            <option value="Frontend">Frontend</option>
-                            <option value="Backend">Backend</option>
-                            <option value="Full Stack">Full Stack</option>
-                            <option value="DevOps">DevOps</option>
-                            <option value="Data Science">Data Science</option>
-                            <option value="Mobile">Mobile</option>
-                        </select>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Domain *</label>
+                            <select
+                                className="input"
+                                value={formData.domain}
+                                onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
+                                required
+                            >
+                                <option value="Frontend">Frontend</option>
+                                <option value="Backend">Backend</option>
+                                <option value="Full Stack">Full Stack</option>
+                                <option value="DevOps">DevOps</option>
+                                <option value="Data Science">Data Science</option>
+                                <option value="Mobile">Mobile</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Experience Level *</label>
+                            <select
+                                className="input"
+                                value={formData.experienceLevel}
+                                onChange={(e) => setFormData({ ...formData, experienceLevel: e.target.value })}
+                                required
+                            >
+                                <option value="Fresher/Intern">Fresher/Intern</option>
+                                <option value="1-2 years">1-2 years</option>
+                                <option value="2-4 years">2-4 years</option>
+                                <option value="4-6 years">4-6 years</option>
+                                <option value="6-8 years">6-8 years</option>
+                                <option value="8-10 years">8-10 years</option>
+                                <option value="All">All Levels</option>
+                            </select>
+                        </div>
                     </div>
 
-                    <div style={{ marginBottom: '1rem' }}>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Experience Level *</label>
-                        <select
-                            className="input"
-                            value={formData.experienceLevel}
-                            onChange={(e) => setFormData({ ...formData, experienceLevel: e.target.value })}
-                            required
-                        >
-                            <option value="Fresher/Intern">Fresher/Intern</option>
-                            <option value="1-2 years">1-2 years</option>
-                            <option value="2-4 years">2-4 years</option>
-                            <option value="4-6 years">4-6 years</option>
-                            <option value="6-8 years">6-8 years</option>
-                            <option value="8-10 years">8-10 years</option>
-                            <option value="All">All Levels</option>
-                        </select>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Difficulty *</label>
+                            <select
+                                className="input"
+                                value={formData.difficulty}
+                                onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
+                                required
+                            >
+                                <option value="Easy">Easy</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Hard">Hard</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Type</label>
+                            <select
+                                className="input"
+                                value={formData.type}
+                                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                                required
+                            >
+                                <option value="MCQ">Multiple Choice</option>
+                                <option value="Descriptive">Descriptive</option>
+                            </select>
+                        </div>
                     </div>
 
-                    <div style={{ marginBottom: '1.5rem' }}>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Difficulty *</label>
-                        <select
-                            className="input"
-                            value={formData.difficulty}
-                            onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
-                            required
-                        >
-                            <option value="Easy">Easy</option>
-                            <option value="Medium">Medium</option>
-                            <option value="Hard">Hard</option>
-                        </select>
-                    </div>
+                    {formData.type === 'MCQ' && (
+                        <div style={{ marginBottom: '1.5rem', border: '1px solid var(--border-color)', padding: '1rem', borderRadius: '0.5rem' }}>
+                            <label style={{ display: 'block', marginBottom: '1rem', color: 'var(--text-primary)', fontWeight: 'bold' }}>
+                                Options (Select correct answers)
+                            </label>
+
+                            {formData.options.map((option, index) => (
+                                <div key={index} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={option.trim() !== '' && formData.correctAnswers.includes(option)}
+                                        onChange={() => toggleCorrectAnswer(option)}
+                                        disabled={option.trim() === ''}
+                                        style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
+                                        title="Mark as correct answer"
+                                    />
+                                    <input
+                                        type="text"
+                                        className="input"
+                                        placeholder={`Option ${index + 1}`}
+                                        value={option}
+                                        onChange={(e) => handleOptionChange(index, e.target.value)}
+                                        style={{ flex: 1 }}
+                                    />
+                                    {formData.options.length > 2 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => removeOption(index)}
+                                            style={{ color: 'var(--error)', background: 'none', border: 'none', padding: '0.5rem', cursor: 'pointer' }}
+                                            title="Remove option"
+                                        >
+                                            <X size={16} />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+
+                            <button
+                                type="button"
+                                onClick={addOption}
+                                className="btn"
+                                style={{ marginTop: '0.5rem', border: '1px dashed var(--border-color)', width: '100%', color: 'var(--text-secondary)' }}
+                            >
+                                <Plus size={16} style={{ marginRight: '0.5rem' }} /> Add Option
+                            </button>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+                                * Check the box next to an option to mark it as a correct answer.
+                            </div>
+                        </div>
+                    )}
 
                     <div style={{ display: 'flex', gap: '1rem' }}>
                         <button type="button" onClick={onClose} className="btn" style={{ flex: 1, border: '1px solid var(--border-color)' }}>

@@ -5,14 +5,28 @@ const CandidateSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
     phone: { type: String },
     resumeUrl: { type: String }, // Path to uploaded resume
+    resumeText: { type: String }, // Extracted text from resume
     experienceLevel: {
         type: String,
         enum: ['Fresher/Intern', '1-2 years', '2-4 years', '4-6 years', '6-8 years', '8-10 years'],
         required: true
     },
     domain: { type: String, required: true }, // e.g., 'Frontend', 'Backend'
+    role: { type: String }, // specific role e.g., 'frontend_dev', 'sales'
     internalReferred: { type: Boolean, default: false },
-    status: { type: String, enum: ['Pending', 'Interviewed', 'Shortlisted', 'Rejected'], default: 'Pending' }
+    status: { type: String, enum: ['Pending', 'Interviewed', 'Shortlisted', 'Rejected'], default: 'Pending' },
+
+    // Evaluation Metrics from Interview
+    evaluationMetrics: {
+        relevance: { type: Number, min: 0, max: 5 },
+        clarity: { type: Number, min: 0, max: 5 },
+        depth: { type: Number, min: 0, max: 5 },
+        accuracy: { type: Number, min: 0, max: 5 },
+        structure: { type: Number, min: 0, max: 5 },
+        confidence: { type: Number, min: 0, max: 5 },
+        honesty: { type: Number, min: 0, max: 5 }
+    },
+    overallScore: { type: Number }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Candidate', CandidateSchema);
