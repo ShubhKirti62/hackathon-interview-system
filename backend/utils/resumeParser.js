@@ -3,8 +3,24 @@ const pdf = require('pdf-parse');
 
 const parseResume = async (filePath) => {
     try {
+        if (!fs.existsSync(filePath)) {
+            throw new Error(`File not found at path: ${filePath}`);
+        }
+
         const dataBuffer = fs.readFileSync(filePath);
-        const data = await pdf(dataBuffer);
+
+        if (dataBuffer.length === 0) {
+            throw new Error("File is empty");
+        }
+
+        let data;
+        try {
+            data = await pdf(dataBuffer);
+        } catch (pdfError) {
+            console.error("pdf-parse failed:", pdfError);
+            throw new Error("Failed to parse PDF content. Ensure file is a valid PDF.");
+        }
+
         const text = data.text;
 
         // Basic Extraction Logic (Heuristic/Regex based)

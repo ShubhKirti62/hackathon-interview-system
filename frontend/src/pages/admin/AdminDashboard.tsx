@@ -65,7 +65,7 @@ const AdminDashboard: React.FC = () => {
                     </button>
                     <button
                         className="btn"
-                        style={{ gap: '0.5rem', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                        style={{ gap: '0.5rem', backgroundColor: 'white', color: '#0f172a', border: 'none' }}
                         onClick={() => setShowQuestionModal(true)}
                     >
                         <FileText size={18} /> Add Question

@@ -34,7 +34,7 @@ router.post('/parse-resume', upload.single('resume'), async (req, res) => {
         });
     } catch (error) {
         console.error('Resume Parse Error:', error);
-        res.status(500).json({ error: 'Failed to parse resume' });
+        res.status(500).json({ error: error.message || 'Failed to parse resume' });
     }
 });
 

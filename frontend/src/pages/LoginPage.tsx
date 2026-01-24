@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { API_ENDPOINTS } from '../services/endpoints';
 import { APP_ROUTES } from '../routes';
-import { Brain, Target, TrendingUp, Cpu, Lock } from 'lucide-react';
+import { Brain, Target, TrendingUp, Cpu, Lock, Eye, EyeOff } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
     const [email, setEmail] = useState('admin@example.com');
@@ -22,6 +22,8 @@ const LoginPage: React.FC = () => {
             }
         }
     }, [isAuthenticated, user, navigate]);
+
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -159,14 +161,37 @@ const LoginPage: React.FC = () => {
                                 <label style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Password</label>
                                 <a href="#" style={{ fontSize: '0.875rem', color: 'var(--primary)' }}>Forgot password?</a>
                             </div>
-                            <input
-                                type="password"
-                                className="input"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="••••••••"
-                                required
-                            />
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    className="input"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    required
+                                    style={{ paddingRight: '2.5rem' }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    style={{
+                                        position: 'absolute',
+                                        right: '0.75rem',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        color: 'var(--text-secondary)',
+                                        padding: 0,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
                         </div>
 
                         <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '1rem', fontSize: '1rem' }}>

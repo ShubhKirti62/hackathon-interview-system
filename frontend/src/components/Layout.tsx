@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, Outlet } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { APP_ROUTES } from '../routes';
 import ThemeToggle from './ThemeToggle';
@@ -7,6 +7,7 @@ import { LogOut, User } from 'lucide-react';
 
 const Layout: React.FC = () => {
     const { user, logout, isAuthenticated } = useAuth();
+    const location = useLocation();
 
     return (
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -29,7 +30,9 @@ const Layout: React.FC = () => {
                                 </button>
                             </>
                         ) : (
-                            <Link to={APP_ROUTES.LOGIN} className="btn btn-primary">Login</Link>
+                            location.pathname !== APP_ROUTES.LOGIN && (
+                                <Link to={APP_ROUTES.LOGIN} className="btn btn-primary">Login</Link>
+                            )
                         )}
                     </div>
                 </div>

@@ -12,7 +12,7 @@ const ThemeToggle: React.FC = () => {
             aria-label="Toggle Theme"
             style={{
                 background: 'transparent',
-                border: '1px solid var(--border-color)',
+                border: 'none',
                 color: 'var(--text-primary)',
                 display: 'flex',
                 alignItems: 'center',
