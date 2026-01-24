@@ -122,4 +122,38 @@ router.patch('/:id/status', auth, async (req, res) => {
     }
 });
 
+// Get Current Candidate Profile & Active Interview
+router.get('/me', auth, async (req, res) => {
+    try {
+        const candidate = await Candidate.findById(req.user.id);
+        if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
+
+        const Interview = require('../models/Interview');
+        const activeInterview = await Interview.findOne({
+            candidateId: req.user.id,
+            status: { $ne: 'Completed' }
+        }).sort({ createdAt: -1 });
+
+        const Slot = require('../models/Slot');
+        const bookedSlot = await Slot.findOne({
+            candidateId: req.user.id,
+            status: 'Booked'
+        }).populate('interviewerId', 'name email');
+
+        res.json({ candidate, activeInterview, bookedSlot });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Delete Candidate
+router.delete('/:id', async (req, res) => {
+    try {
+        await Candidate.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Candidate deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

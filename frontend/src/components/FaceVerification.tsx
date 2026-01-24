@@ -21,6 +21,12 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({
     onMaxMismatchesReached,
     minimized = false,
 }) => {
+    // Memoize options to prevent infinite loops in useFaceDetection
+    const detectionOptions = React.useMemo(() => ({
+        minConfidence: 0.5,
+        detectionInterval: 500
+    }), []);
+
     const {
         videoRef,
         canvasRef,
@@ -32,7 +38,7 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({
         captureFaceDescriptor,
         startDetection,
         stopDetection,
-    } = useFaceDetection({ minConfidence: 0.5, detectionInterval: 500 });
+    } = useFaceDetection(detectionOptions);
 
     const { verifyFace, verificationStatus, mismatchCount } = useFaceVerification();
 
@@ -43,15 +49,19 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({
 
     // Initialize
     useEffect(() => {
+        let isMounted = true;
         const initialize = async () => {
             await loadModels();
+            if (!isMounted) return;
             await startCamera();
+            if (!isMounted) return;
             startDetection();
         };
 
         initialize();
 
         return () => {
+            isMounted = false;
             stopDetection();
             stopCamera();
             if (verificationTimerRef.current) {

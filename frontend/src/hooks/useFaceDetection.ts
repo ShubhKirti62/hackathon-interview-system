@@ -30,8 +30,13 @@ export const useFaceDetection = (options: UseFaceDetectionOptions = {}) => {
         error: null,
     });
 
+    // Use refs for internal flags to stabilize callbacks
+    const isModelLoadedRef = useRef(false);
+    const isDetectingRef = useRef(false);
+
     // Load face-api models
     const loadModels = useCallback(async () => {
+        if (isModelLoadedRef.current) return true;
         try {
             const MODEL_URL = '/models';
             await Promise.all([
@@ -39,6 +44,7 @@ export const useFaceDetection = (options: UseFaceDetectionOptions = {}) => {
                 faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
                 faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
             ]);
+            isModelLoadedRef.current = true;
             setState(prev => ({ ...prev, isModelLoaded: true, error: null }));
             return true;
         } catch (err) {
@@ -86,7 +92,8 @@ export const useFaceDetection = (options: UseFaceDetectionOptions = {}) => {
 
     // Detect face and get descriptor
     const detectFace = useCallback(async (): Promise<faceapi.WithFaceDescriptor<faceapi.WithFaceLandmarks<{ detection: faceapi.FaceDetection }, faceapi.FaceLandmarks68>> | null> => {
-        if (!videoRef.current || !state.isModelLoaded) return null;
+        // Use ref instead of state to keep callback stable
+        if (!videoRef.current || !isModelLoadedRef.current) return null;
 
         try {
             const detection = await faceapi
@@ -99,7 +106,7 @@ export const useFaceDetection = (options: UseFaceDetectionOptions = {}) => {
             console.error('Face detection error:', err);
             return null;
         }
-    }, [state.isModelLoaded, minConfidence]);
+    }, [minConfidence]);
 
     // Capture current face descriptor
     const captureFaceDescriptor = useCallback(async (): Promise<Float32Array | null> => {
@@ -120,6 +127,7 @@ export const useFaceDetection = (options: UseFaceDetectionOptions = {}) => {
     const startDetection = useCallback(() => {
         if (detectionIntervalRef.current) return;
 
+        isDetectingRef.current = true;
         setState(prev => ({ ...prev, isDetecting: true }));
 
         detectionIntervalRef.current = window.setInterval(async () => {
@@ -157,6 +165,7 @@ export const useFaceDetection = (options: UseFaceDetectionOptions = {}) => {
             clearInterval(detectionIntervalRef.current);
             detectionIntervalRef.current = null;
         }
+        isDetectingRef.current = false;
         setState(prev => ({ ...prev, isDetecting: false }));
     }, []);
 

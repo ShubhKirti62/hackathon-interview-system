@@ -25,6 +25,7 @@ export const API_ENDPOINTS = {
     INTERVIEWS: {
         START: '/interviews/start',
         RESPONSE: (id: string) => `/interviews/${id}/response`,
+        SUBMIT_RESPONSE: (id: string) => `/interviews/${id}/response`,
         COMPLETE: (id: string) => `/interviews/${id}/complete`,
         BY_ID: (id: string) => `/interviews/${id}`,
         UPDATE_STATE: (id: string) => `/interviews/${id}/state`,
@@ -44,5 +45,11 @@ export const API_ENDPOINTS = {
     SETTINGS: {
         BASE: '/settings',
         SEED: '/settings/seed',
+    },
+    SLOTS: {
+        BASE: '/slots',
+        AVAILABLE: '/slots/available',
+        BOOK: (id: string) => `/slots/book/${id}`,
+        FEEDBACK: (id: string) => `/slots/feedback/${id}`,
     },
 };

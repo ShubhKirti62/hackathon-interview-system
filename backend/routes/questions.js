@@ -136,4 +136,14 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
     }
 });
 
+// Delete Question
+router.delete('/:id', async (req, res) => {
+    try {
+        await Question.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Question deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

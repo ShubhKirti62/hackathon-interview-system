@@ -11,9 +11,10 @@ export const APP_ROUTES = {
         INTRO: '/interview',
         SETUP: '/interview/setup/:id',
         SESSION: '/interview/session/:id',
+        MEETING: '/interview/meeting/:id',
         RESULT: '/interview/result/:id',
     },
     CANDIDATE: {
-        DASHBOARD: '/interview',
+        DASHBOARD: '/candidate/home',
     },
 };

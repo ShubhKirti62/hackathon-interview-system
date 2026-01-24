@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const InterviewSchema = new mongoose.Schema({
     candidateId: { type: mongoose.Schema.Types.ObjectId, ref: 'Candidate', required: true },
-    round: { type: Number, default: 1 },
+    round: { type: String, default: '1' },
     domain: { type: String, required: true },
     questions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Question' }],
     responses: [{

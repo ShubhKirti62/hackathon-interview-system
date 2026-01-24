@@ -18,9 +18,9 @@ router.post('/', auth, async (req, res) => {
     try {
         const { key, value, description } = req.body;
 
-        // Only allow admins to change settings
-        if (req.user.role !== 'admin') {
-            return res.status(403).json({ error: 'Only admins can modify settings' });
+        // Allow admins and HR to change settings
+        if (req.user.role !== 'admin' && req.user.role !== 'hr') {
+            return res.status(403).json({ error: 'Permission denied' });
         }
 
         const setting = await Setting.findOneAndUpdate(

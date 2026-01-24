@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import { API_ENDPOINTS } from '../services/endpoints';
 
@@ -6,7 +6,7 @@ interface User {
     id: string;
     name: string;
     email: string;
-    role: 'admin' | 'hr' | 'interviewer';
+    role: 'admin' | 'hr' | 'interviewer' | 'candidate';
 }
 
 interface AuthContextType {
@@ -45,19 +45,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         checkAuth();
     }, []);
 
-    const login = (token: string, userData: User) => {
+    const login = useCallback((token: string, userData: User) => {
         localStorage.setItem('token', token);
         setUser(userData);
-    };
+    }, []);
 
-    const logout = () => {
+    const logout = useCallback(() => {
         localStorage.removeItem('token');
         setUser(null);
-        window.location.href = '/login'; // Hard redirect to ensure clean state or use router if moved inside
-    };
+        window.location.href = '/login';
+    }, []);
+
+    const value = React.useMemo(() => ({
+        user,
+        loading,
+        login,
+        logout,
+        isAuthenticated: !!user
+    }), [user, loading, login, logout]);
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, logout, isAuthenticated: !!user }}>
+        <AuthContext.Provider value={value}>
             {children}
         </AuthContext.Provider>
     );

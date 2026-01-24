@@ -132,8 +132,23 @@ router.post('/login', async (req, res) => {
 // Get User (Projected Route Example)
 router.get('/user', require('../middleware/auth'), async (req, res) => {
     try {
-        const user = await User.findById(req.user.id).select('-password');
-        res.json(user);
+        let userData = await User.findById(req.user.id).select('-password');
+
+        if (!userData) {
+            const Candidate = require('../models/Candidate');
+            userData = await Candidate.findById(req.user.id);
+            if (userData) {
+                // Add virtual role for frontend compatibility
+                userData = userData.toObject();
+                userData.role = 'candidate';
+            }
+        }
+
+        if (!userData) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+
+        res.json(userData);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');
@@ -143,15 +158,16 @@ router.get('/user', require('../middleware/auth'), async (req, res) => {
 // List Users by Role (Admin only)
 router.get('/users', require('../middleware/auth'), async (req, res) => {
     try {
-        if (req.user.role !== 'admin') {
+        if (req.user.role !== 'admin' && req.user.role !== 'hr') {
             return res.status(403).json({ msg: 'Access denied' });
         }
         const { role } = req.query;
         let query = {};
         if (role) query.role = role;
 
-        const users = await User.find(query).select('-password');
-        res.json(users);
+        const usersData = await User.find(query).select('-password').lean();
+        const usersArray = Array.isArray(usersData) ? usersData : (usersData ? [usersData] : []);
+        res.json(usersArray);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');
