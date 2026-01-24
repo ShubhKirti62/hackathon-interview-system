@@ -1,16 +1,28 @@
 const fs = require('fs');
 const pdf = require('pdf-parse');
 
-const parseResume = async (filePath) => {
+const parseResume = async (input) => {
     try {
-        if (!fs.existsSync(filePath)) {
-            throw new Error(`File not found at path: ${filePath}`);
+        let dataBuffer;
+        if (Buffer.isBuffer(input)) {
+            dataBuffer = input;
+        } else {
+            if (!fs.existsSync(input)) {
+                throw new Error(`File not found at path: ${input}`);
+            }
+            dataBuffer = fs.readFileSync(input);
         }
 
-        const dataBuffer = fs.readFileSync(filePath);
+        // Debug logging
+        console.log('Parsing resume - buffer length:', dataBuffer.length);
 
-        if (dataBuffer.length === 0) {
-            throw new Error("File is empty");
+        // Basic MIME type check (if input is a file path we cannot easily get mime, skip)
+        // In the route we will ensure mimetype is PDF before calling this.
+
+        // Verify PDF header
+        if (dataBuffer.slice(0, 4).toString() !== '%PDF') {
+            console.error('Invalid PDF file: missing %PDF header');
+            throw new Error('Uploaded file is not a valid PDF');
         }
 
         let data;
@@ -20,6 +32,7 @@ const parseResume = async (filePath) => {
             console.error("pdf-parse failed:", pdfError);
             throw new Error("Failed to parse PDF content. Ensure file is a valid PDF.");
         }
+
 
         const text = data.text;
 
