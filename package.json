@@ -1,0 +1,19 @@
+{
+  "name": "hackathon-interview-system",
+  "version": "1.0.0",
+  "description": "AI Assisted Interview system",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "install:all": "concurrently \"cd frontend && npm install\" \"cd backend && npm install\"",
+    "dev": "concurrently \"cd backend && npm run start:dev\" \"cd frontend && npm run dev\"",
+    "dev:uat": "concurrently \"cd backend && npm run start:uat\" \"cd frontend && npm run dev\"",
+    "dev:prod": "concurrently \"cd backend && npm run start:prod\" \"cd frontend && npm run dev\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
