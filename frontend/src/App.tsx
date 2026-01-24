@@ -2,12 +2,14 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { FaceVerificationProvider } from './context/FaceVerificationContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import Loader from './components/shared/Loader';
 import RegisterPage from './pages/RegisterPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import InterviewPage from './pages/interview/InterviewPage';
+import InterviewSetupPage from './pages/interview/InterviewSetupPage';
 import { APP_ROUTES } from './routes';
 import './index.css';
 
@@ -43,44 +45,64 @@ function App() {
     <ThemeProvider>
       <Loader />
       <AuthProvider>
-        <Router>
-          <Routes>
-            <Route path="/" element={<Layout />}>
-              <Route index element={
-                <RedirectIfAuthenticated>
-                  <RegisterPage />
-                </RedirectIfAuthenticated>
-              } />
+        <FaceVerificationProvider>
+          <Router>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={
+                  <RedirectIfAuthenticated>
+                     <RegisterPage />
+                  </RedirectIfAuthenticated>
+                } />
 
               <Route path={APP_ROUTES.LOGIN} element={
                 <RedirectIfAuthenticated>
-                  <LoginPage />
+                 <LoginPage />
                 </RedirectIfAuthenticated>
               } />
 
-              <Route
-                path={APP_ROUTES.ADMIN.DASHBOARD}
-                element={
-                  <ProtectedRoute allowedRoles={['admin', 'hr']}>
-                    <AdminDashboard />
-                  </ProtectedRoute>
-                }
-              />
+                <Route
+                  path={APP_ROUTES.ADMIN.DASHBOARD}
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'hr']}>
+                      <AdminDashboard />
+                    </ProtectedRoute>
+                  }
+                />
 
-              <Route
-                path={APP_ROUTES.INTERVIEW.INTRO}
-                element={
-                  <ProtectedRoute allowedRoles={['admin', 'hr', 'interviewer', 'candidate']}>
-                    <InterviewPage />
-                  </ProtectedRoute>
-                }
-              />
+                <Route
+                  path={APP_ROUTES.INTERVIEW.INTRO}
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'hr', 'interviewer', 'candidate']}>
+                      <InterviewPage />
+                    </ProtectedRoute>
+                  }
+                />
 
-              {/* Catch all redirect */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Route>
-          </Routes>
-        </Router>
+                <Route
+                  path={APP_ROUTES.INTERVIEW.SETUP}
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'hr', 'interviewer', 'candidate']}>
+                      <InterviewSetupPage />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path={APP_ROUTES.INTERVIEW.SESSION}
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'hr', 'interviewer', 'candidate']}>
+                      <InterviewPage />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Catch all redirect */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Route>
+            </Routes>
+          </Router>
+        </FaceVerificationProvider>
       </AuthProvider>
     </ThemeProvider>
   );

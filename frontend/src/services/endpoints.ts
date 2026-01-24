@@ -9,6 +9,12 @@ export const API_ENDPOINTS = {
         BY_ID: (id: string) => `/candidates/${id}`,
         PARSE_RESUME: '/candidates/parse-resume',
     },
+    FACE: {
+        REGISTER: '/face/register',
+        VERIFY: '/face/verify',
+        STATUS: (candidateId: string) => `/face/status/${candidateId}`,
+        REPORT: (sessionId: string) => `/face/report/${sessionId}`,
+    },
     QUESTIONS: {
         BASE: '/questions',
         VERIFY: (id: string) => `/questions/${id}/verify`,

@@ -9,6 +9,7 @@ export const APP_ROUTES = {
     },
     INTERVIEW: {
         INTRO: '/interview',
+        SETUP: '/interview/setup/:id',
         SESSION: '/interview/session/:id',
         RESULT: '/interview/result/:id',
     },

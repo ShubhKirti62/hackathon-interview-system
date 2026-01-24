@@ -16,6 +16,11 @@ const CandidateSchema = new mongoose.Schema({
     internalReferred: { type: Boolean, default: false },
     status: { type: String, enum: ['Pending', 'Interviewed', 'Shortlisted', 'Rejected'], default: 'Pending' },
 
+    // Face Verification Data
+    faceDescriptor: { type: [Number] }, // 128-dimensional face descriptor array
+    faceRegisteredAt: { type: Date },
+    faceVerificationEnabled: { type: Boolean, default: false },
+
     // Evaluation Metrics from Interview
     evaluationMetrics: {
         relevance: { type: Number, min: 0, max: 5 },
