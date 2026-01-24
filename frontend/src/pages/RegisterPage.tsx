@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { API_ENDPOINTS } from '../services/endpoints';
 import { APP_ROUTES } from '../routes';
-import { Rocket, Users, UserPlus } from 'lucide-react';
+
 
 const RegisterPage: React.FC = () => {
     const [name, setName] = useState('');
@@ -33,116 +33,213 @@ const RegisterPage: React.FC = () => {
     };
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh' }}>
-            {/* Left Side - Hero/Branding */}
+        <div style={{
+            display: 'flex',
+            height: '100%',
+            minHeight: '100vh',
+            backgroundColor: '#0ea5e9',
+            background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: "'Inter', sans-serif"
+        }}>
+            {/* Floating Card */}
             <div style={{
-                flex: 1,
-                background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
                 display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center',
-                color: 'white',
-                padding: '4rem',
-                position: 'relative',
-                overflow: 'hidden'
-            }} className="hidden-mobile">
-                <div style={{ position: 'absolute', top: '10%', right: '10%', opacity: 0.1 }} className="animate-float">
-                    <Rocket size={100} />
-                </div>
-                <div style={{ position: 'absolute', bottom: '10%', left: '10%', opacity: 0.1, animationDelay: '3s' }} className="animate-float">
-                    <Users size={120} />
-                </div>
-
-                <div style={{ zIndex: 2, textAlign: 'center' }} className="animate-fade-in">
-                    <div style={{ marginBottom: '2rem', display: 'inline-block' }}>
-                        <div style={{
-                            background: 'rgba(16, 185, 129, 0.2)',
-                            padding: '1.5rem',
-                            borderRadius: '2rem',
-                            backdropFilter: 'blur(10px)',
-                            border: '1px solid rgba(255,255,255,0.1)'
-                        }}>
-                            <UserPlus size={64} color="#34d399" />
-                        </div>
-                    </div>
-                    <h1 style={{ fontSize: '3rem', fontWeight: 'bold', marginBottom: '1.5rem' }}>
-                        Join the <span style={{ color: '#34d399' }}>Revolution</span>
-                    </h1>
-                    <p style={{ fontSize: '1.25rem', color: '#cbd5e1', maxWidth: '400px', lineHeight: '1.6' }}>
-                        Start optimizing your hiring process today. Simple, fast, and intelligent.
-                    </p>
-                </div>
-            </div>
-
-            {/* Right Side - Form */}
-            <div style={{
-                flex: 1,
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                padding: '2rem',
-                backgroundColor: 'var(--bg-primary)',
+                width: '900px',
+                height: '650px', // Slightly taller for extra fields
+                backgroundColor: 'white',
+                borderRadius: '24px',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                overflow: 'hidden',
                 position: 'relative'
-            }}>
-                <div style={{ width: '100%', maxWidth: '420px' }} className="animate-slide-up">
-                    <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-                        <h2 style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Create Account</h2>
-                        <p style={{ color: 'var(--text-secondary)' }}>Join us and streamline your workflow.</p>
+            }} className="animate-slide-up">
+
+                {/* Left Panel - Blue Gradient */}
+                <div style={{
+                    flex: '0.9',
+                    background: 'linear-gradient(180deg, #0ea5e9 0%, #2563eb 100%)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    color: 'white',
+                    padding: '3rem',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }} className="hidden-mobile">
+
+                    {/* Top Left Blob */}
+                    <div style={{
+                        position: 'absolute',
+                        top: '-10%',
+                        left: '-20%',
+                        width: '300px',
+                        height: '300px',
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))',
+                    }} />
+
+                    {/* Bottom Right Blob */}
+                    <div style={{
+                        position: 'absolute',
+                        bottom: '-10%',
+                        right: '-20%',
+                        width: '300px',
+                        height: '300px',
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))',
+                    }} />
+
+                    <div style={{ zIndex: 2, textAlign: 'center' }}>
+                        <h1 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '0.5rem', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                            Join Us
+                        </h1>
+                        <p style={{ fontSize: '0.9rem', fontWeight: '500', opacity: 0.9, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '1.5rem' }}>
+                            Create Your Account
+                        </p>
+                        <p style={{ fontSize: '0.8rem', opacity: 0.7, lineHeight: '1.6', maxWidth: '300px', margin: '0 auto' }}>
+                            Start optimizing your hiring process today. Simple, fast, and intelligent.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Right Panel - Register Form */}
+                <div style={{
+                    flex: 1,
+                    padding: '3rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    backgroundColor: '#ffffff',
+                    overflowY: 'auto'
+                }}>
+                    <div style={{ marginBottom: '2rem' }}>
+                        <h2 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1e293b' }}>Register</h2>
+                        <p style={{ color: '#94a3b8', fontSize: '0.8rem' }}>Create a new account to get started</p>
                     </div>
 
-                    {error && <div style={{ color: 'var(--error)', marginBottom: '1.5rem', textAlign: 'center', padding: '0.75rem', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '0.5rem' }}>{error}</div>}
+                    {error && (
+                        <div style={{
+                            padding: '10px',
+                            background: '#fee2e2',
+                            color: '#b91c1c',
+                            borderRadius: '6px',
+                            marginBottom: '1rem',
+                            fontSize: '0.8rem',
+                            textAlign: 'center'
+                        }}>
+                            {error}
+                        </div>
+                    )}
 
                     <form onSubmit={handleSubmit}>
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Full Name</label>
+                        <div style={{ marginBottom: '1rem' }}>
                             <input
                                 type="text"
-                                className="input"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                placeholder="John Doe"
+                                placeholder="Full Name"
                                 required
+                                style={{
+                                    width: '100%',
+                                    padding: '0.875rem 1rem',
+                                    borderRadius: '0.5rem',
+                                    backgroundColor: '#f1f5f9',
+                                    border: 'none',
+                                    color: '#334155',
+                                    fontSize: '0.875rem',
+                                    fontWeight: '500'
+                                }}
+                                className="input-reset"
                             />
                         </div>
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Email Address</label>
+
+                        <div style={{ marginBottom: '1rem' }}>
                             <input
                                 type="email"
-                                className="input"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                placeholder="john@example.com"
+                                placeholder="Email Address"
                                 required
+                                style={{
+                                    width: '100%',
+                                    padding: '0.875rem 1rem',
+                                    borderRadius: '0.5rem',
+                                    backgroundColor: '#f1f5f9',
+                                    border: 'none',
+                                    color: '#334155',
+                                    fontSize: '0.875rem',
+                                    fontWeight: '500'
+                                }}
+                                className="input-reset"
                             />
                         </div>
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Password</label>
+
+                        <div style={{ marginBottom: '1rem' }}>
                             <input
                                 type="password"
-                                className="input"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                placeholder="••••••••"
+                                placeholder="Password"
                                 required
+                                style={{
+                                    width: '100%',
+                                    padding: '0.875rem 1rem',
+                                    borderRadius: '0.5rem',
+                                    backgroundColor: '#f1f5f9',
+                                    border: 'none',
+                                    color: '#334155',
+                                    fontSize: '0.875rem',
+                                    fontWeight: '500'
+                                }}
+                                className="input-reset"
                             />
                         </div>
-                        <div style={{ marginBottom: '2rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontWeight: 500 }}>I am a...</label>
+
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', color: '#64748b', fontSize: '0.75rem', fontWeight: 600 }}>I am a...</label>
                             <select
-                                className="input"
                                 value={role}
                                 onChange={(e) => setRole(e.target.value)}
-                                style={{ cursor: 'pointer' }}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.875rem 1rem',
+                                    borderRadius: '0.5rem',
+                                    backgroundColor: '#f1f5f9',
+                                    border: 'none',
+                                    color: '#334155',
+                                    fontSize: '0.875rem',
+                                    fontWeight: '500',
+                                    cursor: 'pointer'
+                                }}
+                                className="input-reset"
                             >
                                 <option value="hr">HR / Recruiter</option>
                                 <option value="interviewer">Interviewer</option>
                                 <option value="admin">Admin</option>
                             </select>
                         </div>
-                        <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '1rem', fontSize: '1rem' }}>Get Started</button>
-                        <div style={{ marginTop: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                            Already have an account? <Link to={APP_ROUTES.LOGIN} style={{ color: 'var(--primary)', fontWeight: 'bold' }}>Sign in</Link>
+
+                        <button type="submit" style={{
+                            width: '100%',
+                            padding: '0.875rem',
+                            backgroundColor: '#0f172a',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '0.5rem',
+                            fontSize: '0.875rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            marginBottom: '1rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px'
+                        }}>
+                            Get Started
+                        </button>
+
+                        <div style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.75rem', color: '#94a3b8' }}>
+                            Already have an account? <Link to={APP_ROUTES.LOGIN} style={{ color: '#2563eb', fontWeight: 'bold' }}>Sign In</Link>
                         </div>
                     </form>
                 </div>
@@ -153,6 +250,10 @@ const RegisterPage: React.FC = () => {
                     .hidden-mobile {
                         display: none !important;
                     }
+                }
+                .input-reset:focus {
+                    outline: 2px solid #3b82f6;
+                    background-color: white !important;
                 }
             `}</style>
         </div>

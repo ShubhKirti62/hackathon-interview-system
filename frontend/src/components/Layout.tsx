@@ -10,7 +10,7 @@ const Layout: React.FC = () => {
 
     return (
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-            <header style={{ borderBottom: '1px solid var(--border-color)', padding: '1rem 0', backgroundColor: 'var(--bg-card)' }}>
+            <header style={{ borderBottom: '1px solid var(--border-color)', padding: '1rem 0', backgroundColor: 'var(--bg-primary)' }}>
                 <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Link to={APP_ROUTES.HOME} style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--text-primary)', textDecoration: 'none' }}>
                         InterviewSys
@@ -35,7 +35,7 @@ const Layout: React.FC = () => {
                 </div>
             </header>
 
-            <main style={{ flex: 1 }}>
+            <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <Outlet />
             </main>
         </div>

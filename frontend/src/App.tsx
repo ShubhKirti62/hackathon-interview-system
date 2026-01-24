@@ -4,6 +4,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
+import Loader from './components/shared/Loader';
 import RegisterPage from './pages/RegisterPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import InterviewPage from './pages/interview/InterviewPage';
@@ -40,19 +41,20 @@ const RedirectIfAuthenticated = ({ children }: { children: React.ReactElement })
 function App() {
   return (
     <ThemeProvider>
+      <Loader />
       <AuthProvider>
         <Router>
           <Routes>
             <Route path="/" element={<Layout />}>
               <Route index element={
                 <RedirectIfAuthenticated>
-                  <LoginPage />
+                  <RegisterPage />
                 </RedirectIfAuthenticated>
               } />
 
-              <Route path={APP_ROUTES.REGISTER} element={
+              <Route path={APP_ROUTES.LOGIN} element={
                 <RedirectIfAuthenticated>
-                  <RegisterPage />
+                  <LoginPage />
                 </RedirectIfAuthenticated>
               } />
 

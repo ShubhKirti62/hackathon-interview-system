@@ -1,7 +1,7 @@
 export const APP_ROUTES = {
     HOME: '/',
-    LOGIN: '/',
-    REGISTER: '/register',
+    LOGIN: '/login',
+    REGISTER: '/',
     ADMIN: {
         DASHBOARD: '/admin/dashboard',
         CANDIDATES: '/admin/candidates',

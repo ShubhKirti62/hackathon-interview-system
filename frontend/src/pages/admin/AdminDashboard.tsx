@@ -22,7 +22,6 @@ interface Stats {
 const AdminDashboard: React.FC = () => {
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [stats, setStats] = useState<Stats>({ totalCandidates: 0, interviewsCompleted: 0, resumesProcessed: 0 });
-    const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
     const [showQuestionModal, setShowQuestionModal] = useState(false);
 
@@ -32,7 +31,6 @@ const AdminDashboard: React.FC = () => {
 
     const fetchDashboardData = async () => {
         try {
-            setLoading(true);
             const [candidatesRes, sessionsRes] = await Promise.all([
                 api.get(API_ENDPOINTS.CANDIDATES.BASE),
                 api.get(API_ENDPOINTS.SESSIONS.LIST)
@@ -50,18 +48,8 @@ const AdminDashboard: React.FC = () => {
             });
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
-        } finally {
-            setLoading(false);
         }
     };
-
-    if (loading) {
-        return (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-                <div style={{ color: 'var(--text-secondary)' }}>Loading dashboard...</div>
-            </div>
-        );
-    }
 
     return (
         <div className="container" style={{ padding: '2rem 1rem' }}>

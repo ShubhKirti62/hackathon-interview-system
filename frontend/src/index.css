@@ -2,9 +2,10 @@
   --font-family: 'Inter', system-ui, -apple-system, sans-serif;
 
   /* Light Theme Colors */
-  --bg-primary: #ffffff;
-  --bg-secondary: #f3f4f6;
+  --bg-primary: #f0f4f8;
+  --bg-secondary: #e2e8f0;
   --bg-card: #ffffff;
+  --bg-input: #ffffff;
   --text-primary: #111827;
   --text-secondary: #4b5563;
   --primary: #3b82f6;
@@ -20,6 +21,7 @@
   --bg-primary: #0f172a;
   --bg-secondary: #1e293b;
   --bg-card: #1e293b;
+  --bg-input: #1e293b;
   --text-primary: #f3f4f6;
   --text-secondary: #9ca3af;
   --primary: #60a5fa;
@@ -99,7 +101,7 @@ button {
   padding: 0.75rem 1rem;
   border-radius: 0.5rem;
   border: 1px solid var(--border-color);
-  background-color: var(--bg-primary);
+  background-color: var(--bg-input);
   color: var(--text-primary);
   transition: all 0.2s;
 }
