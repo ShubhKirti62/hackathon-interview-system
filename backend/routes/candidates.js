@@ -63,6 +63,10 @@ router.post('/parse-resume', uploadMemory.single('resume'), async (req, res) => 
 // Create Candidate
 router.post('/', upload.single('resume'), async (req, res) => {
     try {
+        console.log('CREATE CANDIDATE REQUEST INITIATED');
+        console.log('Body:', req.body);
+        console.log('File:', req.file);
+
         const { name, email, phone, experienceLevel, domain, internalReferred, resumeUrl: existingResumePath, resumeText } = req.body;
         let finalResumeUrl = existingResumePath || '';
 
@@ -70,20 +74,33 @@ router.post('/', upload.single('resume'), async (req, res) => {
             finalResumeUrl = req.file.path;
         }
 
+        // Validate required fields explicitly for debugging
+        if (!name || !email || !domain || !experienceLevel) {
+            console.error('Missing required fields:', { name, email, domain, experienceLevel });
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
         const newCandidate = new Candidate({
             name,
             email,
             phone,
             resumeUrl: finalResumeUrl,
-            resumeText: resumeText || '', // Can be passed from frontend if parsed
+            resumeText: resumeText || '',
             experienceLevel,
             domain,
-            internalReferred: internalReferred === 'true' // Handle multipart/form-data string conversion
+            internalReferred: internalReferred === 'true'
         });
 
+        console.log('Saving candidate to DB...');
         const savedCandidate = await newCandidate.save();
+        console.log('Candidate saved successfully:', savedCandidate._id);
         res.status(201).json(savedCandidate);
     } catch (error) {
+        console.error('Candidate Creation Error:', error);
+        // Handle duplicate email specifically
+        if (error.code === 11000) {
+             return res.status(400).json({ error: 'Email already exists. Please use a different email.' });
+        }
         res.status(500).json({ error: error.message });
     }
 });

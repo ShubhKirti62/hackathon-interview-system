@@ -15,6 +15,8 @@ const parseResume = async (input, mimetype, originalFilename = '') => {
         }
 
         console.log('Parsing resume - buffer length:', dataBuffer.length, 'Mime:', mimetype, 'File:', originalFilename);
+        console.log('Buffer hex sample:', dataBuffer.slice(0, 20).toString('hex'));
+        console.log('Buffer string sample:', dataBuffer.slice(0, 20).toString());
 
         let text = '';
         const lowerFilename = originalFilename.toLowerCase();
@@ -41,7 +43,7 @@ const parseResume = async (input, mimetype, originalFilename = '') => {
                 text = data.text;
             } catch (pdfError) {
                 console.error("pdf-parse failed:", pdfError);
-                throw new Error("Failed to parse PDF content.");
+                throw new Error("Failed to parse PDF content: " + pdfError.message);
             }
         } else if (isDocx || isZipHeader) { // Fallback: if it's a zip, try as docx
             try {

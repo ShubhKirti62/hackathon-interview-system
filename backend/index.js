@@ -16,6 +16,10 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/hackathon_
 
 // Middleware
 app.use(cors());
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
 app.use(express.json({ limit: '10mb' })); // Increased limit for face descriptors
 
 // Database Connection
@@ -39,6 +43,15 @@ app.get('/', (req, res) => {
 
 // Make uploads folder static to serve resume files
 app.use('/uploads', express.static('uploads'));
+
+// Ensure uploads directory exists
+const fs = require('fs');
+const path = require('path');
+const uploadDir = path.join(__dirname, 'uploads', 'resumes');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+    console.log('Created uploads/resumes directory');
+}
 
 // Start Server
 app.listen(PORT, () => {
