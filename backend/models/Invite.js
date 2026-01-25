@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const InviteSchema = new mongoose.Schema({
     candidateId: { type: mongoose.Schema.Types.ObjectId, ref: 'Candidate', required: true },
     questionnaireId: { type: mongoose.Schema.Types.ObjectId, ref: 'Questionnaire' }, // Optional, can be dynamic
-    round: { type: Number, required: true },
+    round: { type: String, required: true },
     domain: { type: String, required: true },
     token: { type: String, required: true, unique: true },
     expiresAt: { type: Date, required: true },

@@ -2,8 +2,9 @@ const mongoose = require('mongoose');
 
 const InterviewSchema = new mongoose.Schema({
     candidateId: { type: mongoose.Schema.Types.ObjectId, ref: 'Candidate', required: true },
-    round: { type: Number, default: 1 },
+    round: { type: String, default: '1' },
     domain: { type: String, required: true },
+    questions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Question' }],
     responses: [{
         questionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Question' },
         userResponseAudio: { type: String }, // URL/Path to audio
@@ -20,6 +21,8 @@ const InterviewSchema = new mongoose.Schema({
     },
     aiOverallSummary: { type: String },
     status: { type: String, enum: ['Scheduled', 'In-Progress', 'Completed'], default: 'Scheduled' },
+    currentQuestionIndex: { type: Number, default: 0 },
+    remainingTime: { type: Number }, // in seconds
     completedAt: { type: Date }
 }, { timestamps: true });
 

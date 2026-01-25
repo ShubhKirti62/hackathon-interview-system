@@ -22,6 +22,7 @@ const uploadMemory = multer({ storage: memoryStorage });
 const upload = multer({ storage: storage });
 
 const { parseResume } = require('../utils/resumeParser');
+const auth = require('../middleware/auth');
 
 // Parse Resume Route (For filling the form)
 // Uses memory storage to avoid cluttering disk with temp files
@@ -30,19 +31,24 @@ router.post('/parse-resume', uploadMemory.single('resume'), async (req, res) => 
         if (!req.file) {
             return res.status(400).json({ error: 'No resume file uploaded' });
         }
-        // Validate MIME type
-        if (req.file.mimetype !== 'application/pdf') {
-            console.warn('Invalid file type:', req.file.mimetype);
-            return res.status(400).json({ error: 'Uploaded file must be a PDF' });
+        // Validate MIME type or Extension
+        const allowedMimes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
+        const allowedExtensions = ['.pdf', '.docx', '.doc'];
+        const fileExt = path.extname(req.file.originalname).toLowerCase();
+
+        if (!allowedMimes.includes(req.file.mimetype) && !allowedExtensions.includes(fileExt)) {
+            console.warn('Warning: Unusual file type/extension:', req.file.mimetype, fileExt);
+            // Proceed anyway to see if parser can handle it
         }
+
         // Debug logging
-        console.log('Received PDF file:', {
+        console.log('Received file:', {
             originalname: req.file.originalname,
             size: req.file.size,
             mimetype: req.file.mimetype
         });
 
-        const parsedData = await parseResume(req.file.buffer);
+        const parsedData = await parseResume(req.file.buffer, req.file.mimetype, req.file.originalname);
 
         // Return parsed data to frontend
         res.json({
@@ -86,8 +92,70 @@ router.post('/', upload.single('resume'), async (req, res) => {
 // Get All Candidates
 router.get('/', async (req, res) => {
     try {
-        const candidates = await Candidate.find().sort({ createdAt: -1 });
+        const candidates = await Candidate.find()
+            .populate('handledBy', 'name email role')
+            .sort({ internalReferred: -1, createdAt: -1 });
         res.json(candidates);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update Candidate Status (Shortlist/Reject)
+router.patch('/:id/status', auth, async (req, res) => {
+    try {
+        const { status, remarks } = req.body;
+        if (!['Shortlisted', 'Rejected', 'Pending', 'Interviewed'].includes(status)) {
+            return res.status(400).json({ error: 'Invalid status' });
+        }
+
+        const candidate = await Candidate.findByIdAndUpdate(
+            req.params.id,
+            {
+                status,
+                remarks,
+                handledBy: req.user.id,
+                handledAt: new Date()
+            },
+            { new: true }
+        ).populate('handledBy', 'name email role');
+
+        if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
+        res.json(candidate);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get Current Candidate Profile & Active Interview
+router.get('/me', auth, async (req, res) => {
+    try {
+        const candidate = await Candidate.findById(req.user.id);
+        if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
+
+        const Interview = require('../models/Interview');
+        const activeInterview = await Interview.findOne({
+            candidateId: req.user.id,
+            status: { $ne: 'Completed' }
+        }).sort({ createdAt: -1 });
+
+        const Slot = require('../models/Slot');
+        const bookedSlot = await Slot.findOne({
+            candidateId: req.user.id,
+            status: 'Booked'
+        }).populate('interviewerId', 'name email');
+
+        res.json({ candidate, activeInterview, bookedSlot });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Delete Candidate
+router.delete('/:id', async (req, res) => {
+    try {
+        await Candidate.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Candidate deleted successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

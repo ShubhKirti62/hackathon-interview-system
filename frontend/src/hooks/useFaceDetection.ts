@@ -30,8 +30,13 @@ export const useFaceDetection = (options: UseFaceDetectionOptions = {}) => {
         error: null,
     });
 
+    // Use refs for internal flags to stabilize callbacks
+    const isModelLoadedRef = useRef(false);
+    const isDetectingRef = useRef(false);
+
     // Load face-api models
     const loadModels = useCallback(async () => {
+        if (isModelLoadedRef.current) return true;
         try {
             const MODEL_URL = '/models';
             console.log('Loading face detection models from:', MODEL_URL);
@@ -115,8 +120,8 @@ export const useFaceDetection = (options: UseFaceDetectionOptions = {}) => {
 
         // Check if models are actually loaded via face-api directly
         const modelsReady = faceapi.nets.tinyFaceDetector.isLoaded &&
-                           faceapi.nets.faceLandmark68Net.isLoaded &&
-                           faceapi.nets.faceRecognitionNet.isLoaded;
+            faceapi.nets.faceLandmark68Net.isLoaded &&
+            faceapi.nets.faceRecognitionNet.isLoaded;
 
         if (!modelsReady) {
             console.log('Models not loaded yet');
@@ -169,6 +174,7 @@ export const useFaceDetection = (options: UseFaceDetectionOptions = {}) => {
     const startDetection = useCallback(() => {
         if (detectionIntervalRef.current) return;
 
+        isDetectingRef.current = true;
         setState(prev => ({ ...prev, isDetecting: true }));
 
         detectionIntervalRef.current = window.setInterval(async () => {
@@ -206,6 +212,7 @@ export const useFaceDetection = (options: UseFaceDetectionOptions = {}) => {
             clearInterval(detectionIntervalRef.current);
             detectionIntervalRef.current = null;
         }
+        isDetectingRef.current = false;
         setState(prev => ({ ...prev, isDetecting: false }));
     }, []);
 

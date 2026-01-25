@@ -11,10 +11,21 @@ const Layout: React.FC = () => {
 
     return (
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-            <header style={{ borderBottom: '1px solid var(--border-color)', padding: '1rem 0', backgroundColor: 'var(--bg-primary)' }}>
-                <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <header style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: '64px',
+                zIndex: 1100,
+                borderBottom: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-primary)',
+                display: 'flex',
+                alignItems: 'center'
+            }}>
+                <div className="container" style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Link to={APP_ROUTES.HOME} style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--text-primary)', textDecoration: 'none' }}>
-                        InterviewSys
+                        NvestCareers
                     </Link>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -38,7 +49,7 @@ const Layout: React.FC = () => {
                 </div>
             </header>
 
-            <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <main style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingTop: '64px' }}>
                 <Outlet />
             </main>
         </div>

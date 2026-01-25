@@ -117,16 +117,16 @@ export const FaceVerificationProvider: React.FC<{ children: React.ReactNode }> =
         }));
     }, []);
 
+    const value = React.useMemo(() => ({
+        ...state,
+        registerFace,
+        verifyFace,
+        resetVerification,
+        incrementMismatchCount,
+    }), [state, registerFace, verifyFace, resetVerification, incrementMismatchCount]);
+
     return (
-        <FaceVerificationContext.Provider
-            value={{
-                ...state,
-                registerFace,
-                verifyFace,
-                resetVerification,
-                incrementMismatchCount,
-            }}
-        >
+        <FaceVerificationContext.Provider value={value}>
             {children}
         </FaceVerificationContext.Provider>
     );
