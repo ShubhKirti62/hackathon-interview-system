@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Plus, Users, BarChart, FileText, CheckCircle, X } from 'lucide-react';
+import { Upload, Plus, Users, BarChart, FileText, CheckCircle, X, Camera, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '../../services/api';
 import { API_ENDPOINTS } from '../../services/endpoints';
 
@@ -24,6 +24,13 @@ const AdminDashboard: React.FC = () => {
     const [stats, setStats] = useState<Stats>({ totalCandidates: 0, interviewsCompleted: 0, resumesProcessed: 0 });
     const [showAddModal, setShowAddModal] = useState(false);
     const [showQuestionModal, setShowQuestionModal] = useState(false);
+    const [showScreenshotsModal, setShowScreenshotsModal] = useState(false);
+    const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
+
+    const handleViewScreenshots = (candidate: Candidate) => {
+        setSelectedCandidate(candidate);
+        setShowScreenshotsModal(true);
+    };
 
     useEffect(() => {
         fetchDashboardData();
@@ -101,7 +108,7 @@ const AdminDashboard: React.FC = () => {
                                 </thead>
                                 <tbody>
                                     {candidates.slice(0, 10).map((candidate) => (
-                                        <TableRow key={candidate._id} candidate={candidate} />
+                                        <TableRow key={candidate._id} candidate={candidate} onViewScreenshots={handleViewScreenshots} />
                                     ))}
                                 </tbody>
                             </table>
@@ -112,6 +119,15 @@ const AdminDashboard: React.FC = () => {
 
             {showAddModal && <AddCandidateModal onClose={() => setShowAddModal(false)} onSuccess={fetchDashboardData} />}
             {showQuestionModal && <AddQuestionModal onClose={() => setShowQuestionModal(false)} />}
+            {showScreenshotsModal && selectedCandidate && (
+                <ScreenshotsModal
+                    candidate={selectedCandidate}
+                    onClose={() => {
+                        setShowScreenshotsModal(false);
+                        setSelectedCandidate(null);
+                    }}
+                />
+            )}
         </div>
     );
 };
@@ -128,7 +144,7 @@ const StatCard: React.FC<{ icon: React.ReactNode, label: string, value: string }
     </div>
 );
 
-const TableRow: React.FC<{ candidate: Candidate }> = ({ candidate }) => {
+const TableRow: React.FC<{ candidate: Candidate; onViewScreenshots: (candidate: Candidate) => void }> = ({ candidate, onViewScreenshots }) => {
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'Interviewed': return { bg: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)' };
@@ -158,7 +174,15 @@ const TableRow: React.FC<{ candidate: Candidate }> = ({ candidate }) => {
                 </span>
             </td>
             <td style={{ padding: '0.75rem' }}>
-                <button style={{ color: 'var(--primary)', background: 'none', border: 'none', fontSize: '0.875rem' }}>View</button>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button style={{ color: 'var(--primary)', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer' }}>View</button>
+                    <button
+                        onClick={() => onViewScreenshots(candidate)}
+                        style={{ color: 'var(--primary)', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    >
+                        <Camera size={14} /> Screenshots
+                    </button>
+                </div>
             </td>
         </tr>
     );
@@ -640,6 +664,226 @@ const AddQuestionModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    );
+};
+
+interface Screenshot {
+    _id: string;
+    timestamp: string;
+    image?: string;
+}
+
+const ScreenshotsModal: React.FC<{ candidate: Candidate; onClose: () => void }> = ({ candidate, onClose }) => {
+    const [screenshots, setScreenshots] = useState<Screenshot[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [selectedIndex, setSelectedIndex] = useState(0);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [loadingImage, setLoadingImage] = useState(false);
+
+    useEffect(() => {
+        fetchScreenshots();
+    }, [candidate._id]);
+
+    const fetchScreenshots = async () => {
+        try {
+            const res = await api.get(API_ENDPOINTS.FACE.SCREENSHOTS(candidate._id));
+            setScreenshots(res.data.screenshots || []);
+            if (res.data.screenshots?.length > 0) {
+                loadScreenshotImage(res.data.screenshots[0]._id);
+            }
+        } catch (error) {
+            console.error('Error fetching screenshots:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadScreenshotImage = async (id: string) => {
+        setLoadingImage(true);
+        try {
+            const res = await api.get(API_ENDPOINTS.FACE.SCREENSHOT_BY_ID(id));
+            setSelectedImage(res.data.image);
+        } catch (error) {
+            console.error('Error loading screenshot:', error);
+        } finally {
+            setLoadingImage(false);
+        }
+    };
+
+    const handleSelectScreenshot = (index: number) => {
+        setSelectedIndex(index);
+        loadScreenshotImage(screenshots[index]._id);
+    };
+
+    const handlePrevious = () => {
+        if (selectedIndex > 0) {
+            handleSelectScreenshot(selectedIndex - 1);
+        }
+    };
+
+    const handleNext = () => {
+        if (selectedIndex < screenshots.length - 1) {
+            handleSelectScreenshot(selectedIndex + 1);
+        }
+    };
+
+    const formatDate = (dateString: string) => {
+        return new Date(dateString).toLocaleString();
+    };
+
+    return (
+        <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+        }}>
+            <div className="card" style={{ width: '100%', maxWidth: '900px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', borderBottom: '1px solid var(--border-color)' }}>
+                    <div>
+                        <h2 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', margin: 0 }}>
+                            Screenshots - {candidate.name}
+                        </h2>
+                        <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: 0 }}>
+                            {screenshots.length} screenshot{screenshots.length !== 1 ? 's' : ''} captured
+                        </p>
+                    </div>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                        <X size={24} />
+                    </button>
+                </div>
+
+                {loading ? (
+                    <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                        Loading screenshots...
+                    </div>
+                ) : screenshots.length === 0 ? (
+                    <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                        <Camera size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
+                        <p>No screenshots captured for this candidate yet.</p>
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+                        {/* Main Image View */}
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '1rem' }}>
+                            <div style={{
+                                flex: 1,
+                                backgroundColor: 'var(--bg-secondary)',
+                                borderRadius: '0.5rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                position: 'relative',
+                                minHeight: '400px'
+                            }}>
+                                {loadingImage ? (
+                                    <div style={{ color: 'var(--text-secondary)' }}>Loading...</div>
+                                ) : selectedImage ? (
+                                    <img
+                                        src={selectedImage}
+                                        alt={`Screenshot ${selectedIndex + 1}`}
+                                        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                                    />
+                                ) : (
+                                    <div style={{ color: 'var(--text-secondary)' }}>Select a screenshot</div>
+                                )}
+
+                                {/* Navigation Arrows */}
+                                {screenshots.length > 1 && (
+                                    <>
+                                        <button
+                                            onClick={handlePrevious}
+                                            disabled={selectedIndex === 0}
+                                            style={{
+                                                position: 'absolute',
+                                                left: '0.5rem',
+                                                top: '50%',
+                                                transform: 'translateY(-50%)',
+                                                background: 'rgba(0,0,0,0.5)',
+                                                border: 'none',
+                                                borderRadius: '50%',
+                                                width: '40px',
+                                                height: '40px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                color: 'white',
+                                                cursor: selectedIndex === 0 ? 'not-allowed' : 'pointer',
+                                                opacity: selectedIndex === 0 ? 0.3 : 1
+                                            }}
+                                        >
+                                            <ChevronLeft size={24} />
+                                        </button>
+                                        <button
+                                            onClick={handleNext}
+                                            disabled={selectedIndex === screenshots.length - 1}
+                                            style={{
+                                                position: 'absolute',
+                                                right: '0.5rem',
+                                                top: '50%',
+                                                transform: 'translateY(-50%)',
+                                                background: 'rgba(0,0,0,0.5)',
+                                                border: 'none',
+                                                borderRadius: '50%',
+                                                width: '40px',
+                                                height: '40px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                color: 'white',
+                                                cursor: selectedIndex === screenshots.length - 1 ? 'not-allowed' : 'pointer',
+                                                opacity: selectedIndex === screenshots.length - 1 ? 0.3 : 1
+                                            }}
+                                        >
+                                            <ChevronRight size={24} />
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Timestamp */}
+                            <div style={{ textAlign: 'center', padding: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                                {selectedIndex + 1} of {screenshots.length} | {formatDate(screenshots[selectedIndex]?.timestamp)}
+                            </div>
+                        </div>
+
+                        {/* Thumbnail List */}
+                        <div style={{
+                            width: '150px',
+                            borderLeft: '1px solid var(--border-color)',
+                            overflowY: 'auto',
+                            padding: '0.5rem'
+                        }}>
+                            {screenshots.map((screenshot, index) => (
+                                <div
+                                    key={screenshot._id}
+                                    onClick={() => handleSelectScreenshot(index)}
+                                    style={{
+                                        padding: '0.5rem',
+                                        marginBottom: '0.5rem',
+                                        backgroundColor: selectedIndex === index ? 'var(--primary)' : 'var(--bg-secondary)',
+                                        borderRadius: '0.25rem',
+                                        cursor: 'pointer',
+                                        color: selectedIndex === index ? 'white' : 'var(--text-primary)'
+                                    }}
+                                >
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>#{index + 1}</div>
+                                    <div style={{ fontSize: '0.65rem', opacity: 0.8 }}>
+                                        {new Date(screenshot.timestamp).toLocaleTimeString()}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

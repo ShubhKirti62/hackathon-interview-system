@@ -14,6 +14,9 @@ export const API_ENDPOINTS = {
         VERIFY: '/face/verify',
         STATUS: (candidateId: string) => `/face/status/${candidateId}`,
         REPORT: (sessionId: string) => `/face/report/${sessionId}`,
+        SCREENSHOT: '/face/screenshot',
+        SCREENSHOTS: (candidateId: string) => `/face/screenshots/${candidateId}`,
+        SCREENSHOT_BY_ID: (id: string) => `/face/screenshot/${id}`,
     },
     QUESTIONS: {
         BASE: '/questions',

@@ -34,14 +34,21 @@ export const useFaceDetection = (options: UseFaceDetectionOptions = {}) => {
     const loadModels = useCallback(async () => {
         try {
             const MODEL_URL = '/models';
-            await Promise.all([
-                faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-            ]);
+            console.log('Loading face detection models from:', MODEL_URL);
+
+            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+            console.log('TinyFaceDetector loaded');
+
+            await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+            console.log('Face Landmark 68 loaded');
+
+            await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+            console.log('Face Recognition loaded');
+
             setState(prev => ({ ...prev, isModelLoaded: true, error: null }));
             return true;
         } catch (err) {
+            console.error('Model loading error:', err);
             const errorMessage = err instanceof Error ? err.message : 'Failed to load face detection models';
             setState(prev => ({ ...prev, error: errorMessage }));
             return false;
@@ -51,6 +58,7 @@ export const useFaceDetection = (options: UseFaceDetectionOptions = {}) => {
     // Start webcam
     const startCamera = useCallback(async () => {
         try {
+            console.log('Requesting camera access...');
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: {
                     width: { ideal: 640 },
@@ -59,14 +67,28 @@ export const useFaceDetection = (options: UseFaceDetectionOptions = {}) => {
                 },
             });
             streamRef.current = stream;
+            console.log('Camera stream obtained');
 
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
+
+                // Wait for video to be ready
+                await new Promise<void>((resolve) => {
+                    if (videoRef.current) {
+                        videoRef.current.onloadedmetadata = () => {
+                            console.log('Video metadata loaded');
+                            resolve();
+                        };
+                    }
+                });
+
                 await videoRef.current.play();
+                console.log('Video playing, readyState:', videoRef.current.readyState);
             }
             setState(prev => ({ ...prev, error: null }));
             return true;
         } catch (err) {
+            console.error('Camera error:', err);
             const errorMessage = err instanceof Error ? err.message : 'Failed to access camera';
             setState(prev => ({ ...prev, error: errorMessage }));
             return false;
@@ -86,20 +108,47 @@ export const useFaceDetection = (options: UseFaceDetectionOptions = {}) => {
 
     // Detect face and get descriptor
     const detectFace = useCallback(async (): Promise<faceapi.WithFaceDescriptor<faceapi.WithFaceLandmarks<{ detection: faceapi.FaceDetection }, faceapi.FaceLandmarks68>> | null> => {
-        if (!videoRef.current || !state.isModelLoaded) return null;
+        if (!videoRef.current) {
+            console.log('No video element');
+            return null;
+        }
+
+        // Check if models are actually loaded via face-api directly
+        const modelsReady = faceapi.nets.tinyFaceDetector.isLoaded &&
+                           faceapi.nets.faceLandmark68Net.isLoaded &&
+                           faceapi.nets.faceRecognitionNet.isLoaded;
+
+        if (!modelsReady) {
+            console.log('Models not loaded yet');
+            return null;
+        }
+
+        if (videoRef.current.readyState < 2) {
+            console.log('Video not ready, readyState:', videoRef.current.readyState);
+            return null;
+        }
+        if (videoRef.current.videoWidth === 0 || videoRef.current.videoHeight === 0) {
+            console.log('Video dimensions are 0');
+            return null;
+        }
+        console.log('Detecting face, video size:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight);
 
         try {
             const detection = await faceapi
-                .detectSingleFace(videoRef.current, new faceapi.SsdMobilenetv1Options({ minConfidence }))
+                .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: minConfidence }))
                 .withFaceLandmarks()
                 .withFaceDescriptor();
+
+            if (detection) {
+                console.log('Face detected with score:', detection.detection.score);
+            }
 
             return detection || null;
         } catch (err) {
             console.error('Face detection error:', err);
             return null;
         }
-    }, [state.isModelLoaded, minConfidence]);
+    }, [minConfidence]);
 
     // Capture current face descriptor
     const captureFaceDescriptor = useCallback(async (): Promise<Float32Array | null> => {

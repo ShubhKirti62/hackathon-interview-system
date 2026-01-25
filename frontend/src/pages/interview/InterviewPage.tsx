@@ -1,34 +1,14 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Mic, MicOff, Send, AlertTriangle } from 'lucide-react';
+import { Mic, MicOff, Send } from 'lucide-react';
 import FaceVerification from '../../components/FaceVerification';
-import type { VerificationStatus } from '../../context/FaceVerificationContext';
 
 const InterviewPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const [isRecording, setIsRecording] = useState(false);
-    const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>('idle');
-    const [showMismatchWarning, setShowMismatchWarning] = useState(false);
-
-    const handleVerificationChange = useCallback((status: VerificationStatus) => {
-        setVerificationStatus(status);
-    }, []);
-
-    const handleMaxMismatchesReached = useCallback(() => {
-        setShowMismatchWarning(true);
-        // In a real app, you would notify HR/admin here via API
-        console.log('Max mismatches reached - notifying HR');
-    }, []);
 
     return (
         <div className="container" style={{ padding: '2rem 1rem', maxWidth: '800px' }}>
-            {showMismatchWarning && (
-                <div className="mismatch-alert">
-                    <AlertTriangle size={20} />
-                    <span>Multiple face mismatches detected. HR has been notified.</span>
-                </div>
-            )}
-
             <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                     <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
@@ -36,17 +16,7 @@ const InterviewPage: React.FC = () => {
                     </h1>
                     <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Question 1 of 5</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div
-                        className={`verification-badge ${verificationStatus}`}
-                        title={`Verification: ${verificationStatus}`}
-                    >
-                        {verificationStatus === 'verified' ? 'Verified' :
-                         verificationStatus === 'mismatch' ? 'Mismatch' :
-                         verificationStatus === 'pending' ? 'Checking...' : 'Pending'}
-                    </div>
-                    <div style={{ fontSize: '1.25rem', fontFamily: 'monospace', color: 'var(--primary)' }}>00:45</div>
-                </div>
+                <div style={{ fontSize: '1.25rem', fontFamily: 'monospace', color: 'var(--primary)' }}>00:45</div>
             </div>
 
             <div className="card" style={{ marginBottom: '2rem', minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -103,15 +73,8 @@ const InterviewPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Face Verification Panel */}
-            <FaceVerification
-                candidateId={id || ''}
-                verificationInterval={15000}
-                maxMismatches={3}
-                onVerificationChange={handleVerificationChange}
-                onMaxMismatchesReached={handleMaxMismatchesReached}
-                minimized={false}
-            />
+            {/* Video Monitor Panel */}
+            <FaceVerification candidateId={id || ''} />
         </div>
     );
 };

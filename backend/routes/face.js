@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Candidate = require('../models/Candidate');
 const FaceVerificationLog = require('../models/FaceVerificationLog');
+const Screenshot = require('../models/Screenshot');
 
 // Threshold for face matching (lower = more strict)
 const FACE_MATCH_THRESHOLD = 0.6;
@@ -230,6 +231,70 @@ router.delete('/reset/:candidateId', async (req, res) => {
     } catch (error) {
         console.error('Face reset error:', error);
         res.status(500).json({ error: 'Failed to reset face registration' });
+    }
+});
+
+// Save screenshot during interview (to database)
+router.post('/screenshot', async (req, res) => {
+    try {
+        const { candidateId, image, type } = req.body;
+
+        if (!candidateId || !image) {
+            return res.status(400).json({ error: 'candidateId and image are required' });
+        }
+
+        // Save to database
+        const screenshot = await Screenshot.create({
+            candidateId: String(candidateId),
+            image,
+            type: type || 'video',
+            timestamp: new Date(),
+        });
+
+        console.log(`Screenshot saved to DB for candidate: ${candidateId}, type: ${type || 'video'}`);
+
+        res.json({
+            success: true,
+            id: screenshot._id,
+            timestamp: screenshot.timestamp,
+            type: screenshot.type,
+        });
+    } catch (error) {
+        console.error('Screenshot save error:', error);
+        res.status(500).json({ error: 'Failed to save screenshot' });
+    }
+});
+
+// Get all screenshots for a candidate
+router.get('/screenshots/:candidateId', async (req, res) => {
+    try {
+        const { candidateId } = req.params;
+
+        const screenshots = await Screenshot.find({ candidateId })
+            .sort({ timestamp: 1 })
+            .select('_id timestamp createdAt');
+
+        res.json({ screenshots });
+    } catch (error) {
+        console.error('Get screenshots error:', error);
+        res.status(500).json({ error: 'Failed to get screenshots' });
+    }
+});
+
+// Get single screenshot by ID
+router.get('/screenshot/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const screenshot = await Screenshot.findById(id);
+
+        if (!screenshot) {
+            return res.status(404).json({ error: 'Screenshot not found' });
+        }
+
+        res.json(screenshot);
+    } catch (error) {
+        console.error('Get screenshot error:', error);
+        res.status(500).json({ error: 'Failed to get screenshot' });
     }
 });
 

@@ -21,45 +21,46 @@ const FaceCapture: React.FC<FaceCaptureProps> = ({ candidateId, onCaptureComplet
         captureFaceDescriptor,
         startDetection,
         stopDetection,
-    } = useFaceDetection({ minConfidence: 0.5, detectionInterval: 300 });
+    } = useFaceDetection({ minConfidence: 0.3, detectionInterval: 300 });
 
     const { registerFace, verificationStatus } = useFaceVerification();
 
-    const [status, setStatus] = useState<'loading' | 'ready' | 'capturing' | 'success' | 'error'>('loading');
+    const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'capturing' | 'success' | 'error'>('idle');
     const [countdown, setCountdown] = useState<number | null>(null);
-    const [message, setMessage] = useState('Initializing camera...');
+    const [message, setMessage] = useState('Click "Start Video" to begin face registration');
 
-    // Initialize camera and models
+    // Cleanup on unmount
     useEffect(() => {
-        const initialize = async () => {
-            setMessage('Loading face detection models...');
-            const modelsLoaded = await loadModels();
-            if (!modelsLoaded) {
-                setStatus('error');
-                setMessage('Failed to load face detection models');
-                return;
-            }
-
-            setMessage('Starting camera...');
-            const cameraStarted = await startCamera();
-            if (!cameraStarted) {
-                setStatus('error');
-                setMessage('Failed to access camera. Please allow camera permissions.');
-                return;
-            }
-
-            setStatus('ready');
-            setMessage('Position your face in the center of the frame');
-            startDetection();
-        };
-
-        initialize();
-
         return () => {
             stopDetection();
             stopCamera();
         };
-    }, [loadModels, startCamera, stopCamera, startDetection, stopDetection]);
+    }, [stopDetection, stopCamera]);
+
+    // Start video handler
+    const handleStartVideo = useCallback(async () => {
+        setStatus('loading');
+        setMessage('Loading face detection models...');
+
+        const modelsLoaded = await loadModels();
+        if (!modelsLoaded) {
+            setStatus('error');
+            setMessage('Failed to load face detection models');
+            return;
+        }
+
+        setMessage('Starting camera...');
+        const cameraStarted = await startCamera();
+        if (!cameraStarted) {
+            setStatus('error');
+            setMessage('Failed to access camera. Please allow camera permissions.');
+            return;
+        }
+
+        setStatus('ready');
+        setMessage('Position your face in the center of the frame');
+        startDetection();
+    }, [loadModels, startCamera, startDetection]);
 
     // Handle capture with countdown
     const handleCapture = useCallback(async () => {
@@ -131,16 +132,33 @@ const FaceCapture: React.FC<FaceCaptureProps> = ({ candidateId, onCaptureComplet
             </p>
 
             <div className="face-capture-video-container">
+                {status === 'idle' && (
+                    <div className="face-capture-placeholder">
+                        <Camera size={64} className="placeholder-icon" />
+                        <p>Camera preview will appear here</p>
+                    </div>
+                )}
+
+                {status === 'loading' && (
+                    <div className="face-capture-placeholder">
+                        <Loader size={64} className="spin" />
+                        <p>{message}</p>
+                    </div>
+                )}
+
+                {/* Always render video/canvas for ref attachment */}
                 <video
                     ref={videoRef}
                     autoPlay
                     muted
                     playsInline
                     className="face-capture-video"
+                    style={{ display: (status !== 'idle' && status !== 'loading') ? 'block' : 'none' }}
                 />
                 <canvas
                     ref={canvasRef}
                     className="face-capture-canvas"
+                    style={{ display: (status !== 'idle' && status !== 'loading') ? 'block' : 'none' }}
                 />
 
                 {countdown !== null && (
@@ -183,6 +201,13 @@ const FaceCapture: React.FC<FaceCaptureProps> = ({ candidateId, onCaptureComplet
             )}
 
             <div className="face-capture-actions">
+                {status === 'idle' && (
+                    <button className="btn btn-primary" onClick={handleStartVideo}>
+                        <Camera size={18} />
+                        Start Video
+                    </button>
+                )}
+
                 {status === 'error' && (
                     <button className="btn btn-secondary" onClick={handleRetry}>
                         <RefreshCw size={18} />
