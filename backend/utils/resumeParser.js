@@ -1,5 +1,5 @@
 const fs = require('fs');
-const pdf = require('pdf-parse');
+const { PDFParse: pdf } = require('pdf-parse');
 const mammoth = require('mammoth');
 
 const parseResume = async (input, mimetype, originalFilename = '') => {
@@ -39,8 +39,10 @@ const parseResume = async (input, mimetype, originalFilename = '') => {
 
         if (isPdf) {
             try {
-                const data = await pdf(dataBuffer);
+                const instance = new pdf({ data: dataBuffer });
+                const data = await instance.getText();
                 text = data.text;
+                await instance.destroy();
             } catch (pdfError) {
                 console.error("pdf-parse failed:", pdfError);
                 throw new Error("Failed to parse PDF content: " + pdfError.message);
