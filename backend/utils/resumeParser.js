@@ -1,7 +1,8 @@
 const fs = require('fs');
 const pdf = require('pdf-parse');
+const mammoth = require('mammoth');
 
-const parseResume = async (input) => {
+const parseResume = async (input, mimetype, originalFilename = '') => {
     try {
         let dataBuffer;
         if (Buffer.isBuffer(input)) {
@@ -13,28 +14,50 @@ const parseResume = async (input) => {
             dataBuffer = fs.readFileSync(input);
         }
 
-        // Debug logging
-        console.log('Parsing resume - buffer length:', dataBuffer.length);
+        console.log('Parsing resume - buffer length:', dataBuffer.length, 'Mime:', mimetype, 'File:', originalFilename);
 
-        // Basic MIME type check (if input is a file path we cannot easily get mime, skip)
-        // In the route we will ensure mimetype is PDF before calling this.
+        let text = '';
+        const lowerFilename = originalFilename.toLowerCase();
 
-        // Verify PDF header
-        if (dataBuffer.slice(0, 4).toString() !== '%PDF') {
-            console.error('Invalid PDF file: missing %PDF header');
-            throw new Error('Uploaded file is not a valid PDF');
+        // Helper to check magic numbers
+        const isPdfHeader = dataBuffer.slice(0, 4).toString() === '%PDF';
+        const isZipHeader = dataBuffer.slice(0, 2).toString() === 'PK'; // Docx is a zip
+    
+        // Detect type based on content first, then metadata
+        const isPdf = isPdfHeader || mimetype === 'application/pdf' || lowerFilename.endsWith('.pdf');
+        
+        // Docx detection
+        const isDocx = (isZipHeader && (mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || lowerFilename.endsWith('.docx'))) ||
+                       mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+                       mimetype === 'application/msword' || 
+                       lowerFilename.endsWith('.docx') || 
+                       lowerFilename.endsWith('.doc');
+
+        console.log(`Detection: isPdf=${isPdf} (Header=${isPdfHeader}), isDocx=${isDocx} (Header=${isZipHeader})`);
+
+        if (isPdf) {
+            try {
+                const data = await pdf(dataBuffer);
+                text = data.text;
+            } catch (pdfError) {
+                console.error("pdf-parse failed:", pdfError);
+                throw new Error("Failed to parse PDF content.");
+            }
+        } else if (isDocx || isZipHeader) { // Fallback: if it's a zip, try as docx
+            try {
+                const result = await mammoth.extractRawText({ buffer: dataBuffer });
+                text = result.value;
+                if (result.messages.length > 0) {
+                    console.log("Mammoth messages:", result.messages);
+                }
+            } catch (docxError) {
+                console.error("mammoth failed:", docxError);
+                // If it was just a zip and not docx, this might fail, but worth a try if valid docx
+                throw new Error("Failed to parse DOCX content.");
+            }
+        } else {
+             throw new Error('Unsupported file format. Please upload PDF or DOCX.');
         }
-
-        let data;
-        try {
-            data = await pdf(dataBuffer);
-        } catch (pdfError) {
-            console.error("pdf-parse failed:", pdfError);
-            throw new Error("Failed to parse PDF content. Ensure file is a valid PDF.");
-        }
-
-
-        const text = data.text;
 
         // Basic Extraction Logic (Heuristic/Regex based)
         const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/;

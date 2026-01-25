@@ -30,19 +30,24 @@ router.post('/parse-resume', uploadMemory.single('resume'), async (req, res) => 
         if (!req.file) {
             return res.status(400).json({ error: 'No resume file uploaded' });
         }
-        // Validate MIME type
-        if (req.file.mimetype !== 'application/pdf') {
-            console.warn('Invalid file type:', req.file.mimetype);
-            return res.status(400).json({ error: 'Uploaded file must be a PDF' });
+        // Validate MIME type or Extension
+        const allowedMimes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
+        const allowedExtensions = ['.pdf', '.docx', '.doc'];
+        const fileExt = path.extname(req.file.originalname).toLowerCase();
+
+        if (!allowedMimes.includes(req.file.mimetype) && !allowedExtensions.includes(fileExt)) {
+            console.warn('Warning: Unusual file type/extension:', req.file.mimetype, fileExt);
+            // Proceed anyway to see if parser can handle it
         }
+
         // Debug logging
-        console.log('Received PDF file:', {
+        console.log('Received file:', {
             originalname: req.file.originalname,
             size: req.file.size,
             mimetype: req.file.mimetype
         });
 
-        const parsedData = await parseResume(req.file.buffer);
+        const parsedData = await parseResume(req.file.buffer, req.file.mimetype, req.file.originalname);
 
         // Return parsed data to frontend
         res.json({

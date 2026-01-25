@@ -290,8 +290,8 @@ const AddCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void }
                     <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}>
                         <Upload size={24} style={{ color: 'var(--primary)', marginBottom: '0.5rem' }} />
                         <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>Auto-fill from Resume</span>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Upload PDF to extract details</span>
-                        <input type="file" accept=".pdf" onChange={handleResumeUpload} style={{ display: 'none' }} />
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Upload PDF or Word (DOCX) to extract details</span>
+                        <input type="file" accept=".pdf,.docx,.doc" onChange={handleResumeUpload} style={{ display: 'none' }} />
                     </label>
                     {parsing && <div style={{ textAlign: 'center', marginTop: '0.5rem', color: 'var(--text-secondary)' }}>Extracting info...</div>}
                 </div>
