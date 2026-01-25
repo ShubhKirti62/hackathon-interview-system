@@ -1047,9 +1047,13 @@ const AddCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void }
             const fd = new FormData();
             fd.append('resume', file);
             try {
-                const res = await api.post(API_ENDPOINTS.CANDIDATES.PARSE_RESUME, fd);
+                const res = await api.post(API_ENDPOINTS.CANDIDATES.PARSE_RESUME, fd, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
                 setFormData(prev => ({ ...prev, ...res.data }));
-            } catch (err) { setError('Failed to parse resume'); }
+            } catch (err: any) { 
+                setError(err.response?.data?.error || 'Failed to parse resume');
+            }
             finally { setParsing(false); }
         }
     };
@@ -1061,7 +1065,9 @@ const AddCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void }
         Object.entries(formData).forEach(([k, v]) => fd.append(k, v.toString()));
         if (resumeFile) fd.append('resume', resumeFile);
         try {
-            await api.post(API_ENDPOINTS.CANDIDATES.BASE, fd);
+            await api.post(API_ENDPOINTS.CANDIDATES.BASE, fd, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
             onSuccess();
             onClose();
         } catch (err) { setError('Failed to add candidate'); }
@@ -1092,8 +1098,8 @@ const AddCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void }
                         <label style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                             <Upload size={32} style={{ color: 'var(--primary)' }} />
                             <div style={{ fontWeight: '600' }}>Auto-fill from Resume</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>PDF documents only</div>
-                            <input type="file" accept=".pdf" onChange={handleResumeUpload} style={{ display: 'none' }} />
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>PDF or Word (DOCX)</div>
+                            <input type="file" accept=".pdf,.docx,.doc" onChange={handleResumeUpload} style={{ display: 'none' }} />
                         </label>
                         {parsing && <div style={{ marginTop: '0.5rem', color: 'var(--primary)', fontWeight: '500' }}>Analyzing resume...</div>}
                     </div>
