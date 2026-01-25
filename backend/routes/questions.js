@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const Question = require('../models/Question');
+const xlsx = require('xlsx');
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/temp/' }); // Temporary storage for uploaded files
 
 // Add Question
 router.post('/', async (req, res) => {
@@ -28,6 +31,20 @@ router.get('/', async (req, res) => {
     }
 });
 
+// Update Question
+router.patch('/:id', async (req, res) => {
+    try {
+        const question = await Question.findByIdAndUpdate(
+            req.params.id,
+            req.body,
+            { new: true }
+        );
+        res.json(question);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Verify Question
 router.patch('/:id/verify', async (req, res) => {
     try {
@@ -38,6 +55,92 @@ router.patch('/:id/verify', async (req, res) => {
             { new: true }
         );
         res.json(question);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Bulk Upload Questions via Excel
+router.post('/bulk-upload', upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'Please upload an Excel file.' });
+        }
+
+        const workbook = xlsx.readFile(req.file.path);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const data = xlsx.utils.sheet_to_json(worksheet);
+
+        const questionsToSave = [];
+        const errors = [];
+
+        data.forEach((row, index) => {
+            const {
+                'Question Text': text,
+                'Domain': domain,
+                'Experience Level': experienceLevel,
+                'Difficulty': difficulty,
+                'Type': type,
+                'Option 1': opt1,
+                'Option 2': opt2,
+                'Option 3': opt3,
+                'Option 4': opt4,
+                'Correct Answer': correctAnswer
+            } = row;
+
+            // Basic validation
+            if (!text || !domain || !experienceLevel || !difficulty || !type) {
+                errors.push(`Row ${index + 2}: Missing required fields.`);
+                return;
+            }
+
+            const questionData = {
+                text,
+                domain,
+                experienceLevel,
+                difficulty,
+                type: type === 'Descriptive' ? 'Descriptive' : 'MCQ',
+                options: [],
+                correctAnswers: []
+            };
+
+            if (questionData.type === 'MCQ') {
+                if (!opt1 || !opt2 || !opt3 || !opt4 || !correctAnswer) {
+                    errors.push(`Row ${index + 2}: MCQs require 4 options and a correct answer.`);
+                    return;
+                }
+                questionData.options = [String(opt1), String(opt2), String(opt3), String(opt4)];
+                questionData.correctAnswers = [String(correctAnswer)];
+            }
+
+            questionsToSave.push(questionData);
+        });
+
+        if (questionsToSave.length > 0) {
+            await Question.insertMany(questionsToSave);
+        }
+
+        // Delete temp file
+        const fs = require('fs');
+        fs.unlinkSync(req.file.path);
+
+        res.json({
+            message: `Successfully uploaded ${questionsToSave.length} questions.`,
+            errors: errors.length > 0 ? errors : undefined
+        });
+
+    } catch (error) {
+        console.error('Bulk Upload Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Delete Question
+router.delete('/:id', async (req, res) => {
+    try {
+        await Question.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Question deleted successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

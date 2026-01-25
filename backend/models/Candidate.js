@@ -14,7 +14,7 @@ const CandidateSchema = new mongoose.Schema({
     domain: { type: String, required: true }, // e.g., 'Frontend', 'Backend'
     role: { type: String }, // specific role e.g., 'frontend_dev', 'sales'
     internalReferred: { type: Boolean, default: false },
-    status: { type: String, enum: ['Pending', 'Interviewed', 'Shortlisted', 'Rejected'], default: 'Pending' },
+    status: { type: String, enum: ['Pending', 'Interviewed', 'Shortlisted', 'Rejected', 'Slot_Booked', 'Round_2_Completed'], default: 'Pending' },
 
     // Face Verification Data
     faceDescriptor: { type: [Number] }, // 128-dimensional face descriptor array
@@ -31,7 +31,10 @@ const CandidateSchema = new mongoose.Schema({
         confidence: { type: Number, min: 0, max: 5 },
         honesty: { type: Number, min: 0, max: 5 }
     },
-    overallScore: { type: Number }
+    overallScore: { type: Number },
+    handledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    handledAt: { type: Date },
+    remarks: { type: String }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Candidate', CandidateSchema);
