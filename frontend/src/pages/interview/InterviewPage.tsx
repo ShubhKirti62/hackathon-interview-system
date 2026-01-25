@@ -22,6 +22,7 @@ interface Interview {
     status: string;
 }
 import FaceVerification from '../../components/FaceVerification';
+import type { VerificationStatus } from '../../context/FaceVerificationContext';
 
 const InterviewPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
