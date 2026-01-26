@@ -6,6 +6,7 @@ import api from '../../services/api';
 import { API_ENDPOINTS } from '../../services/endpoints';
 import { APP_ROUTES } from '../../routes';
 import { showToast } from '../../utils/toast';
+import FaceRegistration from '../../components/FaceRegistration';
 
 interface Candidate {
     _id: string;
@@ -123,6 +124,8 @@ const CandidateHome: React.FC = () => {
         }
     };
 
+    const [showFaceSetup, setShowFaceSetup] = useState(false);
+
     if (loading) return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
             <div className="animate-spin text-primary">⌛</div>
@@ -206,6 +209,37 @@ const CandidateHome: React.FC = () => {
                             <div style={{ textAlign: 'center', padding: '2rem 0' }}>
                                 <AlertCircle size={48} style={{ color: 'var(--warning)', marginBottom: '1rem', opacity: 0.5 }} />
                                 <p style={{ color: 'var(--text-secondary)' }}>No interview is currently active or scheduled.</p>
+                            </div>
+                        )}
+
+                        {!candidate?.faceVerificationEnabled && (
+                             <div style={{ 
+                                padding: '1rem', 
+                                backgroundColor: 'rgba(245, 158, 11, 0.05)', 
+                                borderRadius: '0.5rem', 
+                                border: '1px solid var(--warning)',
+                                marginBottom: '1.5rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '1rem'
+                            }}>
+                                <div>
+                                    <div style={{ color: 'var(--warning)', fontWeight: 'bold', marginBottom: '0.25rem' }}>Action Required</div>
+                                    <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                                        You must set up face verification before starting your interview.
+                                    </div>
+                                </div>
+                                <button 
+                                    className="btn" 
+                                    style={{ 
+                                        backgroundColor: 'var(--warning)', color: 'white', border: 'none', 
+                                        whiteSpace: 'nowrap', fontSize: '0.875rem', padding: '0.5rem 1rem' 
+                                    }}
+                                    onClick={() => setShowFaceSetup(true)}
+                                >
+                                    Setup Now
+                                </button>
                             </div>
                         )}
 
@@ -330,6 +364,7 @@ const CandidateHome: React.FC = () => {
                                 onClick={handleStartOrResume}
                                 className="btn btn-primary"
                                 style={{ width: '100%', gap: '0.5rem', padding: '1rem' }}
+                                disabled={!activeInterview && (!candidate?.faceVerificationEnabled)}
                             >
                                 {activeInterview?.status === 'In-Progress' ? <Play size={18} /> : <ArrowRight size={18} />}
                                 {activeInterview?.status === 'In-Progress' ? 'Resume My Interview' : 'Start My Interview'}
@@ -348,6 +383,17 @@ const CandidateHome: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {showFaceSetup && candidate && (
+                <FaceRegistration 
+                    candidateId={candidate._id}
+                    onSuccess={() => {
+                        setShowFaceSetup(false);
+                        fetchProfile();
+                    }}
+                    onClose={() => setShowFaceSetup(false)}
+                />
+            )}
 
             {candidate?.status === 'Interviewed' && (
                 <div style={{ marginTop: '2rem' }}>
