@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Plus, Users, BarChart, FileText, CheckCircle, X,Camera, ChevronLeft, ChevronRight, Shield, Star, Filter, Phone, Mail, File, ExternalLink, Settings, Clock, PieChart as PieChartIcon, TrendingUp } from 'lucide-react';
+import { Upload, Plus, Users, BarChart, FileText, CheckCircle, X, Camera, ChevronLeft, ChevronRight, Shield, Star, Filter, Phone, Mail, File, ExternalLink, Settings, Clock, PieChart as PieChartIcon, TrendingUp, Menu } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart as ReBarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, AreaChart, Area } from 'recharts';
 import api from '../../services/api';
 import { API_ENDPOINTS } from '../../services/endpoints';
@@ -94,6 +94,7 @@ const AdminDashboard: React.FC = () => {
     const [showSlotModal, setShowSlotModal] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [selectedSlot, setSelectedSlot] = useState<any>(null);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
 
     const chartData = useMemo(() => {
@@ -234,19 +235,15 @@ const AdminDashboard: React.FC = () => {
     };
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg-primary)' }}>
+        <div className="admin-dashboard">
+            {/* Mobile Overlay */}
+            <div
+                className={`admin-sidebar-overlay ${sidebarOpen ? 'open' : ''}`}
+                onClick={() => setSidebarOpen(false)}
+            />
+
             {/* Sidebar */}
-            <div style={{
-                width: '280px',
-                backgroundColor: 'var(--bg-card)',
-                borderRight: '1px solid var(--border-color)',
-                display: 'flex',
-                flexDirection: 'column',
-                position: 'fixed',
-                top: '64px',
-                height: 'calc(100vh - 64px)',
-                zIndex: 100
-            }}>
+            <div className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
                 <div style={{ padding: '2rem 1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <Shield size={28} style={{ color: 'var(--primary)' }} />
                     <h2 style={{ fontSize: '1.25rem', margin: 0, fontWeight: 'bold', color: 'var(--text-primary)' }}>
@@ -256,7 +253,7 @@ const AdminDashboard: React.FC = () => {
 
                 <nav style={{ flex: 1, padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     <button
-                        onClick={() => setActiveTab('candidates')}
+                        onClick={() => { setActiveTab('candidates'); setSidebarOpen(false); }}
                         style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -277,7 +274,7 @@ const AdminDashboard: React.FC = () => {
                     </button>
 
                     <button
-                        onClick={() => setActiveTab('questions')}
+                        onClick={() => { setActiveTab('questions'); setSidebarOpen(false); }}
                         style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -298,7 +295,7 @@ const AdminDashboard: React.FC = () => {
                     </button>
 
                     <button
-                        onClick={() => setActiveTab('hr')}
+                        onClick={() => { setActiveTab('hr'); setSidebarOpen(false); }}
                         style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -319,7 +316,7 @@ const AdminDashboard: React.FC = () => {
                     </button>
 
                     <button
-                        onClick={() => setActiveTab('slots')}
+                        onClick={() => { setActiveTab('slots'); setSidebarOpen(false); }}
                         style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -363,22 +360,30 @@ const AdminDashboard: React.FC = () => {
             </div>
 
             {/* Main Content */}
-            <div style={{ flex: 1, marginLeft: '280px', padding: '2rem 3rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
-                    <div>
-                        <h1 style={{ fontSize: '1.75rem', fontWeight: 'bold', color: 'var(--text-primary)', margin: 0 }}>
-                            {activeTab === 'candidates' ? 'Candidates Oversight' :
-                                activeTab === 'questions' ? 'Questions Bank' :
-                                    activeTab === 'hr' ? 'Team Management' : 'Interview Scheduling'}
-                        </h1>
-                        <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-                            {activeTab === 'candidates' ? 'Track and manage candidate progress and referrals.' :
-                                activeTab === 'questions' ? 'Manage your library of technical and conceptual questions.' :
-                                    activeTab === 'hr' ? 'Add or remove HR team members and manage access.' : 'Coordinate and schedule technical interaction slots.'}
-                        </p>
+            <div className="admin-main-content">
+                <div className="admin-header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <button
+                            className="mobile-menu-toggle"
+                            onClick={() => setSidebarOpen(!sidebarOpen)}
+                        >
+                            <Menu size={24} />
+                        </button>
+                        <div>
+                            <h1 style={{ fontSize: '1.75rem', fontWeight: 'bold', color: 'var(--text-primary)', margin: 0 }}>
+                                {activeTab === 'candidates' ? 'Candidates Oversight' :
+                                    activeTab === 'questions' ? 'Questions Bank' :
+                                        activeTab === 'hr' ? 'Team Management' : 'Interview Scheduling'}
+                            </h1>
+                            <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+                                {activeTab === 'candidates' ? 'Track and manage candidate progress and referrals.' :
+                                    activeTab === 'questions' ? 'Manage your library of technical and conceptual questions.' :
+                                        activeTab === 'hr' ? 'Add or remove HR team members and manage access.' : 'Coordinate and schedule technical interaction slots.'}
+                            </p>
+                        </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '1rem' }}>
+                    <div className="admin-header-actions">
                         {activeTab === 'candidates' ? (
                             <button
                                 className="btn btn-primary"
@@ -428,8 +433,8 @@ const AdminDashboard: React.FC = () => {
                 </div>
 
                 {activeTab === 'candidates' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-                        <div className="card" style={{ height: '350px', padding: '1.5rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+                        <div className="card admin-chart-card" style={{ height: '350px', padding: '1.5rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
                                 <PieChartIcon size={20} style={{ color: 'var(--primary)' }} />
                                 <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Candidate Status</h3>
@@ -452,7 +457,7 @@ const AdminDashboard: React.FC = () => {
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
-                        <div className="card" style={{ height: '350px', padding: '1.5rem' }}>
+                        <div className="card admin-chart-card" style={{ height: '350px', padding: '1.5rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
                                 <PieChartIcon size={20} style={{ color: 'var(--primary)' }} />
                                 <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Candidates by Domain</h3>
@@ -467,7 +472,7 @@ const AdminDashboard: React.FC = () => {
                                 </ReBarChart>
                             </ResponsiveContainer>
                         </div>
-                        <div className="card" style={{ height: '350px', padding: '1.5rem' }}>
+                        <div className="card admin-chart-card" style={{ height: '350px', padding: '1.5rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
                                 <TrendingUp size={20} style={{ color: 'var(--primary)' }} />
                                 <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Registration Trend</h3>
@@ -489,7 +494,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
                 )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+                <div className="admin-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
                     {activeTab === 'candidates' && (
                         <>
                             <StatCard icon={<Users />} label="Total Candidates" value={stats.totalCandidates.toString()} />
@@ -542,7 +547,7 @@ const AdminDashboard: React.FC = () => {
                                     No candidates yet. Click "Add Candidate" to get started.
                                 </p>
                             ) : (
-                                <div style={{ overflowX: 'auto' }}>
+                                <div className="admin-table-container" style={{ overflowX: 'auto' }}>
                                     <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-primary)' }}>
                                         <thead>
                                             <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
@@ -579,7 +584,7 @@ const AdminDashboard: React.FC = () => {
                             {questions.length === 0 ? (
                                 <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>No questions available.</p>
                             ) : (
-                                <div style={{ overflowX: 'auto' }}>
+                                <div className="admin-table-container" style={{ overflowX: 'auto' }}>
                                     <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-primary)' }}>
                                         <thead>
                                             <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
@@ -641,7 +646,7 @@ const AdminDashboard: React.FC = () => {
                             {(hrs.length + interviewers.length) === 0 ? (
                                 <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>No team members found.</p>
                             ) : (
-                                <div style={{ overflowX: 'auto' }}>
+                                <div className="admin-table-container" style={{ overflowX: 'auto' }}>
                                     <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-primary)' }}>
                                         <thead>
                                             <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
@@ -692,7 +697,7 @@ const AdminDashboard: React.FC = () => {
                             {slots.length === 0 ? (
                                 <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>No slots created yet.</p>
                             ) : (
-                                <div style={{ overflowX: 'auto' }}>
+                                <div className="admin-table-container" style={{ overflowX: 'auto' }}>
                                     <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-primary)' }}>
                                         <thead>
                                             <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
@@ -940,8 +945,8 @@ const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () => void, 
     };
 
     return (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '2rem' }}>
-            <div className="card" style={{ width: '100%', maxWidth: '900px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
+        <div className="admin-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '2rem' }}>
+            <div className="card admin-modal" style={{ width: '100%', maxWidth: '900px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
                 <div style={{
                     padding: '1.5rem',
                     borderBottom: '1px solid var(--border-color)',
@@ -970,7 +975,7 @@ const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () => void, 
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', backgroundColor: 'var(--bg-card)' }}>
                     {activeTab === 'info' ? (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                        <div className="admin-modal-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
                             <div>
                                 <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Personal Details</h3>
                                 <div style={{ marginBottom: '1rem' }}><div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Full Name</div><div style={{ fontSize: '1.1rem', fontWeight: '600' }}>{candidate.name}</div></div>
