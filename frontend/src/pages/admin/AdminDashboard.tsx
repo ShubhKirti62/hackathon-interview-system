@@ -44,6 +44,7 @@ interface Question {
     type: 'MCQ' | 'Descriptive';
     options: string[];
     correctAnswers: string[];
+    keywords?: string[];
 }
 
 interface Stats {
@@ -1256,7 +1257,8 @@ const AddQuestionModal: React.FC<{ onClose: () => void, onSuccess: () => void, e
         difficulty: existingQuestion?.difficulty || 'Medium',
         type: existingQuestion?.type || 'MCQ',
         options: existingQuestion?.type === 'MCQ' ? existingQuestion.options : ['', '', '', ''],
-        correctAnswers: existingQuestion?.correctAnswers || []
+        correctAnswers: existingQuestion?.correctAnswers || [],
+        keywords: existingQuestion?.keywords?.join(', ') || ''
     });
     const [loading, setLoading] = useState(false);
 
@@ -1264,8 +1266,13 @@ const AddQuestionModal: React.FC<{ onClose: () => void, onSuccess: () => void, e
         e.preventDefault();
         setLoading(true);
         try {
-            if (existingQuestion) await api.patch(`${API_ENDPOINTS.QUESTIONS.BASE}/${existingQuestion._id}`, formData);
-            else await api.post(API_ENDPOINTS.QUESTIONS.BASE, formData);
+            const payload = {
+                ...formData,
+                keywords: formData.keywords.split(',').map(k => k.trim()).filter(k => k)
+            };
+
+            if (existingQuestion) await api.patch(`${API_ENDPOINTS.QUESTIONS.BASE}/${existingQuestion._id}`, payload);
+            else await api.post(API_ENDPOINTS.QUESTIONS.BASE, payload);
             onSuccess(); onClose();
         } catch (err) { showToast.error('Failed to save question'); }
         finally { setLoading(false); }
@@ -1308,6 +1315,22 @@ const AddQuestionModal: React.FC<{ onClose: () => void, onSuccess: () => void, e
                                 <select className="input" value={formData.difficulty} onChange={e => setFormData({ ...formData, difficulty: e.target.value })}>
                                     <option value="Easy">Easy</option><option value="Medium">Medium</option><option value="Hard">Hard</option>
                                 </select>
+                            </div>
+                        </div>
+
+                        {/* Keyword field for everyone, but especially Descriptive */}
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>
+                                Mandatory Keywords / Concepts <span style={{fontSize: '0.7em', color: 'var(--primary)'}}>(AI Grading)</span>
+                            </label>
+                            <input 
+                                className="input" 
+                                placeholder="e.g. Virtual DOM, State, Props (comma separated)" 
+                                value={formData.keywords} 
+                                onChange={e => setFormData({ ...formData, keywords: e.target.value })} 
+                            />
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                                The AI will check for these specific terms.
                             </div>
                         </div>
 

@@ -10,6 +10,7 @@ const QuestionSchema = new mongoose.Schema({
     },
     difficulty: { type: String, enum: ['Easy', 'Medium', 'Hard'], default: 'Medium' },
     type: { type: String, enum: ['MCQ', 'Descriptive'], default: 'MCQ' },
+    keywords: [{ type: String }], // Mandatory keywords for descriptive answers
     options: [{ type: String }], // Array of options for MCQs
     correctAnswers: [{ type: String }], // Array of correct options
     verified: { type: Boolean, default: false },
