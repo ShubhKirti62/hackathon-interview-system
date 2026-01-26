@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as faceapi from 'face-api.js';
 import { Camera, CheckCircle, AlertTriangle, Loader } from 'lucide-react';
 import api from '../services/api';
@@ -105,10 +105,24 @@ const FaceRegistration: React.FC<FaceRegistrationProps> = ({ candidateId, onSucc
 
             const descriptor = Array.from(detection.descriptor); // Convert Float32Array to normal array
 
+            // Capture the image for display
+            let image = '';
+            if (canvasRef.current && videoRef.current) {
+                const canvas = document.createElement('canvas');
+                canvas.width = videoRef.current.videoWidth;
+                canvas.height = videoRef.current.videoHeight;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    ctx.drawImage(videoRef.current, 0, 0);
+                    image = canvas.toDataURL('image/png');
+                }
+            }
+
             // Send to backend
             await api.post(API_ENDPOINTS.FACE.REGISTER, {
                 candidateId,
-                descriptor
+                descriptor,
+                image
             });
 
             showToast.success('Face registered successfully!');
@@ -145,7 +159,7 @@ const FaceRegistration: React.FC<FaceRegistrationProps> = ({ candidateId, onSucc
 
                     <div style={{ position: 'relative', width: '100%', maxWidth: '480px', aspectRatio: '4/3', backgroundColor: 'black', borderRadius: '0.5rem', overflow: 'hidden', marginBottom: '1.5rem' }}>
                         {initializing && (
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexDirection: 'column', gap: '1rem', zIndex: 20 }}>
                                 <Loader className="animate-spin" size={32} />
                                 <div>Loading AI Models...</div>
                             </div>
@@ -159,14 +173,36 @@ const FaceRegistration: React.FC<FaceRegistrationProps> = ({ candidateId, onSucc
                         />
                         <canvas ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0 }} />
                         
-                        {!initializing && !detecting && (
-                            <div style={{ 
-                                position: 'absolute', bottom: '1rem', left: '0', right: '0', 
-                                textAlign: 'center', color: faceDetected ? 'var(--success)' : 'var(--warning)',
-                                textShadow: '0 2px 4px rgba(0,0,0,0.8)', fontWeight: 'bold'
-                            }}>
-                                {faceDetected ? 'Face Detected - Ready to Capture' : 'Position your face in the frame'}
-                            </div>
+                        {/* Visual Guide Frame */}
+                        {!initializing && (
+                            <>
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '50%', left: '50%',
+                                    transform: 'translate(-50%, -50%)',
+                                    width: '220px', height: '280px',
+                                    border: `2px dashed ${faceDetected ? '#22c55e' : 'rgba(255, 255, 255, 0.5)'}`,
+                                    borderRadius: '16px',
+                                    boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)',
+                                    pointerEvents: 'none',
+                                    zIndex: 10,
+                                    transition: 'border-color 0.3s ease'
+                                }} />
+                                {!detecting && (
+                                    <div style={{ 
+                                        position: 'absolute', bottom: '1.5rem', left: '0', right: '0', 
+                                        textAlign: 'center', color: 'white',
+                                        textShadow: '0 2px 4px rgba(0,0,0,0.8)', fontWeight: 'bold',
+                                        zIndex: 20
+                                    }}>
+                                        {faceDetected ? (
+                                            <span style={{ color: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                                <CheckCircle size={20} /> Face Detected
+                                            </span>
+                                        ) : 'Position your face in the frame'}
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
 

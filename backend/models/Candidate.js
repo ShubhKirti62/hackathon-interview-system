@@ -29,6 +29,7 @@ const CandidateSchema = new mongoose.Schema({
 
     // Face Verification Data
     faceDescriptor: { type: [Number] }, // 128-dimensional face descriptor array
+    faceImage: { type: String }, // Path/URL to the registered face image
     faceRegisteredAt: { type: Date },
     faceVerificationEnabled: { type: Boolean, default: false },
 

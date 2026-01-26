@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Mic, MicOff, Send, AlertCircle, Clock, WifiOff, AlertTriangle } from 'lucide-react';
+import { Mic, MicOff, Send, AlertCircle, Clock, WifiOff } from 'lucide-react';
 import api from '../../services/api';
 import { API_ENDPOINTS } from '../../services/endpoints';
 import { APP_ROUTES } from '../../routes';
@@ -16,13 +16,13 @@ interface Question {
 
 interface Interview {
     _id: string;
+    candidateId: { _id: string } | string;
     questions: Question[];
     currentQuestionIndex: number;
     remainingTime?: number;
     status: string;
 }
 import FaceVerification from '../../components/FaceVerification';
-import type { VerificationStatus } from '../../context/FaceVerificationContext';
 
 const InterviewPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -32,18 +32,9 @@ const InterviewPage: React.FC = () => {
     const [currentQIndex, setCurrentQIndex] = useState(0);
     const [timeLeft, setTimeLeft] = useState<number | null>(null);
     const [isRecording, setIsRecording] = useState(false);
-    const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>('idle');
-    const [showMismatchWarning, setShowMismatchWarning] = useState(false);
 
-    const handleVerificationChange = useCallback((status: VerificationStatus) => {
-        setVerificationStatus(status);
-    }, []);
 
-    const handleMaxMismatchesReached = useCallback(() => {
-        setShowMismatchWarning(true);
-        // In a real app, you would notify HR/admin here via API
-        console.log('Max mismatches reached - notifying HR');
-    }, []);
+
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -305,12 +296,7 @@ const InterviewPage: React.FC = () => {
 
     return (
         <div className="container" style={{ padding: '2rem 1rem', maxWidth: '800px' }}>
-            {showMismatchWarning && (
-                <div className="mismatch-alert">
-                    <AlertTriangle size={20} />
-                    <span>Multiple face mismatches detected. HR has been notified.</span>
-                </div>
-            )}
+
 
             {isOffline && (
                 <div style={{
@@ -354,14 +340,7 @@ const InterviewPage: React.FC = () => {
                     {formatTime(timeLeft || 0)}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div
-                        className={`verification-badge ${verificationStatus}`}
-                        title={`Verification: ${verificationStatus}`}
-                    >
-                        {verificationStatus === 'verified' ? 'Verified' :
-                            verificationStatus === 'mismatch' ? 'Mismatch' :
-                                verificationStatus === 'pending' ? 'Checking...' : 'Pending'}
-                    </div>
+                    
                 </div>
             </div>
 
@@ -498,7 +477,11 @@ const InterviewPage: React.FC = () => {
             </div>
 
             {/* Video Monitor Panel */}
-            <FaceVerification candidateId={id || ''} />
+            {interview && (
+                <FaceVerification 
+                    candidateId={typeof interview.candidateId === 'string' ? interview.candidateId : interview.candidateId._id} 
+                />
+            )}
         </div>
     );
 };

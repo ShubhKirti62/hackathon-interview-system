@@ -22,8 +22,7 @@ const LiveMeetingPage: React.FC = () => {
     const [showFeedback, setShowFeedback] = useState(false);
     const [meetingDuration, setMeetingDuration] = useState(0);
     const [slotData, setSlotData] = useState<any>(null);
-    const [isConnecting, setIsConnecting] = useState(false);
-    const [connectionState, setConnectionState] = useState<string>('disconnected');
+
     const [videoCallManager] = useState(() => new VideoCallManager());
 
     // Feedback States
@@ -41,7 +40,7 @@ const LiveMeetingPage: React.FC = () => {
 
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
-    const screenStreamRef = useRef<MediaStream | null>(null);
+
 
     useEffect(() => {
         const fetchSlot = async () => {
@@ -69,21 +68,17 @@ const LiveMeetingPage: React.FC = () => {
 
     const initializeVideoCall = async () => {
         try {
-            setIsConnecting(true);
-            
             // Set video refs
             videoCallManager.setLocalVideoRef(localVideoRef.current);
             videoCallManager.setRemoteVideoRef(remoteVideoRef.current);
             
             // Setup connection state callback
             videoCallManager.onConnectionStateChange((state) => {
-                setConnectionState(state);
+                // setConnectionState(state); // Removed state
                 if (state === 'connected') {
                     showToast.success('Connected to interview room');
-                    setIsConnecting(false);
                 } else if (state === 'failed' || state === 'disconnected') {
                     showToast.error('Connection lost');
-                    setIsConnecting(false);
                 }
             });
             
@@ -99,7 +94,6 @@ const LiveMeetingPage: React.FC = () => {
         } catch (error) {
             console.error('Failed to initialize video call:', error);
             showToast.error('Failed to access camera/microphone');
-            setIsConnecting(false);
         }
     };
 
@@ -132,22 +126,9 @@ const LiveMeetingPage: React.FC = () => {
         }
     };
 
-    const endCall = () => {
-        if (videoCallManager) {
-            videoCallManager.disconnect();
-        }
-        navigate(user?.role === 'candidate' ? APP_ROUTES.CANDIDATE.DASHBOARD : APP_ROUTES.ADMIN.DASHBOARD);
-    };
 
-    const startCamera = async () => {
-        try {
-            await videoCallManager.initializeLocalStream(true, true);
-            videoCallManager.setLocalVideoRef(localVideoRef.current);
-        } catch (err) {
-            console.error('Camera access denied', err);
-            showToast.error('Failed to access camera/microphone');
-        }
-    };
+
+
 
     const stopCamera = () => {
         if (videoCallManager) {
