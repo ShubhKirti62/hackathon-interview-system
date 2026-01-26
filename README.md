@@ -214,11 +214,13 @@ npm run build:prod
 ## 🎯 Experience Levels
 
 - Fresher/Intern
+- 0-1 years
 - 1-2 years
 - 2-4 years
 - 4-6 years
 - 6-8 years
 - 8-10 years
+- 10+ years
 
 ## 📊 Scoring Metrics
 

@@ -137,7 +137,9 @@ export class VideoCallManager {
   async startScreenShare(): Promise<MediaStream> {
     try {
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
+        video: { 
+          displaySurface: 'monitor'
+        },
         audio: true
       });
 

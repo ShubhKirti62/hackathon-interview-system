@@ -5,31 +5,26 @@ import api from '../services/api';
 import { API_ENDPOINTS } from '../services/endpoints';
 import { APP_ROUTES } from '../routes';
 import { Rocket, Users, UserPlus, Eye, EyeOff } from 'lucide-react';
+import { showToast } from '../utils/toast';
 
 const RegisterPage: React.FC = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [role, setRole] = useState('candidate'); // Default role
-    const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
         try {
-            const res = await api.post(API_ENDPOINTS.AUTH.REGISTER, { name, email, password, role });
+            const res = await api.post(API_ENDPOINTS.AUTH.REGISTER, { name, email, password, role: 'admin' });
             // Automatically login after register
             login(res.data.token, res.data.user);
-            if (res.data.user.role === 'admin') {
-                navigate(APP_ROUTES.ADMIN.DASHBOARD);
-            } else {
-                navigate(APP_ROUTES.CANDIDATE.DASHBOARD);
-            }
+            showToast.success('Admin account created successfully!');
+            navigate(APP_ROUTES.ADMIN.DASHBOARD);
         } catch (err: any) {
-            setError(err.response?.data?.msg || 'Registration failed');
+            showToast.error(err.response?.data?.msg || 'Registration failed');
         }
     };
 
@@ -102,10 +97,8 @@ const RegisterPage: React.FC = () => {
                         fontSize: '0.875rem',
                         color: 'var(--text-secondary)'
                     }}>
-                        <strong style={{ color: 'var(--primary)' }}>📋 Note for Candidates:</strong> You can only create an account if your email was previously added by an admin through resume upload. Please contact your administrator if you're unable to register.
+                        <strong style={{ color: 'var(--primary)' }}>� Admin Registration Only:</strong> This registration page is for administrators only. Candidates are created by admins through resume upload and can sign in with their email and default password.
                     </div>
-
-                    {error && <div style={{ color: 'var(--error)', marginBottom: '1.5rem', textAlign: 'center', padding: '0.75rem', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '0.5rem' }}>{error}</div>}
 
                     <form onSubmit={handleSubmit}>
                         <div style={{ marginBottom: '1.5rem' }}>
@@ -164,32 +157,7 @@ const RegisterPage: React.FC = () => {
                                 </button>
                             </div>
                         </div>
-                        <div style={{ marginBottom: '2rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontWeight: 500 }}>I am a...</label>
-                            <select
-                                className="input"
-                                value={role}
-                                onChange={(e) => setRole(e.target.value)}
-                                style={{ cursor: 'pointer' }}
-                            >
-                                <option value="candidate">Candidate / Interviewer</option>
-                                <option value="admin">Admin</option>
-                            </select>
-                        {role === 'candidate' && (
-                            <div style={{ 
-                                marginTop: '1rem', 
-                                padding: '0.75rem', 
-                                backgroundColor: 'rgba(245, 158, 11, 0.1)', 
-                                border: '1px solid rgba(245, 158, 11, 0.3)', 
-                                borderRadius: '0.5rem',
-                                fontSize: '0.8rem',
-                                color: 'var(--text-secondary)'
-                            }}>
-                                ⚠️ Your email must be in our candidate database. If you're unable to register, please contact your administrator to upload your resume first.
-                            </div>
-                        )}
-                        </div>
-                        <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '1rem', fontSize: '1rem' }}>Get Started</button>
+                        <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '1rem', fontSize: '1rem' }}>Create Admin Account</button>
                         <div style={{ marginTop: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
                             Already have an account? <Link to={APP_ROUTES.LOGIN} style={{ color: 'var(--primary)', fontWeight: 'bold' }}>Sign in</Link>
                         </div>

@@ -86,6 +86,51 @@ const seedData = async () => {
                 experienceLevel: '1-2 years',
                 status: 'Rejected',
                 internalReferred: false
+            },
+            {
+                name: 'Emily Davis',
+                email: 'emily.davis@example.com',
+                phone: '+91-9876543215',
+                domain: 'Sales & Marketing',
+                experienceLevel: '2-4 years',
+                status: 'Pending',
+                internalReferred: false
+            },
+            {
+                name: 'Robert Wilson',
+                email: 'robert.wilson@example.com',
+                phone: '+91-9876543216',
+                domain: 'Business Analyst',
+                experienceLevel: '4-6 years',
+                status: 'Interviewed',
+                internalReferred: true
+            },
+            {
+                name: 'Lisa Anderson',
+                email: 'lisa.anderson@example.com',
+                phone: '+91-9876543217',
+                domain: 'QA/Testing',
+                experienceLevel: '1-2 years',
+                status: 'Shortlisted',
+                internalReferred: false
+            },
+            {
+                name: 'James Taylor',
+                email: 'james.taylor@example.com',
+                phone: '+91-9876543218',
+                domain: 'UI/UX Design',
+                experienceLevel: '2-4 years',
+                status: 'Pending',
+                internalReferred: false
+            },
+            {
+                name: 'Maria Garcia',
+                email: 'maria.garcia@example.com',
+                phone: '+91-9876543219',
+                domain: 'Product Management',
+                experienceLevel: '6-8 years',
+                status: 'Interviewed',
+                internalReferred: true
             }
         ]);
         console.log(`Created ${candidates.length} candidates`);
@@ -178,6 +223,51 @@ const seedData = async () => {
                 domain: 'Data Science',
                 experienceLevel: 'Fresher/Intern',
                 difficulty: 'Easy',
+                verified: true,
+                createdBy: admin._id,
+                verifiedBy: admin._id
+            },
+            {
+                text: 'How would you approach selling a new technical product to a non-technical client?',
+                domain: 'Sales & Marketing',
+                experienceLevel: '2-4 years',
+                difficulty: 'Medium',
+                verified: true,
+                createdBy: admin._id,
+                verifiedBy: admin._id
+            },
+            {
+                text: 'Describe a time when you had to analyze business requirements and translate them into technical specifications.',
+                domain: 'Business Analyst',
+                experienceLevel: '4-6 years',
+                difficulty: 'Hard',
+                verified: true,
+                createdBy: admin._id,
+                verifiedBy: admin._id
+            },
+            {
+                text: 'What testing methodologies do you follow and how do you ensure comprehensive test coverage?',
+                domain: 'QA/Testing',
+                experienceLevel: '1-2 years',
+                difficulty: 'Medium',
+                verified: true,
+                createdBy: admin._id,
+                verifiedBy: admin._id
+            },
+            {
+                text: 'How do you approach user research and what methods do you use to gather user feedback?',
+                domain: 'UI/UX Design',
+                experienceLevel: '2-4 years',
+                difficulty: 'Medium',
+                verified: true,
+                createdBy: admin._id,
+                verifiedBy: admin._id
+            },
+            {
+                text: 'How do you prioritize features in a product roadmap when dealing with limited resources?',
+                domain: 'Product Management',
+                experienceLevel: '4-6 years',
+                difficulty: 'Hard',
                 verified: true,
                 createdBy: admin._id,
                 verifiedBy: admin._id

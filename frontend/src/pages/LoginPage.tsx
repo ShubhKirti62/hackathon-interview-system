@@ -5,6 +5,7 @@ import api from '../services/api';
 import { API_ENDPOINTS } from '../services/endpoints';
 import { APP_ROUTES } from '../routes';
 import { Brain, Target, TrendingUp, Cpu, Lock, Eye, EyeOff, AlertTriangle } from 'lucide-react';
+import { showToast } from '../utils/toast';
 
 const LoginPage: React.FC = () => {
     const [email, setEmail] = useState('candidate@example.com');
@@ -51,7 +52,7 @@ const LoginPage: React.FC = () => {
                 setIsBlocked(true);
                 setError(err.response?.data?.msg || 'Your account has been blocked. Please contact HR.');
             } else {
-                setError(err.response?.data?.msg || 'Login failed');
+                showToast.error(err.response?.data?.msg || 'Invalid Credentials');
             }
         }
     };
@@ -139,7 +140,7 @@ const LoginPage: React.FC = () => {
                         }}>
                             <Lock color="white" size={24} />
                         </div>
-                        <h2 style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Welcome Back</h2>
+                        <h2 style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Welcome</h2>
                         <p style={{ color: 'var(--text-secondary)' }}>Please enter your details to sign in.</p>
                     </div>
 

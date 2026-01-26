@@ -1,5 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap');
+
 :root {
-  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-family: "Rubik", sans-serif !important;
 
   /* Light Theme Colors */
   --bg-primary: #f0f4f8;
@@ -32,6 +34,9 @@
   --error: #f87171;
 }
 
+select, option{
+    font-family: var(--font-family);
+}
 body {
   font-family: var(--font-family);
   background-color: var(--bg-primary);
@@ -61,7 +66,7 @@ button {
 
 /* Utilities */
 .container {
-  max-width: 1200px;
+  /* max-width: 1200px; */
   margin: 0 auto;
   padding: 0 1rem;
 }
