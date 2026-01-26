@@ -21,10 +21,13 @@ function euclideanDistance(descriptor1, descriptor2) {
     return Math.sqrt(sum);
 }
 
+const fs = require('fs');
+const path = require('path');
+
 // Register face descriptor for a candidate
 router.post('/register', async (req, res) => {
     try {
-        const { candidateId, descriptor } = req.body;
+        const { candidateId, descriptor, image } = req.body;
 
         if (!candidateId || !descriptor) {
             return res.status(400).json({ error: 'candidateId and descriptor are required' });
@@ -44,8 +47,29 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ error: 'Face already registered for this candidate' });
         }
 
+        // Save face image if provided
+        let faceImagePath = '';
+        if (image) {
+            const matches = image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+            if (matches && matches.length === 3) {
+                const buffer = Buffer.from(matches[2], 'base64');
+                const uploadDir = path.join(__dirname, '../uploads/faces');
+                
+                if (!fs.existsSync(uploadDir)) {
+                    fs.mkdirSync(uploadDir, { recursive: true });
+                }
+
+                const fileName = `${candidateId}_${Date.now()}.png`;
+                const filePath = path.join(uploadDir, fileName);
+                
+                fs.writeFileSync(filePath, buffer);
+                faceImagePath = `/uploads/faces/${fileName}`; // Relative URL
+            }
+        }
+
         // Save face descriptor
         candidate.faceDescriptor = descriptor;
+        candidate.faceImage = faceImagePath;
         candidate.faceRegisteredAt = new Date();
         candidate.faceVerificationEnabled = true;
         await candidate.save();
@@ -63,6 +87,7 @@ router.post('/register', async (req, res) => {
             success: true,
             message: 'Face registered successfully',
             registeredAt: candidate.faceRegisteredAt,
+            faceImage: faceImagePath
         });
     } catch (error) {
         console.error('Face registration error:', error);

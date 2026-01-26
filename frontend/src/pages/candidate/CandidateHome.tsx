@@ -7,6 +7,7 @@ import { API_ENDPOINTS } from '../../services/endpoints';
 import { APP_ROUTES } from '../../routes';
 import { showToast } from '../../utils/toast';
 
+
 interface Candidate {
     _id: string;
     name: string;
@@ -16,6 +17,7 @@ interface Candidate {
     experienceLevel: string;
     status: 'Pending' | 'Interviewed' | 'Shortlisted' | 'Rejected' | 'Slot_Booked' | 'Round_2_Completed';
     faceVerificationEnabled: boolean;
+    faceImage?: string;
     evaluationMetrics?: EvaluationMetrics;
     overallScore?: number;
 }
@@ -123,6 +125,8 @@ const CandidateHome: React.FC = () => {
         }
     };
 
+
+
     if (loading) return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
             <div className="animate-spin text-primary">⌛</div>
@@ -188,8 +192,10 @@ const CandidateHome: React.FC = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                             <div style={{ background: 'var(--bg-secondary)', padding: '0.5rem', borderRadius: '0.5rem' }}><ShieldCheck size={18} /></div>
                             <div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Facial Recognition</div>
-                                <div style={{ fontWeight: '500' }}>{candidate?.faceVerificationEnabled ? 'Enabled' : 'Not Setup'}</div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Status</div>
+                                <div style={{ fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    Ready to Interview
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -202,12 +208,14 @@ const CandidateHome: React.FC = () => {
                             <Clock size={20} /> Interview Status
                         </h2>
 
-                        {!activeInterview && candidate?.status === 'Pending' && (
+                        {!activeInterview && (candidate?.status === 'Interviewed' || candidate?.status === 'Rejected') && (
                             <div style={{ textAlign: 'center', padding: '2rem 0' }}>
                                 <AlertCircle size={48} style={{ color: 'var(--warning)', marginBottom: '1rem', opacity: 0.5 }} />
                                 <p style={{ color: 'var(--text-secondary)' }}>No interview is currently active or scheduled.</p>
                             </div>
                         )}
+
+
 
                         {activeInterview && (
                             <div style={{ padding: '1rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '0.5rem', marginBottom: '1rem' }}>
@@ -325,11 +333,12 @@ const CandidateHome: React.FC = () => {
                     </div>
 
                     <div style={{ marginTop: '2rem' }}>
-                        {(activeInterview || candidate?.status === 'Pending') ? (
+                        {(activeInterview || (candidate?.status !== 'Interviewed' && candidate?.status !== 'Slot_Booked' && candidate?.status !== 'Round_2_Completed' && candidate?.status !== 'Rejected')) ? (
                             <button
                                 onClick={handleStartOrResume}
                                 className="btn btn-primary"
                                 style={{ width: '100%', gap: '0.5rem', padding: '1rem' }}
+                                disabled={false}
                             >
                                 {activeInterview?.status === 'In-Progress' ? <Play size={18} /> : <ArrowRight size={18} />}
                                 {activeInterview?.status === 'In-Progress' ? 'Resume My Interview' : 'Start My Interview'}
@@ -348,6 +357,8 @@ const CandidateHome: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+
 
             {candidate?.status === 'Interviewed' && (
                 <div style={{ marginTop: '2rem' }}>

@@ -14,10 +14,22 @@ const CandidateSchema = new mongoose.Schema({
     domain: { type: String, required: true }, // e.g., 'Frontend', 'Backend'
     role: { type: String }, // specific role e.g., 'frontend_dev', 'sales'
     internalReferred: { type: Boolean, default: false },
-    status: { type: String, enum: ['Pending', 'Interviewed', 'Shortlisted', 'Rejected', 'Slot_Booked', 'Round_2_Completed'], default: 'Pending' },
+    status: { 
+        type: String, 
+        enum: [
+            'Profile Submitted', 
+            'Interview 1st Round Pending', 
+            '1st Round Completed', 
+            '2nd Round Qualified', 
+            'Rejected',
+            'Pending', 'Shortlisted', 'Slot_Booked', 'Interviewed', 'Round_2_Completed' // Keeping old ones temporarily to avoid crash if db has them
+        ], 
+        default: 'Profile Submitted' 
+    },
 
     // Face Verification Data
     faceDescriptor: { type: [Number] }, // 128-dimensional face descriptor array
+    faceImage: { type: String }, // Path/URL to the registered face image
     faceRegisteredAt: { type: Date },
     faceVerificationEnabled: { type: Boolean, default: false },
 

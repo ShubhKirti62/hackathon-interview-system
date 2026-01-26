@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Plus, Users, BarChart, FileText, CheckCircle, X, Camera, ChevronLeft, ChevronRight, Shield, Star, Filter, Phone, Mail, File, ExternalLink, Settings, Clock, PieChart as PieChartIcon, TrendingUp, Menu } from 'lucide-react';
+import { Upload, Plus, Users, BarChart, FileText, CheckCircle, X,Camera, ChevronLeft, ChevronRight, Shield, Star, Filter, Phone, Mail, File, ExternalLink, Settings, Clock, PieChart as PieChartIcon, TrendingUp, Send, Image as ImageIcon } from 'lucide-react';
+import ScreenshotViewerModal from '../../components/Modals/ScreenshotViewerModal';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart as ReBarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, AreaChart, Area } from 'recharts';
 import api from '../../services/api';
 import { API_ENDPOINTS } from '../../services/endpoints';
@@ -94,7 +95,9 @@ const AdminDashboard: React.FC = () => {
     const [showSlotModal, setShowSlotModal] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [selectedSlot, setSelectedSlot] = useState<any>(null);
-    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [showInviteModal, setShowInviteModal] = useState(false);
+    const [showScreenshotModal, setShowScreenshotModal] = useState(false);
+    const [viewingScreenshotsCandidate, setViewingScreenshotsCandidate] = useState<{id: string, name: string} | null>(null);
 
 
     const chartData = useMemo(() => {
@@ -232,6 +235,10 @@ const AdminDashboard: React.FC = () => {
         } catch (err: any) {
             showToast.error(err.response?.data?.error || 'Failed to delete candidate');
         }
+    };
+
+    const handleInviteClick = () => {
+        setShowInviteModal(true);
     };
 
     return (
@@ -571,6 +578,10 @@ const AdminDashboard: React.FC = () => {
                                                         isAdmin={true}
                                                         onView={() => setSelectedCandidate(candidate)}
                                                         onDelete={() => handleDeleteCandidate(candidate._id)}
+                                                        onViewScreenshots={() => {
+                                                            setViewingScreenshotsCandidate({ id: candidate._id, name: candidate.name });
+                                                            setShowScreenshotModal(true);
+                                                        }}
                                                     />
                                                 ))}
                                         </tbody>
@@ -803,15 +814,26 @@ const AdminDashboard: React.FC = () => {
                     interviewers={interviewers}
                 />
             )}
-            {showFeedbackModal && (
+            {showFeedbackModal && selectedSlot && (
                 <FeedbackModal
                     slot={selectedSlot}
-                    onClose={() => {
-                        setShowFeedbackModal(false);
-                        setSelectedSlot(null);
-                    }}
+                    onClose={() => setShowFeedbackModal(false)}
                     onSuccess={fetchDashboardData}
-                    type={user?.role === 'hr' ? 'hr' : 'interviewer'}
+                    type="hr"
+                />
+            )}
+            {showInviteModal && selectedCandidate && (
+                <SendInviteModal
+                    candidate={selectedCandidate}
+                    onClose={() => setShowInviteModal(false)}
+                    onSuccess={fetchDashboardData}
+                />
+            )}
+            {showScreenshotModal && viewingScreenshotsCandidate && (
+                <ScreenshotViewerModal
+                    candidateId={viewingScreenshotsCandidate.id}
+                    candidateName={viewingScreenshotsCandidate.name}
+                    onClose={() => setShowScreenshotModal(false)}
                 />
             )}
             {selectedCandidate && (
@@ -819,11 +841,13 @@ const AdminDashboard: React.FC = () => {
                     candidate={selectedCandidate}
                     onClose={() => setSelectedCandidate(null)}
                     onSuccess={fetchDashboardData}
+                    onInvite={handleInviteClick}
                 />
             )}
         </div>
     );
 };
+
 
 const StatCard: React.FC<{ icon: React.ReactNode, label: string, value: string }> = ({ icon, label, value }) => (
     <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -837,7 +861,7 @@ const StatCard: React.FC<{ icon: React.ReactNode, label: string, value: string }
     </div>
 );
 
-const TableRow: React.FC<{ candidate: Candidate, isAdmin: boolean, onView: () => void, onDelete: () => void }> = ({ candidate, isAdmin, onView, onDelete }) => {
+const TableRow: React.FC<{ candidate: Candidate, isAdmin: boolean, onView: () => void, onDelete: () => void, onViewScreenshots?: () => void }> = ({ candidate, isAdmin, onView, onDelete, onViewScreenshots }) => {
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'Interviewed': return { bg: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)' };
@@ -898,6 +922,15 @@ const TableRow: React.FC<{ candidate: Candidate, isAdmin: boolean, onView: () =>
                     >
                         View
                     </button>
+                    {onViewScreenshots && (candidate.status === 'Interviewed' || candidate.status === 'Shortlisted' || candidate.status === 'Rejected' || candidate.status === '2nd Round Qualified' || candidate.status === 'Slot_Booked') && (
+                         <button
+                            onClick={onViewScreenshots}
+                            style={{ color: 'var(--text-secondary)', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                            title="View Screenshots"
+                        >
+                            <ImageIcon size={18} />
+                        </button>
+                    )}
                     <button
                         onClick={onDelete}
                         style={{ color: 'var(--error)', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer' }}
@@ -910,11 +943,22 @@ const TableRow: React.FC<{ candidate: Candidate, isAdmin: boolean, onView: () =>
     );
 };
 
-const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () => void, onSuccess: () => void }> = ({ candidate, onClose, onSuccess }) => {
+const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () => void, onSuccess: () => void, onInvite: () => void }> = ({ candidate, onClose, onSuccess, onInvite }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [remarks, setRemarks] = useState(candidate.remarks || '');
-    const [activeTab, setActiveTab] = useState<'info' | 'resume'>('info');
+    const [activeTab, setActiveTab] = useState<'info' | 'resume' | 'status'>('info');
+
+    const getNextPendingItem = (status: string) => {
+        switch (status) {
+            case 'Profile Submitted': return 'Send Invitation Mail';
+            case 'Interview 1st Round Pending': return 'Waiting for Interview Results';
+            case '1st Round Completed': return 'Result: Send 2nd Round Invitiation (Qualified) or Reject';
+            case '2nd Round Qualified': return 'Final Offer / Decision'; 
+            case 'Rejected': return 'None (Archived)';
+            default: return 'Unknown';
+        }
+    };
 
     const handleStatusUpdate = async (newStatus: string) => {
         if (!remarks.trim()) {
@@ -972,6 +1016,7 @@ const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () => void, 
                 <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)', zIndex: 10 }}>
                     <button onClick={() => setActiveTab('info')} style={{ padding: '1rem 2rem', border: 'none', background: activeTab === 'info' ? 'var(--bg-card)' : 'transparent', color: activeTab === 'info' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: '600', borderRight: '1px solid var(--border-color)', cursor: 'pointer' }}>Detailed Info</button>
                     <button onClick={() => setActiveTab('resume')} style={{ padding: '1rem 2rem', border: 'none', background: activeTab === 'resume' ? 'var(--bg-card)' : 'transparent', color: activeTab === 'resume' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: '600', borderRight: '1px solid var(--border-color)', cursor: 'pointer' }}>Resume Content</button>
+                    <button onClick={() => setActiveTab('status')} style={{ padding: '1rem 2rem', border: 'none', background: activeTab === 'status' ? 'var(--bg-card)' : 'transparent', color: activeTab === 'status' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: '600', borderRight: '1px solid var(--border-color)', cursor: 'pointer' }}>Status</button>
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', backgroundColor: 'var(--bg-card)' }}>
                     {activeTab === 'info' ? (
@@ -1005,33 +1050,91 @@ const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () => void, 
                                 ) : <div style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>No resume uploaded</div>}
                             </div>
                         </div>
-                    ) : (
+                    ) : activeTab === 'resume' ? (
                         <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '1.5rem', borderRadius: '0.5rem' }}>
                             <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '0.9rem' }}>{candidate.resumeText || 'No text content available.'}</pre>
                         </div>
+                    ) : (
+                        <div style={{ padding: '1.5rem' }}>
+                            <h3 style={{ fontSize: '1rem', marginBottom: '1.5rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Current Status</h3>
+                            <div style={{ 
+                                display: 'inline-block',
+                                padding: '0.75rem 1.5rem',
+                                borderRadius: '2rem',
+                                fontWeight: 'bold',
+                                fontSize: '1.1rem',
+                                backgroundColor: 
+                                    candidate.status === '2nd Round Qualified' ? 'rgba(16, 185, 129, 0.1)' : 
+                                    candidate.status === 'Rejected' ? 'rgba(239, 68, 68, 0.1)' : 
+                                    'rgba(59, 130, 246, 0.1)',
+                                color: 
+                                    candidate.status === '2nd Round Qualified' ? 'var(--success)' : 
+                                    candidate.status === 'Rejected' ? 'var(--error)' : 
+                                    'var(--primary)',
+                                marginBottom: '2rem'
+                            }}>
+                                {candidate.status}
+                            </div>
+
+                            <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Next Pending Item</h3>
+                            <div style={{ 
+                                padding: '1.5rem',
+                                backgroundColor: 'var(--bg-secondary)',
+                                borderRadius: '0.75rem',
+                                borderLeft: '4px solid var(--primary)',
+                                fontWeight: '500',
+                                fontSize: '1.1rem'
+                            }}>
+                                {getNextPendingItem(candidate.status)}
+                            </div>
+                        </div>
                     )}
                 </div>
-                <div style={{
-                    padding: '1.5rem',
-                    borderTop: '1px solid var(--border-color)',
-                    display: 'flex',
-                    gap: '1rem',
-                    justifyContent: 'flex-end',
-                    backgroundColor: 'var(--bg-secondary)',
-                    zIndex: 10
-                }}>
-                    {error && <div style={{ color: 'var(--error)', flex: 1, alignSelf: 'center' }}>{error}</div>}
-                    {candidate.status !== 'Shortlisted' && candidate.status !== 'Rejected' ? (
-                        <>
-                            <button onClick={() => handleStatusUpdate('Shortlisted')} className="btn" style={{ background: 'var(--success)', border: 'none', color: 'white' }} disabled={loading}>
-                                {loading ? 'Processing...' : 'Approve'}
+                {activeTab === 'status' && (
+                    <div style={{
+                        padding: '1.5rem',
+                        borderTop: '1px solid var(--border-color)',
+                        display: 'flex',
+                        gap: '1rem',
+                        justifyContent: 'flex-end',
+                        backgroundColor: 'var(--bg-secondary)',
+                        zIndex: 10
+                    }}>
+                        {error && <div style={{ color: 'var(--error)', flex: 1, alignSelf: 'center' }}>{error}</div>}
+                        
+                        {candidate.status === 'Profile Submitted' && (
+                            <button onClick={onInvite} className="btn" style={{ background: 'var(--primary)', border: 'none', color: 'white' }} disabled={loading}>
+                                {loading ? 'Processing...' : 'Send Invitation Mail'}
                             </button>
-                            <button onClick={() => handleStatusUpdate('Rejected')} className="btn" style={{ background: 'var(--error)', border: 'none', color: 'white' }} disabled={loading}>
-                                {loading ? 'Processing...' : 'Reject'}
+                        )}
+
+                        {candidate.status === 'Interview 1st Round Pending' && (
+                            <div style={{ fontStyle: 'italic', color: 'var(--text-secondary)' }}>Waiting for interview results...</div>
+                        )}
+
+                        {candidate.status === '1st Round Completed' && (
+                            <>
+                                <button onClick={() => handleStatusUpdate('2nd Round Qualified')} className="btn" style={{ background: 'var(--success)', border: 'none', color: 'white' }} disabled={loading}>
+                                    {loading ? 'Processing...' : 'Send 2nd Round Invite'}
+                                </button>
+                                <button onClick={() => handleStatusUpdate('Rejected')} className="btn" style={{ background: 'var(--error)', border: 'none', color: 'white' }} disabled={loading}>
+                                    {loading ? 'Processing...' : 'Reject'}
+                                </button>
+                            </>
+                        )}
+
+                        {/* Pending fallbacks */}
+                        {(candidate.status === 'Pending' || candidate.status === 'Shortlisted') && (
+                             <button onClick={() => handleStatusUpdate('Profile Submitted')} className="btn" style={{ background: 'var(--primary)', border: 'none', color: 'white' }} disabled={loading}>
+                                {loading ? 'Processing...' : 'Move to Profile Submitted'}
                             </button>
-                        </>
-                    ) : <div style={{ color: candidate.status === 'Shortlisted' ? 'var(--success)' : 'var(--error)', fontWeight: 'bold' }}>Decision: {candidate.status}</div>}
-                </div>
+                        )}
+                        
+                        {(candidate.status === '2nd Round Qualified' || candidate.status === 'Rejected') && (
+                            <div style={{ color: candidate.status === '2nd Round Qualified' ? 'var(--success)' : 'var(--error)', fontWeight: 'bold' }}>Decision: {candidate.status}</div>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -1474,224 +1577,102 @@ const FeedbackModal: React.FC<{ slot: any, onClose: () => void, onSuccess: () =>
     );
 };
 
-interface Screenshot {
-    _id: string;
-    timestamp: string;
-    image?: string;
-}
 
-const ScreenshotsModal: React.FC<{ candidate: Candidate; onClose: () => void }> = ({ candidate, onClose }) => {
-    const [screenshots, setScreenshots] = useState<Screenshot[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [selectedIndex, setSelectedIndex] = useState(0);
-    const [selectedImage, setSelectedImage] = useState<string | null>(null);
-    const [loadingImage, setLoadingImage] = useState(false);
 
-    useEffect(() => {
-        fetchScreenshots();
-    }, [candidate._id]);
 
-    const fetchScreenshots = async () => {
-        try {
-            const res = await api.get(API_ENDPOINTS.FACE.SCREENSHOTS(candidate._id));
-            setScreenshots(res.data.screenshots || []);
-            if (res.data.screenshots?.length > 0) {
-                loadScreenshotImage(res.data.screenshots[0]._id);
-            }
-        } catch (error) {
-            console.error('Error fetching screenshots:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const loadScreenshotImage = async (id: string) => {
-        setLoadingImage(true);
-        try {
-            const res = await api.get(API_ENDPOINTS.FACE.SCREENSHOT_BY_ID(id));
-            setSelectedImage(res.data.image);
-        } catch (error) {
-            console.error('Error loading screenshot:', error);
-        } finally {
-            setLoadingImage(false);
-        }
-    };
-
-    const handleSelectScreenshot = (index: number) => {
-        setSelectedIndex(index);
-        loadScreenshotImage(screenshots[index]._id);
-    };
-
-    const handlePrevious = () => {
-        if (selectedIndex > 0) {
-            handleSelectScreenshot(selectedIndex - 1);
-        }
-    };
-
-    const handleNext = () => {
-        if (selectedIndex < screenshots.length - 1) {
-            handleSelectScreenshot(selectedIndex + 1);
-        }
-    };
-
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleString();
-    };
-
-    return (
-        <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.8)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000
-        }}>
-            <div className="card" style={{ width: '100%', maxWidth: '900px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', borderBottom: '1px solid var(--border-color)' }}>
-                    <div>
-                        <h2 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', margin: 0 }}>
-                            Screenshots - {candidate.name}
-                        </h2>
-                        <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: 0 }}>
-                            {screenshots.length} screenshot{screenshots.length !== 1 ? 's' : ''} captured
-                        </p>
-                    </div>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                        <X size={24} />
-                    </button>
-                </div>
-
-                {loading ? (
-                    <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                        Loading screenshots...
-                    </div>
-                ) : screenshots.length === 0 ? (
-                    <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                        <Camera size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-                        <p>No screenshots captured for this candidate yet.</p>
-                    </div>
-                ) : (
-                    <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-                        {/* Main Image View */}
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '1rem' }}>
-                            <div style={{
-                                flex: 1,
-                                backgroundColor: 'var(--bg-secondary)',
-                                borderRadius: '0.5rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                position: 'relative',
-                                minHeight: '400px'
-                            }}>
-                                {loadingImage ? (
-                                    <div style={{ color: 'var(--text-secondary)' }}>Loading...</div>
-                                ) : selectedImage ? (
-                                    <img
-                                        src={selectedImage}
-                                        alt={`Screenshot ${selectedIndex + 1}`}
-                                        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                                    />
-                                ) : (
-                                    <div style={{ color: 'var(--text-secondary)' }}>Select a screenshot</div>
-                                )}
-
-                                {/* Navigation Arrows */}
-                                {screenshots.length > 1 && (
-                                    <>
-                                        <button
-                                            onClick={handlePrevious}
-                                            disabled={selectedIndex === 0}
-                                            style={{
-                                                position: 'absolute',
-                                                left: '0.5rem',
-                                                top: '50%',
-                                                transform: 'translateY(-50%)',
-                                                background: 'rgba(0,0,0,0.5)',
-                                                border: 'none',
-                                                borderRadius: '50%',
-                                                width: '40px',
-                                                height: '40px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                color: 'white',
-                                                cursor: selectedIndex === 0 ? 'not-allowed' : 'pointer',
-                                                opacity: selectedIndex === 0 ? 0.3 : 1
-                                            }}
-                                        >
-                                            <ChevronLeft size={24} />
-                                        </button>
-                                        <button
-                                            onClick={handleNext}
-                                            disabled={selectedIndex === screenshots.length - 1}
-                                            style={{
-                                                position: 'absolute',
-                                                right: '0.5rem',
-                                                top: '50%',
-                                                transform: 'translateY(-50%)',
-                                                background: 'rgba(0,0,0,0.5)',
-                                                border: 'none',
-                                                borderRadius: '50%',
-                                                width: '40px',
-                                                height: '40px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                color: 'white',
-                                                cursor: selectedIndex === screenshots.length - 1 ? 'not-allowed' : 'pointer',
-                                                opacity: selectedIndex === screenshots.length - 1 ? 0.3 : 1
-                                            }}
-                                        >
-                                            <ChevronRight size={24} />
-                                        </button>
-                                    </>
-                                )}
-                            </div>
-
-                            {/* Timestamp */}
-                            <div style={{ textAlign: 'center', padding: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                                {selectedIndex + 1} of {screenshots.length} | {formatDate(screenshots[selectedIndex]?.timestamp)}
-                            </div>
-                        </div>
-
-                        {/* Thumbnail List */}
-                        <div style={{
-                            width: '150px',
-                            borderLeft: '1px solid var(--border-color)',
-                            overflowY: 'auto',
-                            padding: '0.5rem'
-                        }}>
-                            {screenshots.map((screenshot, index) => (
-                                <div
-                                    key={screenshot._id}
-                                    onClick={() => handleSelectScreenshot(index)}
-                                    style={{
-                                        padding: '0.5rem',
-                                        marginBottom: '0.5rem',
-                                        backgroundColor: selectedIndex === index ? 'var(--primary)' : 'var(--bg-secondary)',
-                                        borderRadius: '0.25rem',
-                                        cursor: 'pointer',
-                                        color: selectedIndex === index ? 'white' : 'var(--text-primary)'
-                                    }}
-                                >
-                                    <div style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>#{index + 1}</div>
-                                    <div style={{ fontSize: '0.65rem', opacity: 0.8 }}>
-                                        {new Date(screenshot.timestamp).toLocaleTimeString()}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
+ const SendInviteModal: React.FC<{ 
+     candidate: Candidate; 
+     onClose: () => void; 
+     onSuccess: () => void;
+ }> = ({ candidate, onClose, onSuccess }) => {
+     const [loading, setLoading] = useState(false);
+     const [error, setError] = useState('');
+     const [success, setSuccess] = useState(false);
+     
+     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+     const [time, setTime] = useState('10:00');
+     const [link, setLink] = useState('https://meet.google.com/xyz-abc-def');
+     const [message, setMessage] = useState('');
+ 
+     const handleSend = async (e: React.FormEvent) => {
+         e.preventDefault();
+         setLoading(true);
+         setError('');
+         
+         try {
+            await api.post(API_ENDPOINTS.INVITES.SEND, {
+                 candidateId: candidate._id,
+                 interviewDate: date,
+                 interviewTime: time,
+                 meetingLink: link,
+                 message: message
+             });
+             setSuccess(true);
+             setTimeout(() => {
+                 onSuccess();
+                 onClose();
+             }, 2000);
+         } catch (err: any) {
+             setError(err.response?.data?.msg || 'Failed to send invitation');
+         } finally {
+             setLoading(false);
+         }
+     };
+ 
+     if (success) {
+         return (
+             <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
+                 <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '1rem', textAlign: 'center' }}>
+                     <div style={{ color: 'var(--success)', fontSize: '3rem', marginBottom: '1rem' }}><CheckCircle /></div>
+                     <h3>Invitation Sent!</h3>
+                     <p>Candidate has been notified and status updated.</p>
+                 </div>
+             </div>
+         );
+     }
+ 
+     return (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '2rem' }}>
+             <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '0', overflow: 'hidden', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-card)' }}>
+                 <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                     <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Send Interview Invitation</h2>
+                     <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={24} /></button>
+                 </div>
+                 
+                 <form onSubmit={handleSend} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                     {error && <div style={{ color: 'var(--error)', fontSize: '0.9rem' }}>{error}</div>}
+                     
+                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                         <div>
+                             <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Date</label>
+                             <input type="date" className="input" required value={date} onChange={e => setDate(e.target.value)} />
+                         </div>
+                         <div>
+                             <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Time</label>
+                             <input type="time" className="input" required value={time} onChange={e => setTime(e.target.value)} />
+                         </div>
+                     </div>
+ 
+                     <div>
+                         <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Meeting Link</label>
+                         <input type="url" className="input" placeholder="https://meet.google.com/..." required value={link} onChange={e => setLink(e.target.value)} />
+                     </div>
+ 
+                     <div>
+                         <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Additional Message (Optional)</label>
+                         <textarea className="input" rows={4} placeholder="Any specific instructions..." value={message} onChange={e => setMessage(e.target.value)} style={{ resize: 'none' }} />
+                     </div>
+ 
+                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+                         <button type="button" onClick={onClose} className="btn" style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>Cancel</button>
+                         <button type="submit" className="btn btn-primary" disabled={loading}>
+                             {loading ? 'Sending...' : 'Send Invitation'} <Send size={16} style={{ marginLeft: '0.5rem' }} />
+                         </button>
+                     </div>
+                 </form>
+             </div>
+         </div>
+     );
+ };
 
 export default AdminDashboard;

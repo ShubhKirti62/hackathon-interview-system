@@ -13,6 +13,8 @@ router.post('/start', async (req, res) => {
         const candidate = await Candidate.findById(candidateId);
         if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
 
+
+
         // 2. Find all question IDs this candidate has already seen in previous interviews
         const previousInterviews = await Interview.find({ candidateId });
         const seenQuestionIds = previousInterviews.reduce((acc, interview) => {
