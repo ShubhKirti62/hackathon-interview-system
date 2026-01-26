@@ -12,8 +12,13 @@ const CandidateSchema = new mongoose.Schema({
         required: true
     },
     domain: { type: String, required: true }, // e.g., 'Frontend', 'Backend'
-    role: { type: String }, // specific role e.g., 'frontend_dev', 'sales'
+    role: { type: String }, // specific role e.g., 'frontend_dev', 'sales' (business_analyst, marketing)
     internalReferred: { type: Boolean, default: false },
+    
+    // Scoring Factors
+    noticePeriod: { type: Number, default: 30 }, // Days
+    communicationScore: { type: Number, default: 0 }, // 0-10 derived from interview
+    
     status: { 
         type: String, 
         enum: [
