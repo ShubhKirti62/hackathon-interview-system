@@ -5,7 +5,7 @@ const genAI = process.env.GEMINI_API_KEY
     ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) 
     : null;
 
-const model = genAI ? genAI.getGenerativeModel({ model: "gemini-1.5-flash" }) : null;
+const model = genAI ? genAI.getGenerativeModel({ model: "gemini-pro" }) : null;
 
 /**
  * Hybrid Evaluation of an Answer
@@ -58,13 +58,66 @@ const evaluateAnswer = async (questionText, userAnswer, keywords = [], difficult
 
         return data;
 
+
     } catch (error) {
         console.error("AI Evaluation Error:", error);
-        return {
-            score: 0,
-            feedback: "Error during AI evaluation. Please review manually."
-        };
+        console.error("Error details:", error.message);
+        
+        // Fallback to keyword-based evaluation
+        console.log("Using keyword-based fallback evaluation...");
+        return keywordBasedEvaluation(questionText, userAnswer, keywords, difficulty);
     }
+};
+
+/**
+ * Keyword-based fallback evaluation (when AI is unavailable)
+ */
+const keywordBasedEvaluation = (questionText, userAnswer, keywords = [], difficulty = 'Medium') => {
+    const answerLower = userAnswer.toLowerCase();
+    const answerLength = userAnswer.trim().split(/\s+/).length;
+    
+    let score = 0;
+    let foundKeywords = [];
+    let missingKeywords = [];
+    
+    // Check for keywords (case-insensitive)
+    keywords.forEach(keyword => {
+        if (answerLower.includes(keyword.toLowerCase())) {
+            foundKeywords.push(keyword);
+            score += 2; // 2 points per keyword
+        } else {
+            missingKeywords.push(keyword);
+        }
+    });
+    
+    // Bonus for answer length (shows effort)
+    if (answerLength > 50) score += 2;
+    else if (answerLength > 20) score += 1;
+    
+    // Difficulty adjustment
+    if (difficulty === 'Easy' && score > 0) score += 1;
+    if (difficulty === 'Hard') score = Math.max(0, score - 1);
+    
+    // Cap at 10
+    score = Math.min(10, score);
+    
+    // Generate feedback
+    let feedback = '';
+    if (foundKeywords.length === keywords.length && keywords.length > 0) {
+        feedback = `Good answer! Covered all key concepts: ${foundKeywords.join(', ')}.`;
+    } else if (foundKeywords.length > 0) {
+        feedback = `Partial answer. Mentioned: ${foundKeywords.join(', ')}. Missing: ${missingKeywords.join(', ')}.`;
+    } else if (keywords.length > 0) {
+        feedback = `Answer lacks key concepts: ${missingKeywords.join(', ')}. Please review the topic.`;
+    } else {
+        feedback = `Answer provided (${answerLength} words). Manual review recommended.`;
+    }
+    
+    return {
+        score: score,
+        feedback: feedback + " (Keyword-based evaluation)",
+        missingKeywords: missingKeywords
+    };
 };
 
 /**
