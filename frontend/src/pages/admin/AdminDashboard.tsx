@@ -41,9 +41,8 @@ interface Question {
     domain: string;
     experienceLevel: string;
     difficulty: string;
-    type: 'MCQ' | 'Descriptive';
-    options: string[];
-    correctAnswers: string[];
+    type: 'Descriptive';
+    verified: boolean;
 }
 
 interface Stats {
@@ -508,8 +507,7 @@ const AdminDashboard: React.FC = () => {
                     {activeTab === 'questions' && (
                         <>
                             <StatCard icon={<FileText />} label="Total Questions" value={stats.totalQuestions.toString()} />
-                            <StatCard icon={<BarChart />} label="MCQs" value={questions.filter(q => q.type === 'MCQ').length.toString()} />
-                            <StatCard icon={<File />} label="Descriptive" value={questions.filter(q => q.type === 'Descriptive').length.toString()} />
+                            <StatCard icon={<File />} label="Descriptive Questions" value={questions.length.toString()} />
                         </>
                     )}
                     {activeTab === 'hr' && (
@@ -815,7 +813,7 @@ const AdminDashboard: React.FC = () => {
                     slot={selectedSlot}
                     onClose={() => setShowFeedbackModal(false)}
                     onSuccess={fetchDashboardData}
-                    type="hr"
+                    type="admin"
                 />
             )}
             {showInviteModal && selectedCandidate && (
@@ -902,7 +900,7 @@ const TableRow: React.FC<{ candidate: Candidate, isAdmin: boolean, onView: () =>
                         <div>
                             <div style={{ fontWeight: '500' }}>{candidate.handledBy.name}</div>
                             <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-                                {candidate.handledBy.role.toUpperCase()}
+                                Admin
                             </div>
                         </div>
                     ) : (
@@ -1254,9 +1252,7 @@ const AddQuestionModal: React.FC<{ onClose: () => void, onSuccess: () => void, e
         domain: existingQuestion?.domain || 'Frontend',
         experienceLevel: existingQuestion?.experienceLevel || 'Fresher/Intern',
         difficulty: existingQuestion?.difficulty || 'Medium',
-        type: existingQuestion?.type || 'MCQ',
-        options: existingQuestion?.type === 'MCQ' ? existingQuestion.options : ['', '', '', ''],
-        correctAnswers: existingQuestion?.correctAnswers || []
+        type: 'Descriptive'
     });
     const [loading, setLoading] = useState(false);
 
@@ -1310,23 +1306,6 @@ const AddQuestionModal: React.FC<{ onClose: () => void, onSuccess: () => void, e
                                 </select>
                             </div>
                         </div>
-
-                        {formData.type === 'MCQ' && (
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ fontSize: '1rem', fontWeight: '600', display: 'block', marginBottom: '1rem' }}>Options (Select the correct answer)</label>
-                                <div style={{ display: 'grid', gap: '0.75rem' }}>
-                                    {formData.options.map((opt, i) => (
-                                        <div key={i} style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                                            <input type="radio" style={{ width: '1.1rem', height: '1.1rem' }} checked={formData.correctAnswers.includes(opt)} onChange={() => setFormData({ ...formData, correctAnswers: [opt] })} />
-                                            <input className="input" placeholder={`Option ${i + 1}`} value={opt} onChange={e => {
-                                                const next = [...formData.options]; next[i] = e.target.value;
-                                                setFormData({ ...formData, options: next });
-                                            }} />
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                     </form>
                 </div>
 
@@ -1528,7 +1507,7 @@ const AddSlotModal: React.FC<{ onClose: () => void, onSuccess: () => void, inter
     );
 };
 
-const FeedbackModal: React.FC<{ slot: any, onClose: () => void, onSuccess: () => void, type: 'hr' | 'interviewer' }> = ({ slot, onClose, onSuccess, type }) => {
+const FeedbackModal: React.FC<{ slot: any, onClose: () => void, onSuccess: () => void, type: 'admin' | 'candidate' }> = ({ slot, onClose, onSuccess, type }) => {
     const [formData, setFormData] = useState({ score: 0, remarks: '' });
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

@@ -80,17 +80,11 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
                 'Question Text': text,
                 'Domain': domain,
                 'Experience Level': experienceLevel,
-                'Difficulty': difficulty,
-                'Type': type,
-                'Option 1': opt1,
-                'Option 2': opt2,
-                'Option 3': opt3,
-                'Option 4': opt4,
-                'Correct Answer': correctAnswer
+                'Difficulty': difficulty
             } = row;
 
             // Basic validation
-            if (!text || !domain || !experienceLevel || !difficulty || !type) {
+            if (!text || !domain || !experienceLevel || !difficulty) {
                 errors.push(`Row ${index + 2}: Missing required fields.`);
                 return;
             }
@@ -100,19 +94,8 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
                 domain,
                 experienceLevel,
                 difficulty,
-                type: type === 'Descriptive' ? 'Descriptive' : 'MCQ',
-                options: [],
-                correctAnswers: []
+                type: 'Descriptive'
             };
-
-            if (questionData.type === 'MCQ') {
-                if (!opt1 || !opt2 || !opt3 || !opt4 || !correctAnswer) {
-                    errors.push(`Row ${index + 2}: MCQs require 4 options and a correct answer.`);
-                    return;
-                }
-                questionData.options = [String(opt1), String(opt2), String(opt3), String(opt4)];
-                questionData.correctAnswers = [String(correctAnswer)];
-            }
 
             questionsToSave.push(questionData);
         });

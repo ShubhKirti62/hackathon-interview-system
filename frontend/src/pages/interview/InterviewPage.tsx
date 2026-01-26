@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Mic, MicOff, Send, AlertCircle, Clock, WifiOff } from 'lucide-react';
 import api from '../../services/api';
@@ -10,8 +10,7 @@ interface Question {
     _id: string;
     text: string;
     difficulty: 'Easy' | 'Medium' | 'Hard';
-    type: 'MCQ' | 'Descriptive';
-    options?: string[];
+    type: 'Descriptive';
 }
 
 interface Interview {
@@ -39,7 +38,6 @@ const InterviewPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [transcript, setTranscript] = useState('');
-    const [selectedOption, setSelectedOption] = useState<string | null>(null);
     const [timeLimits, setTimeLimits] = useState<Record<string, number>>({
         easy: 60,
         medium: 120,
@@ -189,7 +187,7 @@ const InterviewPage: React.FC = () => {
         return () => {
             if (saveRef.current) clearInterval(saveRef.current);
         };
-    }, [id, !!interview, isOffline, currentQIndex, transcript, selectedOption]);
+    }, [id, !!interview, isOffline, currentQIndex, transcript]);
 
     const toggleRecording = () => {
         if (!recognitionRef.current) {
@@ -213,7 +211,7 @@ const InterviewPage: React.FC = () => {
             await api.patch(API_ENDPOINTS.INTERVIEWS.UPDATE_STATE(id), {
                 currentQuestionIndex: currentQIndex,
                 remainingTime: timeLeft,
-                draftAnswer: transcript || selectedOption || ''
+                draftAnswer: transcript || ''
             });
         } catch (err) {
             console.warn('Failed to auto-save progress', err);
@@ -231,10 +229,9 @@ const InterviewPage: React.FC = () => {
 
         // 1. Submit current answer before moving
         try {
-            const answer = interview.questions[currentQIndex].type === 'MCQ' ? selectedOption : transcript;
             await api.post(API_ENDPOINTS.INTERVIEWS.SUBMIT_RESPONSE(id), {
                 questionId: interview.questions[currentQIndex]._id,
-                userResponseText: answer || 'No response provided',
+                userResponseText: transcript || 'No response provided',
                 timeTakenSeconds: (timeLimits[interview.questions[currentQIndex].difficulty.toLowerCase()] || 120) - timeLeft!
             });
         } catch (err) {
@@ -246,7 +243,6 @@ const InterviewPage: React.FC = () => {
             const nextIndex = currentQIndex + 1;
             setCurrentQIndex(nextIndex);
             setTranscript('');
-            setSelectedOption(null);
 
             // Set new time limit for next question
             const nextDifficulty = interview.questions[nextIndex]?.difficulty?.toLowerCase() || 'medium';
@@ -292,7 +288,6 @@ const InterviewPage: React.FC = () => {
     );
 
     const currentQuestion = interview?.questions[currentQIndex];
-    const isActuallyMCQ = currentQuestion?.type === 'MCQ' && currentQuestion?.options && currentQuestion.options.length > 0;
 
     return (
         <div className="container" style={{ padding: '2rem 1rem', maxWidth: '800px' }}>
@@ -322,7 +317,7 @@ const InterviewPage: React.FC = () => {
                         Technical Interview Session
                     </h1>
                     <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                        Question {currentQIndex + 1} of {interview?.questions.length || 0} ({isActuallyMCQ ? 'MCQ' : 'Descriptive'} - {currentQuestion?.difficulty} Round)
+                        Question {currentQIndex + 1} of {interview?.questions.length || 0} (Descriptive - {currentQuestion?.difficulty} Round)
                     </span>
                 </div>
                 <div style={{
@@ -356,50 +351,8 @@ const InterviewPage: React.FC = () => {
                 </h2>
             </div>
 
-            {isActuallyMCQ && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
-                    {currentQuestion.options?.map((option, idx) => (
-                        <button
-                            key={idx}
-                            onClick={() => !isOffline && timeLeft !== 0 && setSelectedOption(option)}
-                            disabled={isOffline || timeLeft === 0}
-                            style={{
-                                padding: '1.5rem',
-                                borderRadius: '0.75rem',
-                                border: selectedOption === option ? '2px solid var(--primary)' : '1px solid var(--border-color)',
-                                backgroundColor: selectedOption === option ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-secondary)',
-                                color: 'var(--text-primary)',
-                                textAlign: 'left',
-                                cursor: (isOffline || timeLeft === 0) ? 'not-allowed' : 'pointer',
-                                fontSize: '1rem',
-                                opacity: (isOffline || timeLeft === 0) ? 0.7 : 1,
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            <span style={{
-                                display: 'inline-block',
-                                width: '28px',
-                                height: '28px',
-                                borderRadius: '50%',
-                                border: '1px solid var(--border-color)',
-                                marginRight: '1rem',
-                                textAlign: 'center',
-                                lineHeight: '26px',
-                                background: selectedOption === option ? 'var(--primary)' : 'none',
-                                color: selectedOption === option ? 'white' : 'inherit',
-                                fontSize: '0.875rem'
-                            }}>
-                                {String.fromCharCode(65 + idx)}
-                            </span>
-                            {option}
-                        </button>
-                    ))}
-                </div>
-            )}
-
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem' }}>
-                {!isActuallyMCQ && (
-                    <div style={{ position: 'relative' }}>
+                <div style={{ position: 'relative' }}>
                         <button
                             onClick={toggleRecording}
                             className={`btn`}
@@ -433,32 +386,27 @@ const InterviewPage: React.FC = () => {
                             }} />
                         )}
                     </div>
-                )}
 
                 <p style={{ color: 'var(--text-secondary)', textAlign: 'center' }}>
                     {timeLeft === 0
                         ? 'Time is up for this question!'
                         : isOffline
                             ? 'Paused due to network issues'
-                            : isActuallyMCQ
-                                ? 'Select the most appropriate option from the list above'
-                                : isRecording
-                                    ? 'Listening... Speak clearly into your microphone'
+                            : isRecording
+                                ? 'Listening... Speak clearly into your microphone'
                                     : 'Click the microphone to start answering'
                     }
                 </p>
 
                 <div style={{ width: '100%' }}>
-                    {!isActuallyMCQ && (
-                        <div className="card" style={{ padding: '1.5rem', minHeight: '120px', backgroundColor: 'var(--bg-secondary)', marginBottom: '1.5rem' }}>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 'bold', textTransform: 'uppercase' }}>
-                                Live Transcription
-                            </div>
-                            <p style={{ color: transcript ? 'var(--text-primary)' : 'var(--text-secondary)', fontStyle: transcript ? 'normal' : 'italic' }}>
-                                {transcript || 'Transcription will appear here as you speak...'}
-                            </p>
+                    <div className="card" style={{ padding: '1.5rem', minHeight: '120px', backgroundColor: 'var(--bg-secondary)', marginBottom: '1.5rem' }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                            Live Transcription
                         </div>
-                    )}
+                        <p style={{ color: transcript ? 'var(--text-primary)' : 'var(--text-secondary)', fontStyle: transcript ? 'normal' : 'italic' }}>
+                            {transcript || 'Transcription will appear here as you speak...'}
+                        </p>
+                    </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
@@ -468,7 +416,7 @@ const InterviewPage: React.FC = () => {
                             onClick={handleNextQuestion}
                             className="btn btn-primary"
                             style={{ gap: '0.5rem', padding: '0.75rem 2rem' }}
-                            disabled={isOffline || isRecording || (isActuallyMCQ && !selectedOption)}
+                            disabled={isOffline || isRecording}
                         >
                             {currentQIndex < (interview?.questions.length || 0) - 1 ? 'Next Question' : 'Finish Interview'} <Send size={18} />
                         </button>
