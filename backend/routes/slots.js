@@ -4,10 +4,10 @@ const Slot = require('../models/Slot');
 const Candidate = require('../models/Candidate');
 const auth = require('../middleware/auth');
 
-// List all Slots (HR/Admin)
+// List all Slots (Admin only)
 router.get('/', auth, async (req, res) => {
     try {
-        if (req.user.role !== 'admin' && req.user.role !== 'hr') {
+        if (req.user.role !== 'admin') {
             return res.status(403).json({ error: 'Permission denied' });
         }
         const slots = await Slot.find()
@@ -20,10 +20,10 @@ router.get('/', auth, async (req, res) => {
     }
 });
 
-// Create Slot (HR/Interviewer)
+// Create Slot (Admin/Candidate)
 router.post('/', auth, async (req, res) => {
     try {
-        if (req.user.role !== 'admin' && req.user.role !== 'hr' && req.user.role !== 'interviewer') {
+        if (req.user.role !== 'admin' && req.user.role !== 'candidate') {
             return res.status(403).json({ error: 'Permission denied' });
         }
 
@@ -41,7 +41,7 @@ router.post('/', auth, async (req, res) => {
     }
 });
 
-// Get Available Slots (Candidate/HR)
+// Get Available Slots (Candidate)
 router.get('/available', async (req, res) => {
     try {
         const slots = await Slot.find({ status: 'Available', startTime: { $gt: new Date() } })
@@ -76,7 +76,7 @@ router.post('/book/:id', auth, async (req, res) => {
     }
 });
 
-// Submit Feedback (Interviewer/HR)
+// Submit Feedback (Interviewer/Candidate)
 router.post('/feedback/:id', auth, async (req, res) => {
     try {
         const { score, remarks, metrics, type } = req.body;
@@ -86,21 +86,19 @@ router.post('/feedback/:id', auth, async (req, res) => {
 
         if (type === 'interviewer') {
             slot.interviewerFeedback = { score, remarks, metrics };
-        } else if (type === 'hr') {
-            slot.hrFeedback = { score, remarks };
         } else if (type === 'candidate') {
             slot.candidateFeedback = { score, remarks };
         }
 
         // If both interviewer and candidate have given feedback, mark as completed
-        if (slot.interviewerFeedback?.score && (slot.candidateFeedback?.score || slot.hrFeedback?.score)) {
+        if (slot.interviewerFeedback?.score && slot.candidateFeedback?.score) {
             slot.status = 'Completed';
             
             // Update Candidate Status to Round 2 Completed
             if (slot.candidateId) {
                 await Candidate.findByIdAndUpdate(slot.candidateId, { 
                     status: 'Round_2_Completed',
-                    overallScore: slot.interviewerFeedback?.score || slot.hrFeedback?.score || 0
+                    overallScore: slot.interviewerFeedback?.score || 0
                 });
             }
         }

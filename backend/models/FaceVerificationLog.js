@@ -11,8 +11,8 @@ const FaceVerificationLogSchema = new mongoose.Schema({
     distance: { type: Number }, // Euclidean distance between face descriptors
     verified: { type: Boolean },
     mismatchCount: { type: Number, default: 0 },
-    hrNotified: { type: Boolean, default: false },
-    hrNotifiedAt: { type: Date },
+    adminNotified: { type: Boolean, default: false },
+    adminNotifiedAt: { type: Date },
     ipAddress: { type: String },
     userAgent: { type: String },
 }, { timestamps: true });

@@ -17,10 +17,50 @@ const model = genAI ? genAI.getGenerativeModel({ model: "gemini-1.5-flash" }) : 
  */
 const evaluateAnswer = async (questionText, userAnswer, keywords = [], difficulty = 'Medium') => {
     if (!model) {
-        console.warn("Gemini API Key missing. Returning mock score.");
+        console.warn("Gemini API Key missing. Using fallback evaluation.");
+        
+        // Simple keyword-based fallback evaluation
+        let score = 5; // Base score
+        let feedback = "Answer received.";
+        const foundKeywords = [];
+        
+        if (keywords && keywords.length > 0) {
+            const lowerAnswer = userAnswer.toLowerCase();
+            keywords.forEach(keyword => {
+                if (lowerAnswer.includes(keyword.toLowerCase())) {
+                    foundKeywords.push(keyword);
+                    score += 1;
+                }
+            });
+            
+            const keywordCoverage = foundKeywords.length / keywords.length;
+            score = Math.round(3 + keywordCoverage * 7); // Scale 3-10 based on keyword coverage
+            
+            if (foundKeywords.length === 0) {
+                feedback = "Answer doesn't contain key concepts. Consider reviewing the topic.";
+            } else if (foundKeywords.length === keywords.length) {
+                feedback = "Excellent answer covering all key concepts.";
+            } else {
+                feedback = `Good answer covering ${foundKeywords.length}/${keywords.length} key concepts: ${foundKeywords.join(', ')}.`;
+            }
+        } else {
+            // Length-based scoring for answers without keywords
+            if (userAnswer.length < 50) {
+                score = 3;
+                feedback = "Answer is too brief. Please provide more detail.";
+            } else if (userAnswer.length > 200) {
+                score = 7;
+                feedback = "Comprehensive answer provided.";
+            } else {
+                score = 5;
+                feedback = "Adequate answer provided.";
+            }
+        }
+        
         return {
-            score: 5,
-            feedback: "AI Evaluation unavailable (Missing API Key). please configure GEMINI_API_KEY in backend."
+            score: Math.min(10, Math.max(0, score)),
+            feedback,
+            foundKeywords
         };
     }
 
@@ -73,7 +113,36 @@ const evaluateAnswer = async (questionText, userAnswer, keywords = [], difficult
  * @returns {Promise<string>} - Summary text
  */
 const generateInterviewSummary = async (interviewData) => {
-    if (!model) return "AI Summary unavailable.";
+    if (!model) {
+        // Fallback summary based on scores
+        const responses = interviewData.responses || [];
+        if (responses.length === 0) {
+            return "No responses available for evaluation.";
+        }
+        
+        const scores = responses.map(r => r.score || 0).filter(s => s > 0);
+        if (scores.length === 0) {
+            return "Interview completed but no scores available.";
+        }
+        
+        const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+        const maxScore = Math.max(...scores);
+        const minScore = Math.min(...scores);
+        
+        let summary = `Candidate completed ${responses.length} questions with an average score of ${avgScore.toFixed(1)}/10.`;
+        
+        if (avgScore >= 8) {
+            summary += " Performance was excellent with strong technical understanding.";
+        } else if (avgScore >= 6) {
+            summary += " Performance was good with solid technical knowledge.";
+        } else if (avgScore >= 4) {
+            summary += " Performance was moderate with some areas needing improvement.";
+        } else {
+            summary += " Performance needs significant improvement in technical areas.";
+        }
+        
+        return summary;
+    }
 
     try {
         // Construct a summary of Q&A
