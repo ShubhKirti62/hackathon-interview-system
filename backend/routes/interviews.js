@@ -304,4 +304,98 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+// Record Tab Violation (Anti-Fraud)
+router.post('/:id/violation', async (req, res) => {
+    try {
+        const { type, duration, questionIndex } = req.body;
+        const interviewId = req.params.id;
+
+        const interview = await Interview.findById(interviewId).populate('candidateId');
+        if (!interview) {
+            return res.status(404).json({ error: 'Interview not found' });
+        }
+
+        // Check if already terminated
+        if (interview.status === 'Terminated') {
+            return res.status(403).json({
+                error: 'Interview already terminated',
+                terminated: true,
+                blocked: true
+            });
+        }
+
+        // Add the violation
+        const violation = {
+            type,
+            timestamp: new Date(),
+            duration,
+            questionIndex
+        };
+
+        const updatedInterview = await Interview.findByIdAndUpdate(
+            interviewId,
+            {
+                $push: { tabViolations: violation },
+                $inc: { totalViolations: 1 },
+                // Auto-flag for review if more than 3 violations
+                ...(interview.totalViolations >= 2 ? { flaggedForReview: true } : {})
+            },
+            { new: true }
+        );
+
+        // Return warning level
+        const totalViolations = updatedInterview.totalViolations;
+        let warningLevel = 'low';
+        if (totalViolations >= 5) warningLevel = 'critical';
+        else if (totalViolations >= 3) warningLevel = 'high';
+        else if (totalViolations >= 2) warningLevel = 'medium';
+
+        // If critical (5 violations), terminate interview and block candidate
+        if (totalViolations >= 5) {
+            // Terminate the interview
+            await Interview.findByIdAndUpdate(interviewId, {
+                status: 'Terminated',
+                terminatedReason: 'Maximum tab violations reached (5/5)',
+                completedAt: new Date()
+            });
+
+            // Block the candidate from logging in again
+            if (interview.candidateId) {
+                const candidateId = interview.candidateId._id || interview.candidateId;
+                await Candidate.findByIdAndUpdate(candidateId, {
+                    blocked: true,
+                    blockedReason: 'Interview terminated due to excessive tab violations',
+                    blockedAt: new Date(),
+                    status: 'Rejected'
+                });
+            }
+
+            return res.json({
+                recorded: true,
+                totalViolations,
+                warningLevel: 'critical',
+                flaggedForReview: true,
+                terminated: true,
+                blocked: true,
+                message: 'Interview terminated due to excessive violations. You have been blocked from further interviews.'
+            });
+        }
+
+        res.json({
+            recorded: true,
+            totalViolations,
+            warningLevel,
+            flaggedForReview: updatedInterview.flaggedForReview,
+            terminated: false,
+            blocked: false,
+            message: totalViolations >= 3
+                ? 'Warning: Continued violations may affect your evaluation.'
+                : 'Violation recorded.'
+        });
+    } catch (error) {
+        console.error('Record Violation Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

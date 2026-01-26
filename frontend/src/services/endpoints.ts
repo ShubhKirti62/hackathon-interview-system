@@ -33,6 +33,7 @@ export const API_ENDPOINTS = {
         BY_ID: (id: string) => `/interviews/${id}`,
         UPDATE_STATE: (id: string) => `/interviews/${id}/state`,
         GET_DETAILS: (id: string) => `/interviews/${id}`,
+        VIOLATION: (id: string) => `/interviews/${id}/violation`,
     },
     QUESTIONNAIRES: {
         BASE: '/questionnaires',

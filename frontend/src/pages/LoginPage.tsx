@@ -1,17 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { API_ENDPOINTS } from '../services/endpoints';
 import { APP_ROUTES } from '../routes';
-import { Brain, Target, TrendingUp, Cpu, Lock, Eye, EyeOff } from 'lucide-react';
+import { Brain, Target, TrendingUp, Cpu, Lock, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
     const [email, setEmail] = useState('candidate@example.com');
     const [password, setPassword] = useState('123456');
     const [error, setError] = useState('');
+    const [isBlocked, setIsBlocked] = useState(false);
     const { login, isAuthenticated, user } = useAuth();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+
+    useEffect(() => {
+        // Check if user was redirected due to being blocked
+        if (searchParams.get('blocked') === 'true') {
+            setIsBlocked(true);
+            setError('Your account has been blocked due to interview violations. Please contact HR for assistance.');
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         if (isAuthenticated && user) {
@@ -37,7 +47,12 @@ const LoginPage: React.FC = () => {
                 navigate(APP_ROUTES.CANDIDATE.DASHBOARD);
             }
         } catch (err: any) {
-            setError(err.response?.data?.msg || 'Login failed');
+            if (err.response?.data?.blocked) {
+                setIsBlocked(true);
+                setError(err.response?.data?.msg || 'Your account has been blocked. Please contact HR.');
+            } else {
+                setError(err.response?.data?.msg || 'Login failed');
+            }
         }
     };
 
@@ -130,17 +145,21 @@ const LoginPage: React.FC = () => {
 
                     {error && (
                         <div style={{
-                            background: 'rgba(239, 68, 68, 0.1)',
-                            border: '1px solid var(--error)',
-                            color: 'var(--error)',
-                            padding: '1rem',
+                            background: isBlocked ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)',
+                            border: `1px solid ${isBlocked ? '#dc2626' : 'var(--error)'}`,
+                            color: isBlocked ? '#dc2626' : 'var(--error)',
+                            padding: isBlocked ? '1.25rem' : '1rem',
                             borderRadius: '0.5rem',
                             marginBottom: '1.5rem',
                             display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem'
+                            alignItems: 'flex-start',
+                            gap: '0.75rem'
                         }} className="animate-fade-in">
-                            <span style={{ fontSize: '1.25rem' }}>!</span> {error}
+                            {isBlocked ? <AlertTriangle size={24} style={{ flexShrink: 0, marginTop: '2px' }} /> : <span style={{ fontSize: '1.25rem' }}>!</span>}
+                            <div>
+                                {isBlocked && <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Account Blocked</strong>}
+                                {error}
+                            </div>
                         </div>
                     )}
 
