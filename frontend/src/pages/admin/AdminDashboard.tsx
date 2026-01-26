@@ -1316,6 +1316,7 @@ const AddQuestionModal: React.FC<{ onClose: () => void, onSuccess: () => void, e
         try {
             const payload = {
                 ...formData,
+                type: 'Descriptive', // Always Descriptive for AI evaluation
                 keywords: formData.keywords.split(',').map(k => k.trim()).filter(k => k)
             };
 
@@ -1366,7 +1367,7 @@ const AddQuestionModal: React.FC<{ onClose: () => void, onSuccess: () => void, e
                             </div>
                         </div>
 
-                        {/* Keyword field for everyone, but especially Descriptive */}
+                        {/* Keyword field - Required for AI evaluation */}
                         <div style={{ marginBottom: '1.5rem' }}>
                             <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>
                                 Mandatory Keywords / Concepts <span style={{fontSize: '0.7em', color: 'var(--primary)'}}>(AI Grading)</span>
@@ -1378,11 +1379,9 @@ const AddQuestionModal: React.FC<{ onClose: () => void, onSuccess: () => void, e
                                 onChange={e => setFormData({ ...formData, keywords: e.target.value })} 
                             />
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                                The AI will check for these specific terms.
+                                The AI will check for these specific terms when evaluating answers.
                             </div>
                         </div>
-
-                       
                     </form>
                 </div>
 
