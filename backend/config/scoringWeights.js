@@ -1,39 +1,55 @@
 module.exports = {
-    metrics: {
-        relevance: { min: 0, max: 5 },
-        clarity: { min: 0, max: 5 },
-        depth: { min: 0, max: 5 },
-        accuracy: { min: 0, max: 5 },
-        structure: { min: 0, max: 5 },
-        confidence: { min: 0, max: 5 },
-        honesty: { min: 0, max: 5 }
-    },
-    roles: {
+    roleWeights: {
         "frontend_dev": {
-            relevance: 0.15,
-            clarity: 0.20,
-            depth: 0.20,
-            accuracy: 0.25,
-            structure: 0.10,
-            confidence: 0.05,
-            honesty: 0.05
+            noticePeriod: 0.20,
+            skill: 0.45,
+            experience: 0.25,
+            communication: 0.10
         },
-        "sales": {
-            relevance: 0.20,
-            clarity: 0.30,
-            confidence: 0.25,
-            structure: 0.15,
-            honesty: 0.10
+        "backend_dev": {
+            noticePeriod: 0.20,
+            skill: 0.45,
+            experience: 0.25,
+            communication: 0.10
+        },
+        "business_analyst": {
+            noticePeriod: 0.20,
+            skill: 0.45,
+            experience: 0.10,
+            communication: 0.25
+        },
+        "marketing": {
+            noticePeriod: 0.20,
+            skill: 0.10,
+            experience: 0.20,
+            communication: 0.50
         },
         // Default fallback
         "default": {
-            relevance: 0.15,
-            clarity: 0.15,
-            depth: 0.15,
-            accuracy: 0.15,
-            structure: 0.15,
-            confidence: 0.15,
-            honesty: 0.10
+            noticePeriod: 0.20,
+            skill: 0.30,
+            experience: 0.20,
+            communication: 0.30
+        }
+    },
+
+    // Logic to normalize raw values into 0-10 scores
+    scoringLogic: {
+        noticePeriod: (days) => {
+            if (days <= 15) return 10;
+            if (days <= 30) return 8;
+            if (days <= 60) return 6;
+            if (days <= 90) return 4;
+            return 2;
+        },
+        experience: (years, requiredYears = 2) => {
+            // Rough mapping based on levels
+            // Intern: 0, 1-2: 1.5, 2-4: 3, etc.
+            const diff = years - requiredYears;
+            if (diff >= 2) return 10; // Exceeds expectation
+            if (diff >= 0) return 8;  // Meets expectation
+            if (diff >= -1) return 5; // Slightly under
+            return 2;                 // Under experienced
         }
     }
 };

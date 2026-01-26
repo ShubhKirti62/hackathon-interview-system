@@ -262,12 +262,29 @@ router.post('/:id/complete', async (req, res) => {
         // 2. Generate AI Summary
         const aiSummary = await generateInterviewSummary(interview);
 
+        // 3. Calculate Weighted Score (New Logic)
+        const { calculateCandidateScore } = require('../utils/scoreCalculator');
+        
+        // Mock communication score if not available from AI yet (random 5-9 for now or use average score)
+        // Ideally AI summary would provide this. For now, let's use the technical score as proxy or random for demo
+        // In a real implementation, 'evaluateAnswer' would return dimension scores.
+        // Let's assume communication correlates with technical score for now to keep it simple, or random variation.
+        const communicationScore = Math.min(10, (parseFloat(finalScore) + (Math.random() * 2 - 1))); 
+
+        const scoreResult = calculateCandidateScore(
+            candidate,
+            parseFloat(finalScore),
+            communicationScore,
+            candidate.role || 'business_analyst' // Defaulting to BA if undefined for testing
+        );
+
+        console.log("Calculated Weighted Score:", scoreResult);
+
         // Update Candidate with final score
         await Candidate.findByIdAndUpdate(candidate._id, {
             status: 'Interviewed',
-            overallScore: finalScore,
-            // We can add detailed AI summary to remarks or a new field if needed
-            remarks: `AI Eval: ${finalScore}/10. ${aiSummary.substring(0, 100)}...`
+            overallScore: scoreResult.finalScore,
+            remarks: `Weighted Score: ${scoreResult.finalScore}/10. Breakdown: ${JSON.stringify(scoreResult.breakdown.weighted)}. AI Summary: ${aiSummary.substring(0, 100)}...`
         });
 
         // Update Interview
@@ -278,8 +295,10 @@ router.post('/:id/complete', async (req, res) => {
                 completedAt: new Date(),
                 aiOverallSummary: aiSummary,
                 feedback: {
-                    remarks: 'Automated Hybrid AI Grading Complete',
-                    technical: parseFloat(finalScore) // Store raw score as technical score
+                    remarks: `Weighted Score: ${scoreResult.finalScore}`,
+                    technical: parseFloat(finalScore),
+                    communication: parseFloat(communicationScore.toFixed(1)),
+                    weightedBreakdown: scoreResult.breakdown
                 }
             },
             { new: true }
