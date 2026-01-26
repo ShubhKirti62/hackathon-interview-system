@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Mic, MicOff, Send, AlertCircle, Clock, WifiOff } from 'lucide-react';
+import { Mic, MicOff, Send, AlertCircle, Clock, WifiOff, AlertTriangle, Eye } from 'lucide-react';
 import api from '../../services/api';
 import { API_ENDPOINTS } from '../../services/endpoints';
 import { APP_ROUTES } from '../../routes';
 import { showToast } from '../../utils/toast';
+import { useTabDetection } from '../../hooks/useTabDetection';
 
 interface Question {
     _id: string;
@@ -42,6 +43,69 @@ const InterviewPage: React.FC = () => {
         easy: 60,
         medium: 120,
         hard: 180
+    });
+
+    // Anti-fraud: Tab switching detection
+    const handleViolation = useCallback(async (violation: any, totalViolations: number) => {
+        if (!id) return;
+        try {
+            const response = await api.post(API_ENDPOINTS.INTERVIEWS.VIOLATION(id), {
+                type: violation.type,
+                duration: violation.duration,
+                questionIndex: currentQIndex
+            });
+
+            if (response.data.terminated && response.data.blocked) {
+                // Critical: 5/5 violations - auto logout and block
+                showToast.error('Interview terminated due to excessive violations. You have been blocked.');
+                // Clear local storage and redirect to login
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                localStorage.removeItem('role');
+                setTimeout(() => {
+                    window.location.href = '/login?blocked=true';
+                }, 2000);
+            } else if (response.data.warningLevel === 'critical') {
+                showToast.error('Multiple violations detected. Your interview may be flagged for review.');
+            } else if (response.data.warningLevel === 'high') {
+                showToast.error('Warning: Continued tab switching may affect your evaluation.');
+            }
+        } catch (err: any) {
+            // Handle case where interview is already terminated
+            if (err.response?.data?.terminated) {
+                showToast.error('Your interview has been terminated.');
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                localStorage.removeItem('role');
+                setTimeout(() => {
+                    window.location.href = '/login?blocked=true';
+                }, 2000);
+            } else {
+                console.warn('Failed to record violation', err);
+            }
+        }
+    }, [id, currentQIndex]);
+
+    const {
+        violations,
+        violationCount,
+        isPageVisible,
+        warningMessage,
+        clearWarning
+    } = useTabDetection({
+        enabled: interview?.status === 'In-Progress',
+        maxWarnings: 5,
+        onViolation: handleViolation,
+        onMaxViolationsReached: () => {
+            showToast.error('Maximum violations reached. You have been blocked from the interview.');
+            // Clear local storage and redirect to login
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('role');
+            setTimeout(() => {
+                window.location.href = '/login?blocked=true';
+            }, 2000);
+        }
     });
 
     const recognitionRef = useRef<any>(null);
@@ -308,6 +372,57 @@ const InterviewPage: React.FC = () => {
                 }}>
                     <WifiOff size={18} />
                     <strong>Internet Disconnected:</strong> Timer paused. Please reconnect to resume.
+                </div>
+            )}
+
+            {/* Tab Switching Warning */}
+            {warningMessage && (
+                <div style={{
+                    backgroundColor: violationCount >= 3 ? 'var(--error)' : 'var(--warning)',
+                    color: 'white',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '0.5rem',
+                    marginBottom: '1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.5rem',
+                    animation: 'slideUp 0.3s ease'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <AlertTriangle size={18} />
+                        <span>{warningMessage}</span>
+                    </div>
+                    <button
+                        onClick={clearWarning}
+                        style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: '0.25rem' }}
+                    >
+                        ✕
+                    </button>
+                </div>
+            )}
+
+            {/* Monitoring Indicator */}
+            {interview?.status === 'In-Progress' && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontSize: '0.75rem',
+                    color: 'var(--text-secondary)',
+                    marginBottom: '1rem',
+                    padding: '0.5rem 0.75rem',
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderRadius: '0.5rem',
+                    width: 'fit-content'
+                }}>
+                    <Eye size={14} style={{ color: violationCount > 0 ? 'var(--warning)' : 'var(--success)' }} />
+                    <span>Session monitored</span>
+                    {violationCount > 0 && (
+                        <span style={{ color: 'var(--warning)', fontWeight: '600' }}>
+                            • {violationCount} violation{violationCount > 1 ? 's' : ''}
+                        </span>
+                    )}
                 </div>
             )}
 

@@ -19,8 +19,18 @@ const InterviewSchema = new mongoose.Schema({
         technical: { type: Number, min: 0, max: 10 },
         remarks: { type: String }
     },
+    // Anti-fraud: Tab switching / focus loss tracking
+    tabViolations: [{
+        type: { type: String, enum: ['tab_switch', 'focus_loss', 'visibility_hidden'] },
+        timestamp: { type: Date },
+        duration: { type: Number }, // How long they were away (ms)
+        questionIndex: { type: Number } // Which question they were on
+    }],
+    totalViolations: { type: Number, default: 0 },
+    flaggedForReview: { type: Boolean, default: false }, // Auto-flag if too many violations
     aiOverallSummary: { type: String },
-    status: { type: String, enum: ['Scheduled', 'In-Progress', 'Completed'], default: 'Scheduled' },
+    status: { type: String, enum: ['Scheduled', 'In-Progress', 'Completed', 'Terminated'], default: 'Scheduled' },
+    terminatedReason: { type: String },
     currentQuestionIndex: { type: Number, default: 0 },
     remainingTime: { type: Number }, // in seconds
     completedAt: { type: Date }

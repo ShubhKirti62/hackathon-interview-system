@@ -46,7 +46,10 @@ const CandidateSchema = new mongoose.Schema({
     overallScore: { type: Number },
     handledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     handledAt: { type: Date },
-    remarks: { type: String }
+    remarks: { type: String },
+    blocked: { type: Boolean, default: false },
+    blockedReason: { type: String },
+    blockedAt: { type: Date }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Candidate', CandidateSchema);

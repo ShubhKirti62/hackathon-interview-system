@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Plus, Users, BarChart, FileText, CheckCircle, X,Camera, ChevronLeft, ChevronRight, Shield, Star, Filter, Phone, Mail, File, ExternalLink, Settings, Clock, PieChart as PieChartIcon, TrendingUp, Send, Image as ImageIcon } from 'lucide-react';
+import { Upload, Plus, Users, BarChart, FileText, CheckCircle, X, Camera, ChevronLeft, ChevronRight, Shield, Star, Filter, Phone, Mail, File, ExternalLink, Settings, Clock, PieChart as PieChartIcon, TrendingUp, Send, Image as ImageIcon, Menu } from 'lucide-react';
 import ScreenshotViewerModal from '../../components/Modals/ScreenshotViewerModal';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart as ReBarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, AreaChart, Area } from 'recharts';
 import api from '../../services/api';
@@ -100,6 +100,7 @@ const AdminDashboard: React.FC = () => {
     const [showInterviewModal, setShowInterviewModal] = useState(false);
     const [selectedInterview, setSelectedInterview] = useState<any>(null);
     const [viewingScreenshotsCandidate, setViewingScreenshotsCandidate] = useState<{id: string, name: string} | null>(null);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
 
     const chartData = useMemo(() => {

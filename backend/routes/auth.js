@@ -101,6 +101,15 @@ router.post('/login', async (req, res) => {
             const candidate = await Candidate.findOne({ email });
 
             if (candidate) {
+                // Check if candidate is blocked
+                if (candidate.blocked) {
+                    return res.status(403).json({
+                        msg: 'Your account has been blocked due to interview violations. Please contact HR for assistance.',
+                        blocked: true,
+                        blockedReason: candidate.blockedReason
+                    });
+                }
+
                 // Check for static password
                 if (password !== '123456') {
                      return res.status(400).json({ msg: 'Invalid Credentials' });
