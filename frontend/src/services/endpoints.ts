@@ -40,6 +40,7 @@ export const API_ENDPOINTS = {
     INVITES: {
         GENERATE: '/invites',
         VALIDATE: (token: string) => `/invites/${token}`,
+        SEND: '/invites/send',
     },
     SESSIONS: {
         LIST: '/sessions',
