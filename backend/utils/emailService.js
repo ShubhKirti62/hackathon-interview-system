@@ -15,6 +15,19 @@ const transporter = nodemailer.createTransport({
 
 const sendInterviewInvite = async (to, candidateName, interviewDate, interviewTime, meetingLink, customMessage) => {
     try {
+        // Format time to AM/PM
+        const formatTimeAMPM = (time24) => {
+            if (!time24) return '';
+            const [hours, minutes] = time24.split(':');
+            let h = parseInt(hours, 10);
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            h = h % 12;
+            h = h ? h : 12;
+            return `${h}:${minutes} ${ampm}`;
+        };
+
+        const formattedTime = formatTimeAMPM(interviewTime);
+
         const mailOptions = {
             from: `"Interview System" <${process.env.SMTP_USER}>`,
             to: to,
@@ -28,8 +41,14 @@ const sendInterviewInvite = async (to, candidateName, interviewDate, interviewTi
                     
                     <div style="background-color: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">
                         <p style="margin: 5px 0;"><strong>📅 Date:</strong> ${interviewDate}</p>
-                        <p style="margin: 5px 0;"><strong>⏰ Time:</strong> ${interviewTime}</p>
+                        <p style="margin: 5px 0;"><strong>⏰ Time:</strong> ${formattedTime}</p>
                         <p style="margin: 5px 0;"><strong>🔗 Meeting Link:</strong> <a href="${meetingLink}">${meetingLink}</a></p>
+                    </div>
+
+                    <div style="background-color: #e5e7eb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                        <p style="margin: 0; font-weight: bold;">Login Credentials:</p>
+                        <p style="margin: 5px 0;"><strong>Email:</strong> ${to}</p>
+                        <p style="margin: 5px 0;"><strong>Password:</strong> 123456</p>
                     </div>
 
                     ${customMessage ? `<p>${customMessage}</p>` : ''}

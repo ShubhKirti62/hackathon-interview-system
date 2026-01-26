@@ -90,9 +90,10 @@ router.post('/login', async (req, res) => {
             const candidate = await Candidate.findOne({ email });
 
             if (candidate) {
-                // For candidates, we (currently) only check email existence.
-                // In a real app, you'd likely have a password or OTP.
-                // Treating as "candidate" role.
+                // Check for static password
+                if (password !== '123456') {
+                     return res.status(400).json({ msg: 'Invalid Credentials' });
+                }
 
                 const payload = {
                     id: candidate.id,
