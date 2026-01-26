@@ -137,7 +137,7 @@ const CandidateHome: React.FC = () => {
         <div className="container" style={{ padding: '2rem 1rem', maxWidth: '1000px' }}>
             <div style={{ marginBottom: '2rem' }}>
                 <h1 style={{ fontSize: '2rem', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
-                    Welcome back, {candidate?.name}!
+                    Welcome, {candidate?.name}!
                 </h1>
                 <p style={{ color: 'var(--text-secondary)' }}>Manage your application and track your interview progress here.</p>
             </div>

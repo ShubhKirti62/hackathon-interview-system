@@ -17,14 +17,18 @@ const CandidateSchema = new mongoose.Schema({
     status: { 
         type: String, 
         enum: [
-            'Profile Submitted', 
-            'Interview 1st Round Pending', 
-            '1st Round Completed', 
-            '2nd Round Qualified', 
-            'Rejected',
-            'Pending', 'Shortlisted', 'Slot_Booked', 'Interviewed', 'Round_2_Completed' // Keeping old ones temporarily to avoid crash if db has them
+            'profile_submitted', 
+            'interview_1st_round_pending', 
+            '1st_round_completed', 
+            '2nd_round_qualified', 
+            'rejected',
+            'blocked',
+            'slot_booked',
+            'interviewed',
+            'round_2_completed',
+            'offer_letter_sent'
         ], 
-        default: 'Profile Submitted' 
+        default: 'profile_submitted' 
     },
 
     // Face Verification Data
