@@ -1188,7 +1188,7 @@ const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () => void, 
 };
 
 const AddCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void }> = ({ onClose, onSuccess }) => {
-    const [formData, setFormData] = useState({ name: '', email: '', phone: '', domain: 'Frontend', experienceLevel: 'Fresher/Intern', internalReferred: false });
+    const [formData, setFormData] = useState({ name: '', email: '', phone: '', domain: 'Frontend', experienceLevel: 'Fresher/Intern', internalReferred: false, noticePeriod: 30 });
     const [resumeFile, setResumeFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
     const [parsing, setParsing] = useState(false);
@@ -1274,6 +1274,15 @@ const AddCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void }
                                 <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Experience Level</label>
                                 <select className="input" value={formData.experienceLevel} onChange={e => setFormData({ ...formData, experienceLevel: e.target.value })}>
                                     <option value="Fresher/Intern">Fresher/Intern</option><option value="1-2 years">1-2 years</option><option value="2-4 years">2-4 years</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Notice Period</label>
+                                <select className="input" value={formData.noticePeriod} onChange={e => setFormData({ ...formData, noticePeriod: parseInt(e.target.value) })}>
+                                    <option value={15}>Immediate (≤ 15 days)</option>
+                                    <option value={30}>1 Month (≤ 30 days)</option>
+                                    <option value={60}>2 Months (≤ 60 days)</option>
+                                    <option value={90}>3 Months (≤ 90 days)</option>
                                 </select>
                             </div>
                             <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', padding: '0.5rem 0' }}>
