@@ -144,23 +144,23 @@ router.post('/verify', async (req, res) => {
             userAgent: req.get('User-Agent'),
         });
 
-        // Check if HR should be notified
-        let hrNotified = false;
+        // Check if admin should be notified
+        let adminNotified = false;
         if (!verified && mismatchCount + 1 >= MAX_MISMATCHES_BEFORE_NOTIFY) {
-            hrNotified = true;
-            logEntry.hrNotified = true;
-            logEntry.hrNotifiedAt = new Date();
+            adminNotified = true;
+            logEntry.adminNotified = true;
+            logEntry.adminNotifiedAt = new Date();
             await logEntry.save();
 
             // Here you could add notification logic (email, webhook, etc.)
-            console.log(`HR ALERT: Multiple face mismatches detected for candidate ${candidateId}`);
+            console.log(`ADMIN ALERT: Multiple face mismatches detected for candidate ${candidateId}`);
         }
 
         res.json({
             verified,
             distance: Math.round(distance * 1000) / 1000,
             mismatchCount: verified ? 0 : mismatchCount + 1,
-            hrNotified,
+            adminNotified,
             threshold: FACE_MATCH_THRESHOLD,
         });
     } catch (error) {
@@ -211,7 +211,7 @@ router.get('/report/:sessionId', async (req, res) => {
             totalVerifications: logs.length,
             successfulVerifications: logs.filter(l => l.verified).length,
             mismatches: logs.filter(l => l.verificationType === 'mismatch').length,
-            hrNotified: logs.some(l => l.hrNotified),
+            adminNotified: logs.some(l => l.adminNotified),
             averageDistance: logs.length > 0
                 ? Math.round((logs.reduce((sum, l) => sum + (l.distance || 0), 0) / logs.length) * 1000) / 1000
                 : 0,
@@ -225,7 +225,7 @@ router.get('/report/:sessionId', async (req, res) => {
                 verified: log.verified,
                 distance: log.distance,
                 timestamp: log.createdAt,
-                hrNotified: log.hrNotified,
+                adminNotified: log.adminNotified,
             })),
         });
     } catch (error) {

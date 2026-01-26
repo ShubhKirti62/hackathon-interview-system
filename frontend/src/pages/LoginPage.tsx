@@ -7,7 +7,7 @@ import { APP_ROUTES } from '../routes';
 import { Brain, Target, TrendingUp, Cpu, Lock, Eye, EyeOff } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
-    const [email, setEmail] = useState('admin@example.com');
+    const [email, setEmail] = useState('candidate@example.com');
     const [password, setPassword] = useState('123456');
     const [error, setError] = useState('');
     const { login, isAuthenticated, user } = useAuth();
@@ -15,7 +15,7 @@ const LoginPage: React.FC = () => {
 
     useEffect(() => {
         if (isAuthenticated && user) {
-            if (user.role === 'admin' || user.role === 'hr') {
+            if (user.role === 'admin') {
                 navigate(APP_ROUTES.ADMIN.DASHBOARD);
             } else {
                 navigate(APP_ROUTES.CANDIDATE.DASHBOARD);
@@ -31,7 +31,7 @@ const LoginPage: React.FC = () => {
         try {
             const res = await api.post(API_ENDPOINTS.AUTH.LOGIN, { email, password });
             login(res.data.token, res.data.user);
-            if (res.data.user.role === 'admin' || res.data.user.role === 'hr') {
+            if (res.data.user.role === 'admin') {
                 navigate(APP_ROUTES.ADMIN.DASHBOARD);
             } else {
                 navigate(APP_ROUTES.CANDIDATE.DASHBOARD);

@@ -11,6 +11,17 @@ router.post('/register', async (req, res) => {
     try {
         const { name, email, password, role } = req.body;
 
+        // If registering as candidate, check if email exists in candidates collection
+        if (role === 'candidate') {
+            const Candidate = require('../models/Candidate');
+            const existingCandidate = await Candidate.findOne({ email });
+            if (!existingCandidate) {
+                return res.status(403).json({ 
+                    msg: 'Email not found in candidate database. Please contact HR to upload your resume first.' 
+                });
+            }
+        }
+
         // Check if user exists
         let user = await User.findOne({ email });
         if (user) {
@@ -59,7 +70,7 @@ router.post('/login', async (req, res) => {
         const { email, password } = req.body;
         const Candidate = require('../models/Candidate');
 
-        // 1. Check if user exists in User collection (Admin, HR, Interviewer)
+        // 1. Check if user exists in User collection (Admin, Candidate)
         let user = await User.findOne({ email });
 
         if (user) {
@@ -159,7 +170,7 @@ router.get('/user', require('../middleware/auth'), async (req, res) => {
 // List Users by Role (Admin only)
 router.get('/users', require('../middleware/auth'), async (req, res) => {
     try {
-        if (req.user.role !== 'admin' && req.user.role !== 'hr') {
+        if (req.user.role !== 'admin') {
             return res.status(403).json({ msg: 'Access denied' });
         }
         const { role } = req.query;
@@ -175,7 +186,7 @@ router.get('/users', require('../middleware/auth'), async (req, res) => {
     }
 });
 
-// Remove HR Access (Delete User)
+// Remove User Access (Delete User)
 router.delete('/users/:id', require('../middleware/auth'), async (req, res) => {
     try {
         if (req.user.role !== 'admin') {

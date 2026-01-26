@@ -3,6 +3,7 @@ const router = express.Router();
 const Candidate = require('../models/Candidate');
 const multer = require('multer');
 const path = require('path');
+const auth = require('../middleware/auth');
 
 // Configure Multer for resume uploads
 // Configure Multer for resume uploads (Disk Storage for persistence)
@@ -22,7 +23,6 @@ const uploadMemory = multer({ storage: memoryStorage });
 const upload = multer({ storage: storage });
 
 const { parseResume } = require('../utils/resumeParser');
-const auth = require('../middleware/auth');
 
 // Parse Resume Route (For filling the form)
 // Uses memory storage to avoid cluttering disk with temp files
@@ -62,7 +62,7 @@ router.post('/parse-resume', uploadMemory.single('resume'), async (req, res) => 
 });
 
 // Create Candidate
-router.post('/', upload.single('resume'), async (req, res) => {
+router.post('/', upload.single('resume'), auth, async (req, res) => {
     try {
         console.log('CREATE CANDIDATE REQUEST INITIATED');
         console.log('Body:', req.body);
@@ -89,7 +89,9 @@ router.post('/', upload.single('resume'), async (req, res) => {
             resumeText: resumeText || '',
             experienceLevel,
             domain,
-            internalReferred: internalReferred === 'true'
+            internalReferred: internalReferred === 'true',
+            handledBy: req.user.id, // Set to current admin user
+            handledAt: new Date()
         });
 
         console.log('Saving candidate to DB...');
