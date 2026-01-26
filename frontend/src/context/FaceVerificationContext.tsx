@@ -10,6 +10,7 @@ interface FaceVerificationState {
     lastVerifiedAt: Date | null;
     mismatchCount: number;
     registeredDescriptor: number[] | null;
+    isScreenSharing: boolean;
 }
 
 interface FaceVerificationContextType extends FaceVerificationState {
@@ -17,6 +18,7 @@ interface FaceVerificationContextType extends FaceVerificationState {
     verifyFace: (descriptor: Float32Array, candidateId: string) => Promise<{ verified: boolean; distance: number }>;
     resetVerification: () => void;
     incrementMismatchCount: () => void;
+    setScreenSharing: (isSharing: boolean) => void;
 }
 
 const FaceVerificationContext = createContext<FaceVerificationContextType | undefined>(undefined);
@@ -28,6 +30,7 @@ export const FaceVerificationProvider: React.FC<{ children: React.ReactNode }> =
         lastVerifiedAt: null,
         mismatchCount: 0,
         registeredDescriptor: null,
+        isScreenSharing: false,
     });
 
     const registerFace = useCallback(async (descriptor: Float32Array, candidateId: string): Promise<boolean> => {
@@ -107,6 +110,7 @@ export const FaceVerificationProvider: React.FC<{ children: React.ReactNode }> =
             lastVerifiedAt: null,
             mismatchCount: 0,
             registeredDescriptor: null,
+            isScreenSharing: false,
         });
     }, []);
 
@@ -117,13 +121,21 @@ export const FaceVerificationProvider: React.FC<{ children: React.ReactNode }> =
         }));
     }, []);
 
+    const setScreenSharing = useCallback((isSharing: boolean) => {
+        setState(prev => ({
+            ...prev,
+            isScreenSharing: isSharing,
+        }));
+    }, []);
+
     const value = React.useMemo(() => ({
         ...state,
         registerFace,
         verifyFace,
         resetVerification,
         incrementMismatchCount,
-    }), [state, registerFace, verifyFace, resetVerification, incrementMismatchCount]);
+        setScreenSharing,
+    }), [state, registerFace, verifyFace, resetVerification, incrementMismatchCount, setScreenSharing]);
 
     return (
         <FaceVerificationContext.Provider value={value}>

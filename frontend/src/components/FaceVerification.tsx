@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Video, Monitor } from 'lucide-react';
 import api from '../services/api';
 import { API_ENDPOINTS } from '../services/endpoints';
+import { useFaceVerification } from '../context/FaceVerificationContext';
 
 interface FaceVerificationProps {
     candidateId: string;
@@ -12,6 +13,7 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const screenStreamRef = useRef<MediaStream | null>(null);
     const cameraStreamRef = useRef<MediaStream | null>(null);
+    const { setScreenSharing } = useFaceVerification();
     
     // Status states
     const [cameraStatus, setCameraStatus] = useState<'loading' | 'active' | 'error'>('loading');
@@ -71,10 +73,14 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
             setScreenStatus('active');
             setMessage('Monitoring Active: Camera & Screen');
             
+            // Update global screen sharing status
+            setScreenSharing(true);
+            
             // Handle user stopping share
             stream.getVideoTracks()[0].onended = () => {
                 setScreenStatus('idle');
                 setMessage('Screen sharing stopped. Please re-enable.');
+                setScreenSharing(false);
             };
 
             // Start Monitoring Loop

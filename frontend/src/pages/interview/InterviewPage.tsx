@@ -5,6 +5,7 @@ import api from '../../services/api';
 import { API_ENDPOINTS } from '../../services/endpoints';
 import { APP_ROUTES } from '../../routes';
 import { showToast } from '../../utils/toast';
+import { useFaceVerification } from '../../context/FaceVerificationContext';
 
 interface Question {
     _id: string;
@@ -20,17 +21,20 @@ interface Interview {
     currentQuestionIndex: number;
     remainingTime?: number;
     status: string;
+    round?: string; // Added round property
 }
 import FaceVerification from '../../components/FaceVerification';
 
 const InterviewPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { isScreenSharing } = useFaceVerification();
 
     const [interview, setInterview] = useState<Interview | null>(null);
     const [currentQIndex, setCurrentQIndex] = useState(0);
     const [timeLeft, setTimeLeft] = useState<number | null>(null);
     const [isRecording, setIsRecording] = useState(false);
+    const [manualQuestion, setManualQuestion] = useState('');
 
 
 
@@ -147,9 +151,9 @@ const InterviewPage: React.FC = () => {
         }
     };
 
-    // Timer logic
+    // Timer logic - only runs when screen sharing is active
     useEffect(() => {
-        if (!loading && interview && timeLeft !== null && timeLeft > 0 && !isOffline) {
+        if (!loading && interview && timeLeft !== null && timeLeft > 0 && !isOffline && isScreenSharing) {
             timerRef.current = setInterval(() => {
                 setTimeLeft(prev => (prev !== null && prev > 0 ? prev - 1 : 0));
             }, 1000);
@@ -160,7 +164,7 @@ const InterviewPage: React.FC = () => {
         return () => {
             if (timerRef.current) clearInterval(timerRef.current);
         };
-    }, [loading, !!interview, isOffline]); // Removed timeLeft dependency to prevent resets
+    }, [loading, !!interview, isOffline, isScreenSharing]); // Added isScreenSharing dependency
 
     useEffect(() => {
         if (timeLeft === 0) {
@@ -190,6 +194,8 @@ const InterviewPage: React.FC = () => {
     }, [id, !!interview, isOffline, currentQIndex, transcript]);
 
     const toggleRecording = () => {
+ 
+
         if (!recognitionRef.current) {
             showToast.error('Speech Recognition is not supported in this browser.');
             return;
@@ -221,6 +227,18 @@ const InterviewPage: React.FC = () => {
     const handleNextQuestion = async () => {
         if (!interview || !id) return;
 
+        // Check if there's any answer (voice or manual)
+        const hasVoiceAnswer = transcript && transcript.trim() !== '';
+        const hasManualAnswer = manualQuestion && manualQuestion.trim() !== '';
+        
+        if (!hasVoiceAnswer && !hasManualAnswer) {
+            showToast.error('Please provide an answer before proceeding');
+            return;
+        }
+
+        // Combine answers - prioritize manual answer if both exist
+        const finalAnswer = hasManualAnswer ? manualQuestion : transcript;
+
         // stop recording if on
         if (isRecording) {
             recognitionRef.current.stop();
@@ -231,7 +249,7 @@ const InterviewPage: React.FC = () => {
         try {
             await api.post(API_ENDPOINTS.INTERVIEWS.SUBMIT_RESPONSE(id), {
                 questionId: interview.questions[currentQIndex]._id,
-                userResponseText: transcript || 'No response provided',
+                userResponseText: finalAnswer || 'No response provided',
                 timeTakenSeconds: (timeLimits[interview.questions[currentQIndex].difficulty.toLowerCase()] || 120) - timeLeft!
             });
         } catch (err) {
@@ -243,6 +261,7 @@ const InterviewPage: React.FC = () => {
             const nextIndex = currentQIndex + 1;
             setCurrentQIndex(nextIndex);
             setTranscript('');
+            setManualQuestion(''); // Clear manual input too
 
             // Set new time limit for next question
             const nextDifficulty = interview.questions[nextIndex]?.difficulty?.toLowerCase() || 'medium';
@@ -290,7 +309,7 @@ const InterviewPage: React.FC = () => {
     const currentQuestion = interview?.questions[currentQIndex];
 
     return (
-        <div className="container" style={{ padding: '2rem 1rem', maxWidth: '800px' }}>
+        <div className="container" style={{ padding: '2rem 1rem', width: '100%'}}>
 
 
             {isOffline && (
@@ -320,22 +339,41 @@ const InterviewPage: React.FC = () => {
                         Question {currentQIndex + 1} of {interview?.questions.length || 0} (Descriptive - {currentQuestion?.difficulty} Round)
                     </span>
                 </div>
-                <div style={{
-                    fontSize: '1.5rem',
-                    fontFamily: 'monospace',
-                    color: (timeLeft || 0) < 30 ? 'var(--error)' : 'var(--primary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    backgroundColor: 'var(--bg-secondary)',
-                    padding: '0.5rem 1rem',
-                    borderRadius: '0.5rem'
-                }}>
-                    <Clock size={20} />
-                    {formatTime(timeLeft || 0)}
-                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    
+                    <div style={{
+                        fontSize: '1.5rem',
+                        fontFamily: 'monospace',
+                        color: (timeLeft || 0) < 30 ? 'var(--error)' : 'var(--primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        backgroundColor: 'var(--bg-secondary)',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '0.5rem'
+                    }}>
+                        <Clock size={20} />
+                        {formatTime(timeLeft || 0)}
+                    </div>
+    
+                    {/* Microphone Button */}
+                    <button
+                        onClick={toggleRecording}
+                        className={`btn`}
+                        disabled={!isScreenSharing || isOffline || (timeLeft === 0)}
+                        style={{
+                            borderRadius: '50%',
+                            width: '50px',
+                            height: '50px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: isRecording ? 'var(--error)' : 'var(--primary)',
+                            opacity: (!isScreenSharing || isOffline || timeLeft === 0) ? 0.5 : 1,
+                            transition: 'all 0.3s'
+                        }}
+                    >
+                        {isRecording ? <MicOff size={20} color="white" /> : <Mic size={20} color="white" />}
+                    </button>
                 </div>
             </div>
 
@@ -352,54 +390,28 @@ const InterviewPage: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem' }}>
-                <div style={{ position: 'relative' }}>
-                        <button
-                            onClick={toggleRecording}
-                            className={`btn`}
-                            disabled={isOffline || (timeLeft === 0)}
-                            style={{
-                                borderRadius: '50%',
-                                width: '80px',
-                                height: '80px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                backgroundColor: isRecording ? 'var(--error)' : 'var(--primary)',
-                                opacity: (isOffline || timeLeft === 0) ? 0.5 : 1,
-                                transition: 'all 0.3s'
-                            }}
-                        >
-                            {isRecording ? <MicOff size={32} color="white" /> : <Mic size={32} color="white" />}
-                        </button>
-                        {isRecording && (
-                            <div style={{
-                                position: 'absolute',
-                                top: '-10px',
-                                right: '-10px',
-                                width: '20px',
-                                height: '20px',
-                                borderRadius: '50%',
-                                backgroundColor: 'var(--error)',
-                                border: '2px solid white',
-                                boxShadow: '0 0 10px var(--error)',
-                                animation: 'pulse 1s infinite'
-                            }} />
-                        )}
-                    </div>
-
                 <p style={{ color: 'var(--text-secondary)', textAlign: 'center' }}>
                     {timeLeft === 0
                         ? 'Time is up for this question!'
                         : isOffline
                             ? 'Paused due to network issues'
-                            : isRecording
-                                ? 'Listening... Speak clearly into your microphone'
+                            : !isScreenSharing
+                                ? 'Microphone disabled - screen sharing is required'
+                                : isRecording
+                                    ? 'Listening... Speak clearly into your microphone'
                                     : 'Click the microphone to start answering'
                     }
                 </p>
 
-                <div style={{ width: '100%' }}>
-                    <div className="card" style={{ padding: '1.5rem', minHeight: '120px', backgroundColor: 'var(--bg-secondary)', marginBottom: '1.5rem' }}>
+                <div style={{ width: '100%', display: 'flex', gap: '1rem' }}>
+                    {/* Live Transcription */}
+                    <div className="card" style={{ 
+                        flex: 1, 
+                        padding: '1.5rem', 
+                        minHeight: '150px', 
+                        backgroundColor: 'var(--bg-secondary)', 
+                        marginBottom: '1.5rem' 
+                    }}>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 'bold', textTransform: 'uppercase' }}>
                             Live Transcription
                         </div>
@@ -408,19 +420,45 @@ const InterviewPage: React.FC = () => {
                         </p>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                            Progress auto-saved locally and to server
+                    {/* Manual Input */}
+                    <div className="card" style={{ 
+                        flex: 1, 
+                        padding: '1.5rem', 
+                        minHeight: '150px', 
+                        backgroundColor: 'var(--bg-secondary)', 
+                        marginBottom: '1.5rem',
+                        border: '2px solid var(--primary)'
+                    }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                            Manual Answer Input
                         </div>
-                        <button
-                            onClick={handleNextQuestion}
-                            className="btn btn-primary"
-                            style={{ gap: '0.5rem', padding: '0.75rem 2rem' }}
-                            disabled={isOffline || isRecording}
-                        >
-                            {currentQIndex < (interview?.questions.length || 0) - 1 ? 'Next Question' : 'Finish Interview'} <Send size={18} />
-                        </button>
+                        <textarea
+                            className="input"
+                            value={manualQuestion}
+                            onChange={(e) => setManualQuestion(e.target.value)}
+                            placeholder="Type your answer here manually..."
+                            rows={4}
+                            style={{ 
+                                width: '100%', 
+                                resize: 'vertical',
+                                minHeight: '80px'
+                            }}
+                        />
                     </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                        Progress auto-saved locally and to server
+                    </div>
+                    <button
+                        onClick={handleNextQuestion}
+                        className="btn btn-primary"
+                        style={{ gap: '0.5rem', padding: '0.75rem 2rem' }}
+                        disabled={isOffline || isRecording || (!transcript.trim() && !manualQuestion.trim())}
+                    >
+                        {currentQIndex < (interview?.questions.length || 0) - 1 ? 'Next Question' : 'Finish Interview'} <Send size={18} />
+                    </button>
                 </div>
             </div>
 

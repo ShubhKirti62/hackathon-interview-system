@@ -35,50 +35,61 @@ router.post('/start', async (req, res) => {
 
             console.log(`Query for ${type} questions:`, JSON.stringify(matchStage, null, 2));
 
-            let questions = await Question.aggregate([
-                { $match: matchStage },
-                { $sample: { size } }
-            ]);
+            // First try to get all available questions, then randomly sample
+            let availableQuestions = await Question.find(matchStage).lean();
+            console.log(`Found ${availableQuestions.length} total ${type} questions with experience filter`);
 
-            console.log(`Found ${questions.length} ${type} questions with experience filter`);
+            // If we have seen questions, filter them out
+            if (seenQuestionIds.length > 0 && availableQuestions.length > seenQuestionIds.length) {
+                availableQuestions = availableQuestions.filter(q => 
+                    !seenQuestionIds.includes(q._id.toString())
+                );
+                console.log(`After filtering seen questions: ${availableQuestions.length} remaining`);
+            }
+
+            // If we don't have enough new questions, get all questions (including seen ones)
+            if (availableQuestions.length < size) {
+                console.log(`Not enough new questions, getting all questions...`);
+                availableQuestions = await Question.find(matchStage).lean();
+            }
 
             // Fallback 1: Try without experience level filter
-            if (questions.length < size) {
+            if (availableQuestions.length < size) {
                 console.log(`Not enough ${type} questions, trying without experience filter...`);
                 delete matchStage.experienceLevel;
-                questions = await Question.aggregate([
-                    { $match: matchStage },
-                    { $sample: { size } }
-                ]);
-                console.log(`Found ${questions.length} ${type} questions without experience filter`);
+                availableQuestions = await Question.find(matchStage).lean();
+                console.log(`Found ${availableQuestions.length} ${type} questions without experience filter`);
             }
 
             // Fallback 2: Try any descriptive questions for the domain
-            if (questions.length < size) {
+            if (availableQuestions.length < size) {
                 console.log(`Still not enough questions, trying any ${type} questions for domain...`);
                 matchStage = {
                     domain,
                     type
                 };
-                questions = await Question.aggregate([
-                    { $match: matchStage },
-                    { $sample: { size } }
-                ]);
-                console.log(`Found ${questions.length} ${type} questions for domain only`);
+                availableQuestions = await Question.find(matchStage).lean();
+                console.log(`Found ${availableQuestions.length} ${type} questions for domain only`);
             }
 
             // Fallback 3: Try any descriptive questions
-            if (questions.length < size) {
+            if (availableQuestions.length < size) {
                 console.log(`Still not enough, trying any ${type} questions...`);
                 matchStage = { type };
-                questions = await Question.aggregate([
-                    { $match: matchStage },
-                    { $sample: { size } }
-                ]);
-                console.log(`Found ${questions.length} ${type} questions of any type`);
+                availableQuestions = await Question.find(matchStage).lean();
+                console.log(`Found ${availableQuestions.length} ${type} questions of any type`);
             }
 
-            return questions;
+            // Randomly sample the questions
+            const shuffled = availableQuestions.sort(() => Math.random() - 0.5);
+            const selected = shuffled.slice(0, Math.min(size, shuffled.length));
+            
+            console.log(`Selected ${selected.length} ${type} questions randomly`);
+            selected.forEach((q, i) => {
+                console.log(`  ${i+1}. ${q.text.substring(0, 50)}...`);
+            });
+
+            return selected;
         };
 
         const descriptive = await getQuestions('Descriptive', 5); // Get 5 descriptive questions instead of 3
