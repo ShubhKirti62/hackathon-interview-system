@@ -10,7 +10,7 @@ const RegisterPage: React.FC = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [role, setRole] = useState('hr'); // Default role
+    const [role, setRole] = useState('candidate'); // Default role
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const { login } = useAuth();
@@ -23,7 +23,7 @@ const RegisterPage: React.FC = () => {
             const res = await api.post(API_ENDPOINTS.AUTH.REGISTER, { name, email, password, role });
             // Automatically login after register
             login(res.data.token, res.data.user);
-            if (res.data.user.role === 'admin' || res.data.user.role === 'hr') {
+            if (res.data.user.role === 'admin') {
                 navigate(APP_ROUTES.ADMIN.DASHBOARD);
             } else {
                 navigate(APP_ROUTES.CANDIDATE.DASHBOARD);
@@ -93,6 +93,18 @@ const RegisterPage: React.FC = () => {
                         <p style={{ color: 'var(--text-secondary)' }}>Join us and streamline your workflow.</p>
                     </div>
 
+                    <div style={{ 
+                        marginBottom: '1.5rem', 
+                        padding: '1rem', 
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)', 
+                        border: '1px solid rgba(59, 130, 246, 0.3)', 
+                        borderRadius: '0.5rem',
+                        fontSize: '0.875rem',
+                        color: 'var(--text-secondary)'
+                    }}>
+                        <strong style={{ color: 'var(--primary)' }}>📋 Note for Candidates:</strong> You can only create an account if your email was previously added by an admin through resume upload. Please contact your administrator if you're unable to register.
+                    </div>
+
                     {error && <div style={{ color: 'var(--error)', marginBottom: '1.5rem', textAlign: 'center', padding: '0.75rem', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '0.5rem' }}>{error}</div>}
 
                     <form onSubmit={handleSubmit}>
@@ -160,10 +172,22 @@ const RegisterPage: React.FC = () => {
                                 onChange={(e) => setRole(e.target.value)}
                                 style={{ cursor: 'pointer' }}
                             >
-                                <option value="hr">HR / Recruiter</option>
-                                <option value="interviewer">Interviewer</option>
+                                <option value="candidate">Candidate / Interviewer</option>
                                 <option value="admin">Admin</option>
                             </select>
+                        {role === 'candidate' && (
+                            <div style={{ 
+                                marginTop: '1rem', 
+                                padding: '0.75rem', 
+                                backgroundColor: 'rgba(245, 158, 11, 0.1)', 
+                                border: '1px solid rgba(245, 158, 11, 0.3)', 
+                                borderRadius: '0.5rem',
+                                fontSize: '0.8rem',
+                                color: 'var(--text-secondary)'
+                            }}>
+                                ⚠️ Your email must be in our candidate database. If you're unable to register, please contact your administrator to upload your resume first.
+                            </div>
+                        )}
                         </div>
                         <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '1rem', fontSize: '1rem' }}>Get Started</button>
                         <div style={{ marginTop: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>

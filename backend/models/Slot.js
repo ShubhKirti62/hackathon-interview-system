@@ -20,10 +20,6 @@ const SlotSchema = new mongoose.Schema({
             honesty: { type: Number, min: 0, max: 5 }
         }
     },
-    hrFeedback: {
-        score: { type: Number, min: 0, max: 10 },
-        remarks: { type: String }
-    },
     candidateFeedback: {
         score: { type: Number, min: 0, max: 10 },
         remarks: { type: String }

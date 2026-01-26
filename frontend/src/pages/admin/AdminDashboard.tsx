@@ -41,9 +41,8 @@ interface Question {
     domain: string;
     experienceLevel: string;
     difficulty: string;
-    type: 'MCQ' | 'Descriptive';
-    options: string[];
-    correctAnswers: string[];
+    type: 'Descriptive';
+    verified: boolean;
     keywords?: string[];
 }
 
@@ -98,6 +97,8 @@ const AdminDashboard: React.FC = () => {
     const [selectedSlot, setSelectedSlot] = useState<any>(null);
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [showScreenshotModal, setShowScreenshotModal] = useState(false);
+    const [showInterviewModal, setShowInterviewModal] = useState(false);
+    const [selectedInterview, setSelectedInterview] = useState<any>(null);
     const [viewingScreenshotsCandidate, setViewingScreenshotsCandidate] = useState<{id: string, name: string} | null>(null);
 
 
@@ -215,6 +216,36 @@ const AdminDashboard: React.FC = () => {
             fetchDashboardData();
         } catch (err: any) {
             showToast.error(err.response?.data?.msg || 'Failed to remove user access');
+        }
+    };
+
+    const handleViewInterview = async (candidateId: string) => {
+        try {
+            // Get interviews for this candidate
+            const interviewsRes = await api.get(`${API_ENDPOINTS.INTERVIEWS.BY_ID}?candidateId=${candidateId}`);
+            const interviews = interviewsRes.data;
+            
+            if (interviews.length === 0) {
+                showToast.info('No interviews found for this candidate');
+                return;
+            }
+            
+            // Get the most recent completed interview
+            const latestInterview = interviews
+                .filter(i => i.status === 'Completed')
+                .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())[0];
+                
+            if (!latestInterview) {
+                showToast.info('No completed interviews found for this candidate');
+                return;
+            }
+            
+            // Get detailed interview data
+            const interviewDetailsRes = await api.get(API_ENDPOINTS.INTERVIEWS.GET_DETAILS(latestInterview._id));
+            setSelectedInterview(interviewDetailsRes.data);
+            setShowInterviewModal(true);
+        } catch (err: any) {
+            showToast.error('Failed to fetch interview details');
         }
     };
 
@@ -509,8 +540,7 @@ const AdminDashboard: React.FC = () => {
                     {activeTab === 'questions' && (
                         <>
                             <StatCard icon={<FileText />} label="Total Questions" value={stats.totalQuestions.toString()} />
-                            <StatCard icon={<BarChart />} label="MCQs" value={questions.filter(q => q.type === 'MCQ').length.toString()} />
-                            <StatCard icon={<File />} label="Descriptive" value={questions.filter(q => q.type === 'Descriptive').length.toString()} />
+                            <StatCard icon={<File />} label="Descriptive Questions" value={questions.length.toString()} />
                         </>
                     )}
                     {activeTab === 'hr' && (
@@ -816,7 +846,7 @@ const AdminDashboard: React.FC = () => {
                     slot={selectedSlot}
                     onClose={() => setShowFeedbackModal(false)}
                     onSuccess={fetchDashboardData}
-                    type="hr"
+                    type="admin"
                 />
             )}
             {showInviteModal && selectedCandidate && (
@@ -824,6 +854,12 @@ const AdminDashboard: React.FC = () => {
                     candidate={selectedCandidate}
                     onClose={() => setShowInviteModal(false)}
                     onSuccess={fetchDashboardData}
+                />
+            )}
+            {showInterviewModal && selectedInterview && (
+                <InterviewDetailsModal
+                    interview={selectedInterview}
+                    onClose={() => setShowInterviewModal(false)}
                 />
             )}
             {showScreenshotModal && viewingScreenshotsCandidate && (
@@ -903,7 +939,7 @@ const TableRow: React.FC<{ candidate: Candidate, isAdmin: boolean, onView: () =>
                         <div>
                             <div style={{ fontWeight: '500' }}>{candidate.handledBy.name}</div>
                             <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-                                {candidate.handledBy.role.toUpperCase()}
+                                Admin
                             </div>
                         </div>
                     ) : (
@@ -926,6 +962,15 @@ const TableRow: React.FC<{ candidate: Candidate, isAdmin: boolean, onView: () =>
                             title="View Screenshots"
                         >
                             <ImageIcon size={18} />
+                        </button>
+                    )}
+                    {(candidate.status === 'Interviewed' || candidate.status === 'Shortlisted' || candidate.status === 'Rejected') && (
+                        <button
+                            onClick={() => handleViewInterview(candidate._id)}
+                            style={{ color: 'var(--success)', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                            title="View Interview Details"
+                        >
+                            <FileText size={18} />
                         </button>
                     )}
                     <button
@@ -1255,6 +1300,7 @@ const AddQuestionModal: React.FC<{ onClose: () => void, onSuccess: () => void, e
         domain: existingQuestion?.domain || 'Frontend',
         experienceLevel: existingQuestion?.experienceLevel || 'Fresher/Intern',
         difficulty: existingQuestion?.difficulty || 'Medium',
+        type: 'Descriptive',
         keywords: existingQuestion?.keywords?.join(', ') || ''
     });
     const [loading, setLoading] = useState(false);
@@ -1532,7 +1578,7 @@ const AddSlotModal: React.FC<{ onClose: () => void, onSuccess: () => void, inter
     );
 };
 
-const FeedbackModal: React.FC<{ slot: any, onClose: () => void, onSuccess: () => void, type: 'hr' | 'interviewer' }> = ({ slot, onClose, onSuccess, type }) => {
+const FeedbackModal: React.FC<{ slot: any, onClose: () => void, onSuccess: () => void, type: 'admin' | 'candidate' }> = ({ slot, onClose, onSuccess, type }) => {
     const [formData, setFormData] = useState({ score: 0, remarks: '' });
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -1674,5 +1720,162 @@ const FeedbackModal: React.FC<{ slot: any, onClose: () => void, onSuccess: () =>
          </div>
      );
  };
+
+const InterviewDetailsModal: React.FC<{ interview: any, onClose: () => void }> = ({ interview, onClose }) => {
+    if (!interview) return null;
+
+    return (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
+            <div className="card" style={{ width: '100%', maxWidth: '900px', maxHeight: '90vh', padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                        <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-primary)' }}>Interview Details</h2>
+                        <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                            {interview.candidateId?.name} - {interview.domain} - {interview.round}
+                        </p>
+                    </div>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>×</button>
+                </div>
+
+                <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+                    {/* Interview Summary */}
+                    <div style={{ marginBottom: '2rem', padding: '1rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '0.5rem' }}>
+                        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', color: 'var(--text-primary)' }}>Interview Summary</h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                            <div>
+                                <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Status:</span>
+                                <div style={{ fontWeight: '500' }}>{interview.status}</div>
+                            </div>
+                            <div>
+                                <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Completed:</span>
+                                <div style={{ fontWeight: '500' }}>{interview.completedAt ? new Date(interview.completedAt).toLocaleDateString() : 'N/A'}</div>
+                            </div>
+                            <div>
+                                <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Overall Score:</span>
+                                <div style={{ fontWeight: '500' }}>{interview.feedback?.technical || 'N/A'}/10</div>
+                            </div>
+                        </div>
+                        {interview.aiOverallSummary && (
+                            <div style={{ marginTop: '1rem' }}>
+                                <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>AI Summary:</span>
+                                <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', lineHeight: '1.5' }}>{interview.aiOverallSummary}</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Questions and Answers */}
+                    <div>
+                        <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1rem', color: 'var(--text-primary)' }}>Questions & Answers</h3>
+                        {interview.responses && interview.responses.length > 0 ? (
+                            interview.responses.map((response: any, index: number) => (
+                                <div key={response._id || index} style={{ marginBottom: '2rem', padding: '1rem', border: '1px solid var(--border-color)', borderRadius: '0.5rem' }}>
+                                    <div style={{ marginBottom: '1rem' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                                            <h4 style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-primary)' }}>Question {index + 1}</h4>
+                                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                                {response.questionId?.difficulty && (
+                                                    <span style={{ 
+                                                        fontSize: '0.75rem', 
+                                                        padding: '0.2rem 0.5rem', 
+                                                        borderRadius: '4px', 
+                                                        backgroundColor: response.questionId.difficulty === 'Easy' ? 'rgba(34, 197, 94, 0.1)' : 
+                                                                         response.questionId.difficulty === 'Medium' ? 'rgba(251, 146, 60, 0.1)' : 
+                                                                         'rgba(239, 68, 68, 0.1)',
+                                                        color: response.questionId.difficulty === 'Easy' ? 'var(--success)' : 
+                                                               response.questionId.difficulty === 'Medium' ? 'var(--warning)' : 
+                                                               'var(--error)'
+                                                    }}>
+                                                        {response.questionId.difficulty}
+                                                    </span>
+                                                )}
+                                                {response.score !== undefined && (
+                                                    <span style={{ 
+                                                        fontSize: '0.75rem', 
+                                                        padding: '0.2rem 0.5rem', 
+                                                        borderRadius: '4px', 
+                                                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                                        color: 'var(--primary)',
+                                                        fontWeight: 'bold'
+                                                    }}>
+                                                        Score: {response.score}/10
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
+                                            {response.questionId?.text || 'Question not available'}
+                                        </p>
+                                        {response.questionId?.keywords && response.questionId.keywords.length > 0 && (
+                                            <div style={{ marginTop: '0.5rem' }}>
+                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Keywords: </span>
+                                                {response.questionId.keywords.map((keyword: string, i: number) => (
+                                                    <span key={i} style={{ 
+                                                        fontSize: '0.75rem', 
+                                                        padding: '0.1rem 0.3rem', 
+                                                        backgroundColor: 'rgba(59, 130, 246, 0.1)', 
+                                                        color: 'var(--primary)', 
+                                                        borderRadius: '3px',
+                                                        marginRight: '0.25rem'
+                                                    }}>
+                                                        {keyword}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div style={{ marginBottom: '1rem' }}>
+                                        <h5 style={{ margin: '0 0 0.5rem 0', fontSize: '0.875rem', color: 'var(--text-primary)' }}>Candidate's Answer:</h5>
+                                        <div style={{ 
+                                            padding: '0.75rem', 
+                                            backgroundColor: 'var(--bg-secondary)', 
+                                            borderRadius: '0.25rem',
+                                            fontSize: '0.875rem',
+                                            lineHeight: '1.5',
+                                            color: 'var(--text-primary)'
+                                        }}>
+                                            {response.userResponseText || 'No text response available'}
+                                        </div>
+                                        {response.timeTakenSeconds && (
+                                            <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                                Time taken: {Math.floor(response.timeTakenSeconds / 60)}m {response.timeTakenSeconds % 60}s
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {response.aiFeedback && (
+                                        <div>
+                                            <h5 style={{ margin: '0 0 0.5rem 0', fontSize: '0.875rem', color: 'var(--text-primary)' }}>AI Feedback:</h5>
+                                            <div style={{ 
+                                                padding: '0.75rem', 
+                                                backgroundColor: 'rgba(34, 197, 94, 0.1)', 
+                                                borderRadius: '0.25rem',
+                                                fontSize: '0.875rem',
+                                                lineHeight: '1.5',
+                                                color: 'var(--text-primary)'
+                                            }}>
+                                                {response.aiFeedback}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        ) : (
+                            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                                No responses available for this interview.
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
+                    <button onClick={onClose} className="btn btn-primary" style={{ width: '100%' }}>
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export default AdminDashboard;

@@ -18,8 +18,8 @@ router.post('/', auth, async (req, res) => {
     try {
         const { key, value, description } = req.body;
 
-        // Allow admins and HR to change settings
-        if (req.user.role !== 'admin' && req.user.role !== 'hr') {
+        // Allow admins to change settings
+        if (req.user.role !== 'admin') {
             return res.status(403).json({ error: 'Permission denied' });
         }
 
