@@ -58,4 +58,12 @@ export const API_ENDPOINTS = {
         BOOK: (id: string) => `/slots/book/${id}`,
         FEEDBACK: (id: string) => `/slots/feedback/${id}`,
     },
+    EMAIL_RESUME: {
+        SCAN: '/email-resume/scan',
+        STATUS: '/email-resume/status',
+        START: '/email-resume/start',
+        STOP: '/email-resume/stop',
+        LOGS: '/email-resume/logs',
+        LOG_BY_ID: (id: string) => `/email-resume/logs/${id}`,
+    },
 };

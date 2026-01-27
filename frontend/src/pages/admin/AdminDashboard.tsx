@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Plus, Users, BarChart, FileText, CheckCircle, X, Camera, ChevronLeft, ChevronRight, Shield, Star, Filter, Phone, Mail, File, ExternalLink, Settings, Clock, PieChart as PieChartIcon, TrendingUp, Send, Image as ImageIcon, Menu } from 'lucide-react';
+import { Upload, Plus, Users, BarChart, FileText, CheckCircle, X, Camera, ChevronLeft, ChevronRight, Shield, Star, Filter, Phone, Mail, File, ExternalLink, Settings, Clock, PieChart as PieChartIcon, TrendingUp, Send, Image as ImageIcon, Menu, Inbox, Play, Square, RefreshCw, AlertCircle, Trash2 } from 'lucide-react';
 import ScreenshotViewerModal from '../../components/Modals/ScreenshotViewerModal';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart as ReBarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, AreaChart, Area } from 'recharts';
 import api from '../../services/api';
@@ -86,7 +86,7 @@ const AdminDashboard: React.FC = () => {
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
     const [filterReferred, setFilterReferred] = useState(false);
-    const [activeTab, setActiveTab] = useState<'candidates' | 'questions' | 'hr' | 'slots'>('candidates');
+    const [activeTab, setActiveTab] = useState<'candidates' | 'questions' | 'hr' | 'slots' | 'email-scanner'>('candidates');
     const [questions, setQuestions] = useState<Question[]>([]);
     const [hrs, setHrs] = useState<User[]>([]);
     const [interviewers, setInterviewers] = useState<User[]>([]);
@@ -102,6 +102,114 @@ const AdminDashboard: React.FC = () => {
     const [viewingScreenshotsCandidate, setViewingScreenshotsCandidate] = useState<{id: string, name: string} | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
+    // Email Scanner state
+    const [emailScannerStatus, setEmailScannerStatus] = useState<{
+        isRunning: boolean;
+        isScanning: boolean;
+        lastScanTime: string | null;
+        totalProcessed: number;
+        lastError: string | null;
+        counts: { processed: number; failed: number; duplicate: number };
+    }>({
+        isRunning: false,
+        isScanning: false,
+        lastScanTime: null,
+        totalProcessed: 0,
+        lastError: null,
+        counts: { processed: 0, failed: 0, duplicate: 0 }
+    });
+    const [emailLogs, setEmailLogs] = useState<any[]>([]);
+    const [emailLogsTotal, setEmailLogsTotal] = useState(0);
+    const [scanLoading, setScanLoading] = useState(false);
+
+    const fetchEmailScannerStatus = async () => {
+        try {
+            const res = await api.get(API_ENDPOINTS.EMAIL_RESUME.STATUS);
+            setEmailScannerStatus(res.data);
+        } catch (err) {
+            console.error('Failed to fetch email scanner status:', err);
+        }
+    };
+
+    const fetchEmailLogs = async () => {
+        try {
+            const res = await api.get(API_ENDPOINTS.EMAIL_RESUME.LOGS);
+            setEmailLogs(res.data.logs || []);
+            setEmailLogsTotal(res.data.total || 0);
+        } catch (err) {
+            console.error('Failed to fetch email logs:', err);
+        }
+    };
+
+    const handleDeleteLog = async (logId: string) => {
+        if (!window.confirm('Are you sure you want to delete this log entry?')) return;
+        try {
+            await api.delete(API_ENDPOINTS.EMAIL_RESUME.LOG_BY_ID(logId));
+            showToast.success('Log entry deleted');
+            fetchEmailLogs();
+            fetchEmailScannerStatus();
+        } catch (err: any) {
+            showToast.error(err.response?.data?.error || 'Failed to delete log');
+        }
+    };
+
+    const handleAddLog = async () => {
+        const from = window.prompt('From (email address):');
+        if (!from) return;
+        const subject = window.prompt('Subject:') || '';
+        const attachmentName = window.prompt('Attachment filename:') || '';
+        const status = window.prompt('Status (processed / failed / duplicate):', 'processed') || 'processed';
+        try {
+            await api.post(API_ENDPOINTS.EMAIL_RESUME.LOGS, { from, subject, attachmentName, status });
+            showToast.success('Log entry added');
+            fetchEmailLogs();
+            fetchEmailScannerStatus();
+        } catch (err: any) {
+            showToast.error(err.response?.data?.error || 'Failed to add log');
+        }
+    };
+
+    const handleManualScan = async () => {
+        setScanLoading(true);
+        try {
+            const res = await api.post(API_ENDPOINTS.EMAIL_RESUME.SCAN);
+            showToast.success(`Scan complete. ${res.data.results?.length || 0} emails processed.`);
+            fetchEmailScannerStatus();
+            fetchEmailLogs();
+            fetchDashboardData();
+        } catch (err: any) {
+            showToast.error(err.response?.data?.error || 'Scan failed');
+        } finally {
+            setScanLoading(false);
+        }
+    };
+
+    const handleStartAutoScan = async () => {
+        try {
+            await api.post(API_ENDPOINTS.EMAIL_RESUME.START);
+            showToast.success('Auto-scan started (every 5 minutes)');
+            fetchEmailScannerStatus();
+        } catch (err: any) {
+            showToast.error(err.response?.data?.error || 'Failed to start auto-scan');
+        }
+    };
+
+    const handleStopAutoScan = async () => {
+        try {
+            await api.post(API_ENDPOINTS.EMAIL_RESUME.STOP);
+            showToast.success('Auto-scan stopped');
+            fetchEmailScannerStatus();
+        } catch (err: any) {
+            showToast.error(err.response?.data?.error || 'Failed to stop auto-scan');
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'email-scanner') {
+            fetchEmailScannerStatus();
+            fetchEmailLogs();
+        }
+    }, [activeTab]);
 
     const chartData = useMemo(() => {
         const statuses = ['Pending', 'Shortlisted', 'Rejected', 'Interviewed'];
@@ -375,6 +483,27 @@ const AdminDashboard: React.FC = () => {
                     >
                         <Clock size={20} /> Round 2 Slots
                     </button>
+
+                    <button
+                        onClick={() => { setActiveTab('email-scanner'); setSidebarOpen(false); }}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.75rem',
+                            padding: '0.75rem 1rem',
+                            borderRadius: '0.5rem',
+                            border: 'none',
+                            background: activeTab === 'email-scanner' ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                            color: activeTab === 'email-scanner' ? 'var(--primary)' : 'var(--text-secondary)',
+                            fontWeight: activeTab === 'email-scanner' ? '600' : '500',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            width: '100%',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        <Inbox size={20} /> Email Scanner
+                    </button>
                 </nav>
 
                 <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
@@ -413,12 +542,14 @@ const AdminDashboard: React.FC = () => {
                             <h1 style={{ fontSize: '1.75rem', fontWeight: 'bold', color: 'var(--text-primary)', margin: 0 }}>
                                 {activeTab === 'candidates' ? 'Candidates Oversight' :
                                     activeTab === 'questions' ? 'Questions Bank' :
-                                        activeTab === 'hr' ? 'Team Management' : 'Interview Scheduling'}
+                                        activeTab === 'hr' ? 'Team Management' :
+                                            activeTab === 'email-scanner' ? 'Email Resume Scanner' : 'Interview Scheduling'}
                             </h1>
                             <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
                                 {activeTab === 'candidates' ? 'Track and manage candidate progress and referrals.' :
                                     activeTab === 'questions' ? 'Manage your library of technical and conceptual questions.' :
-                                        activeTab === 'hr' ? 'Add or remove HR team members and manage access.' : 'Coordinate and schedule technical interaction slots.'}
+                                        activeTab === 'hr' ? 'Add or remove HR team members and manage access.' :
+                                            activeTab === 'email-scanner' ? 'Auto-detect resumes from email and create candidate entries.' : 'Coordinate and schedule technical interaction slots.'}
                             </p>
                         </div>
                     </div>
@@ -468,6 +599,34 @@ const AdminDashboard: React.FC = () => {
                             >
                                 <Plus size={18} /> Create Slot
                             </button>
+                        ) : (activeTab === 'email-scanner') ? (
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button
+                                    className="btn btn-primary"
+                                    style={{ gap: '0.5rem' }}
+                                    onClick={handleManualScan}
+                                    disabled={scanLoading}
+                                >
+                                    <RefreshCw size={18} className={scanLoading ? 'spin' : ''} /> {scanLoading ? 'Scanning...' : 'Scan Now'}
+                                </button>
+                                {emailScannerStatus.isRunning ? (
+                                    <button
+                                        className="btn"
+                                        style={{ gap: '0.5rem', backgroundColor: 'var(--danger, #EF4444)', color: 'white', border: 'none' }}
+                                        onClick={handleStopAutoScan}
+                                    >
+                                        <Square size={18} /> Stop Auto-Scan
+                                    </button>
+                                ) : (
+                                    <button
+                                        className="btn"
+                                        style={{ gap: '0.5rem', backgroundColor: 'var(--success, #10B981)', color: 'white', border: 'none' }}
+                                        onClick={handleStartAutoScan}
+                                    >
+                                        <Play size={18} /> Start Auto-Scan
+                                    </button>
+                                )}
+                            </div>
                         ) : null}
                     </div>
                 </div>
@@ -734,7 +893,7 @@ const AdminDashboard: React.FC = () => {
                                 </div>
                             )}
                         </div>
-                    ) : (
+                    ) : activeTab === 'slots' ? (
                         <div className="card">
                             <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Round 2 Slots</h2>
                             {slots.length === 0 ? (
@@ -814,7 +973,134 @@ const AdminDashboard: React.FC = () => {
                                 </div>
                             )}
                         </div>
-                    )}
+                    ) : activeTab === 'email-scanner' ? (
+                        <div>
+                            {/* Status Cards */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                                <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    <div style={{ padding: '0.75rem', backgroundColor: emailScannerStatus.isRunning ? 'rgba(16, 185, 129, 0.1)' : 'rgba(107, 114, 128, 0.1)', borderRadius: '0.5rem' }}>
+                                        {emailScannerStatus.isRunning ? <Play size={20} style={{ color: '#10B981' }} /> : <Square size={20} style={{ color: '#6B7280' }} />}
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Auto-Scan</div>
+                                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: emailScannerStatus.isRunning ? '#10B981' : 'var(--text-primary)' }}>
+                                            {emailScannerStatus.isRunning ? 'Running' : 'Stopped'}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    <div style={{ padding: '0.75rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: '0.5rem' }}>
+                                        <CheckCircle size={20} style={{ color: '#3B82F6' }} />
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Processed</div>
+                                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{emailScannerStatus.counts.processed}</div>
+                                    </div>
+                                </div>
+                                <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    <div style={{ padding: '0.75rem', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderRadius: '0.5rem' }}>
+                                        <AlertCircle size={20} style={{ color: '#F59E0B' }} />
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Duplicates</div>
+                                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{emailScannerStatus.counts.duplicate}</div>
+                                    </div>
+                                </div>
+                                <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    <div style={{ padding: '0.75rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '0.5rem' }}>
+                                        <X size={20} style={{ color: '#EF4444' }} />
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Failed</div>
+                                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{emailScannerStatus.counts.failed}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Last scan info */}
+                            {emailScannerStatus.lastScanTime && (
+                                <div style={{ marginBottom: '1rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                                    Last scan: {new Date(emailScannerStatus.lastScanTime).toLocaleString()}
+                                </div>
+                            )}
+                            {emailScannerStatus.lastError && (
+                                <div style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '0.5rem', color: '#EF4444', fontSize: '0.875rem' }}>
+                                    Last error: {emailScannerStatus.lastError}
+                                </div>
+                            )}
+
+                            {/* Logs Table */}
+                            <div className="card">
+                                <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Processed Email Logs</h2>
+                                {emailLogs.length === 0 ? (
+                                    <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>
+                                        No emails scanned yet. Click "Scan Now" to scan your inbox for resumes.
+                                    </p>
+                                ) : (
+                                    <div className="admin-table-container" style={{ overflowX: 'auto' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-primary)' }}>
+                                            <thead>
+                                                <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
+                                                    <th style={{ padding: '0.75rem' }}>From</th>
+                                                    <th style={{ padding: '0.75rem' }}>Subject</th>
+                                                    <th style={{ padding: '0.75rem' }}>Attachment</th>
+                                                    <th style={{ padding: '0.75rem' }}>Status</th>
+                                                    <th style={{ padding: '0.75rem' }}>Candidate</th>
+                                                    <th style={{ padding: '0.75rem' }}>Date</th>
+                                                    <th style={{ padding: '0.75rem' }}>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {emailLogs.map((log: any) => (
+                                                    <tr key={log._id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.875rem' }}>
+                                                        <td style={{ padding: '0.75rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.from}</td>
+                                                        <td style={{ padding: '0.75rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.subject}</td>
+                                                        <td style={{ padding: '0.75rem' }}>{log.attachmentName}</td>
+                                                        <td style={{ padding: '0.75rem' }}>
+                                                            <span style={{
+                                                                padding: '0.2rem 0.5rem',
+                                                                borderRadius: '999px',
+                                                                fontSize: '0.7rem',
+                                                                fontWeight: 'bold',
+                                                                backgroundColor: log.status === 'processed' ? 'rgba(16, 185, 129, 0.1)' : log.status === 'duplicate' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                                                color: log.status === 'processed' ? '#10B981' : log.status === 'duplicate' ? '#F59E0B' : '#EF4444'
+                                                            }}>
+                                                                {log.status}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '0.75rem' }}>
+                                                            {log.candidateId ? (
+                                                                <span style={{ color: 'var(--primary)', cursor: 'pointer' }} onClick={() => { setActiveTab('candidates'); }}>
+                                                                    {log.candidateId.name || log.candidateId.email}
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{ color: 'var(--text-secondary)' }}>-</span>
+                                                            )}
+                                                        </td>
+                                                        <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>{new Date(log.createdAt).toLocaleString()}</td>
+                                                        <td style={{ padding: '0.75rem' }}>
+                                                            <button
+                                                                onClick={() => handleDeleteLog(log._id)}
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '0.25rem' }}
+                                                                title="Delete log entry"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                                {emailLogsTotal > 50 && (
+                                    <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                                        Showing {emailLogs.length} of {emailLogsTotal} logs
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : null}
                 </div>
             </div>
 

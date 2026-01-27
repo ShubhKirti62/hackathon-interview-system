@@ -38,6 +38,7 @@ app.use('/api/sessions', require('./routes/sessions'));
 app.use('/api/face', require('./routes/face'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/slots', require('./routes/slots'));
+app.use('/api/email-resume', require('./routes/emailResume'));
 
 app.get('/', (req, res) => {
     res.send('API is running...');
