@@ -5,6 +5,7 @@ import api from '../../services/api';
 import { API_ENDPOINTS } from '../../services/endpoints';
 import { APP_ROUTES } from '../../routes';
 import { showToast } from '../../utils/toast';
+import { TypeAnimation } from 'react-type-animation';
 import { useFaceVerification } from '../../context/FaceVerificationContext';
 import { useTabDetection } from '../../hooks/useTabDetection';
 
@@ -500,7 +501,13 @@ const InterviewPage: React.FC = () => {
                 borderLeft: `6px solid ${currentQuestion?.difficulty === 'Hard' ? 'var(--error)' : currentQuestion?.difficulty === 'Medium' ? 'var(--warning)' : 'var(--success)'}`
             }}>
                 <h2 style={{ fontSize: '1.5rem', textAlign: 'center', color: 'var(--text-primary)', lineHeight: '1.4' }}>
-                    "{currentQuestion?.text}"
+                    <TypeAnimation
+                        key={currentQuestion?._id || currentQIndex}
+                        sequence={[`"${currentQuestion?.text || ''}"`]}
+                        speed={70}
+                        cursor={false}
+                        wrapper="span"
+                    />
                 </h2>
             </div>
 

@@ -15,7 +15,7 @@ let isScanning = false;
 
 function getImapConfig() {
     return {
-        host: process.env.IMAP_HOST || 'outlook.office365.com',
+        host: process.env.IMAP_HOST || 'imap.gmail.com',
         port: parseInt(process.env.IMAP_PORT || '993', 10),
         secure: true,
         auth: {
@@ -63,37 +63,41 @@ async function scanInbox() {
         const lock = await client.getMailboxLock('INBOX');
 
         try {
-            // Search for unseen message UIDs, then fetch one-by-one (avoids async iterator hang)
-            const uids = await client.search({ seen: false }, { uid: true });
+            // Search ALL messages (not just unseen) to handle re-runs properly
+            const uids = await client.search({ all: true }, { uid: true });
 
             for (const uid of uids) {
                 const msg = await client.fetchOne(uid, { uid: true, envelope: true, bodyStructure: true }, { uid: true });
 
-                const messageId = msg.envelope.messageId || `uid-${uid}`;
+                const rawMessageId = msg.envelope.messageId || `uid-${uid}`;
                 const from = msg.envelope.from?.[0]
                     ? `${msg.envelope.from[0].name || ''} <${msg.envelope.from[0].address || ''}>`
                     : 'unknown';
                 const fromAddress = msg.envelope.from?.[0]?.address || '';
                 const subject = msg.envelope.subject || '(no subject)';
 
-                // Check if already processed
-                const existing = await EmailResumeLog.findOne({ messageId });
-                if (existing) {
-                    results.push({ messageId, status: 'skipped', reason: 'already processed' });
-                    continue;
-                }
-
                 // Find resume attachments in bodyStructure
                 const attachments = extractAttachments(msg.bodyStructure);
                 const resumeAttachments = attachments.filter(a => isResumeAttachment(a.filename));
 
                 if (resumeAttachments.length === 0) {
-                    // Mark as seen even if no resume attachments
-                    await client.messageFlagsAdd({ uid }, ['\\Seen']);
                     continue;
                 }
 
                 for (const attachment of resumeAttachments) {
+                    const logMessageId = `${rawMessageId}-${attachment.filename}`;
+
+                    // Check if this specific attachment was already processed successfully
+                    const existing = await EmailResumeLog.findOne({ messageId: logMessageId });
+                    if (existing && existing.status !== 'failed') {
+                        results.push({ messageId: logMessageId, status: 'skipped', reason: 'already processed' });
+                        continue;
+                    }
+                    // Remove failed log so it can be retried
+                    if (existing && existing.status === 'failed') {
+                        await EmailResumeLog.deleteOne({ _id: existing._id });
+                    }
+
                     try {
                         // Download attachment using event-based stream reading
                         const { content } = await client.download(String(uid), attachment.part, { uid: true });
@@ -118,7 +122,7 @@ async function scanInbox() {
                         const existingCandidate = await Candidate.findOne({ email: candidateEmail });
                         if (existingCandidate) {
                             await EmailResumeLog.create({
-                                messageId: `${messageId}-${attachment.filename}`,
+                                messageId: logMessageId,
                                 uid,
                                 from,
                                 subject,
@@ -128,7 +132,7 @@ async function scanInbox() {
                                 errorMessage: 'Candidate with this email already exists'
                             });
                             results.push({
-                                messageId,
+                                messageId: logMessageId,
                                 attachment: attachment.filename,
                                 status: 'duplicate',
                                 email: candidateEmail
@@ -154,12 +158,12 @@ async function scanInbox() {
                             experienceLevel: parsed.experienceLevel || 'Fresher/Intern',
                             resumeUrl: `/uploads/resumes/${safeFilename}`,
                             resumeText: parsed.resumeText || '',
-                            status: 'Profile Submitted'
+                            status: 'profile_submitted'
                         });
 
                         // Log success
                         await EmailResumeLog.create({
-                            messageId: `${messageId}-${attachment.filename}`,
+                            messageId: logMessageId,
                             uid,
                             from,
                             subject,
@@ -170,7 +174,7 @@ async function scanInbox() {
 
                         totalProcessed++;
                         results.push({
-                            messageId,
+                            messageId: logMessageId,
                             attachment: attachment.filename,
                             status: 'processed',
                             candidateId: candidate._id,
@@ -180,7 +184,7 @@ async function scanInbox() {
 
                     } catch (attachErr) {
                         await EmailResumeLog.create({
-                            messageId: `${messageId}-${attachment.filename}`,
+                            messageId: logMessageId,
                             uid,
                             from,
                             subject,
@@ -189,16 +193,13 @@ async function scanInbox() {
                             errorMessage: attachErr.message
                         });
                         results.push({
-                            messageId,
+                            messageId: logMessageId,
                             attachment: attachment.filename,
                             status: 'failed',
                             error: attachErr.message
                         });
                     }
                 }
-
-                // Mark email as seen
-                await client.messageFlagsAdd({ uid }, ['\\Seen']);
             }
 
         } finally {

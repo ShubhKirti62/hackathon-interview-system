@@ -495,27 +495,6 @@ const AdminDashboard: React.FC = () => {
                     >
                         <Inbox size={20} /> Email Scanner
                     </button>
-
-                    <button
-                        onClick={() => { setActiveTab('email-scanner'); setSidebarOpen(false); }}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem',
-                            padding: '0.75rem 1rem',
-                            borderRadius: '0.5rem',
-                            border: 'none',
-                            background: activeTab === 'email-scanner' ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-                            color: activeTab === 'email-scanner' ? 'var(--primary)' : 'var(--text-secondary)',
-                            fontWeight: activeTab === 'email-scanner' ? '600' : '500',
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            width: '100%',
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        <Inbox size={20} /> Email Scanner
-                    </button>
                 </nav>
 
                 <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
