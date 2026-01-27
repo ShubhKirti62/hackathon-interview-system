@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Plus, Users, BarChart, FileText, CheckCircle, X, Camera, ChevronLeft, ChevronRight, Shield, Star, Filter, Phone, Mail, File, ExternalLink, Settings, Clock, PieChart as PieChartIcon, TrendingUp, Send, Image as ImageIcon, Menu, Inbox, Play, Square, RefreshCw, AlertCircle, Trash2 } from 'lucide-react';
+import { Upload, Plus, Users, BarChart, FileText, CheckCircle, X, Camera, ChevronLeft, ChevronRight, Shield, Star, Filter, Phone, Mail, File, ExternalLink, Settings, Clock, PieChart as PieChartIcon, TrendingUp, Send, Image as ImageIcon, Menu, Inbox, Play, Square, RefreshCw, AlertCircle, Trash2, Calendar } from 'lucide-react';
 import ScreenshotViewerModal from '../../components/Modals/ScreenshotViewerModal';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart as ReBarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, AreaChart, Area } from 'recharts';
+import { PieChart, Pie, BarChart as ReBarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import api from '../../services/api';
 import { API_ENDPOINTS } from '../../services/endpoints';
 import { useAuth } from '../../context/AuthContext';
@@ -124,6 +124,7 @@ const AdminDashboard: React.FC = () => {
     });
     const [emailLogs, setEmailLogs] = useState<any[]>([]);
     const [emailLogsTotal, setEmailLogsTotal] = useState(0);
+    const [emailLogsPage, setEmailLogsPage] = useState(1);
     const [scanLoading, setScanLoading] = useState(false);
 
     const fetchEmailScannerStatus = async () => {
@@ -135,9 +136,9 @@ const AdminDashboard: React.FC = () => {
         }
     };
 
-    const fetchEmailLogs = async () => {
+    const fetchEmailLogs = async (page = emailLogsPage) => {
         try {
-            const res = await api.get(API_ENDPOINTS.EMAIL_RESUME.LOGS);
+            const res = await api.get(`${API_ENDPOINTS.EMAIL_RESUME.LOGS}?page=${page}&limit=20`);
             setEmailLogs(res.data.logs || []);
             setEmailLogsTotal(res.data.total || 0);
         } catch (err) {
@@ -157,19 +158,16 @@ const AdminDashboard: React.FC = () => {
         }
     };
 
-    const handleAddLog = async () => {
-        const from = window.prompt('From (email address):');
-        if (!from) return;
-        const subject = window.prompt('Subject:') || '';
-        const attachmentName = window.prompt('Attachment filename:') || '';
-        const status = window.prompt('Status (processed / failed / duplicate):', 'processed') || 'processed';
+    const handleClearAllLogs = async () => {
+        if (!window.confirm('Delete ALL email logs? This cannot be undone.')) return;
         try {
-            await api.post(API_ENDPOINTS.EMAIL_RESUME.LOGS, { from, subject, attachmentName, status });
-            showToast.success('Log entry added');
-            fetchEmailLogs();
+            await api.delete(API_ENDPOINTS.EMAIL_RESUME.LOGS);
+            showToast.success('All logs cleared');
+            setEmailLogsPage(1);
+            fetchEmailLogs(1);
             fetchEmailScannerStatus();
         } catch (err: any) {
-            showToast.error(err.response?.data?.error || 'Failed to add log');
+            showToast.error(err.response?.data?.error || 'Failed to clear logs');
         }
     };
 
@@ -177,9 +175,20 @@ const AdminDashboard: React.FC = () => {
         setScanLoading(true);
         try {
             const res = await api.post(API_ENDPOINTS.EMAIL_RESUME.SCAN);
-            showToast.success(`Scan complete. ${res.data.results?.length || 0} emails processed.`);
+            const results = res.data.results || [];
+            const processed = results.filter((r: any) => r.status === 'processed').length;
+            const duplicates = results.filter((r: any) => r.status === 'duplicate').length;
+            const skipped = results.filter((r: any) => r.status === 'skipped').length;
+            const failed = results.filter((r: any) => r.status === 'failed').length;
+            const parts = [];
+            if (processed > 0) parts.push(`${processed} new`);
+            if (duplicates > 0) parts.push(`${duplicates} duplicate`);
+            if (failed > 0) parts.push(`${failed} failed`);
+            if (skipped > 0) parts.push(`${skipped} skipped`);
+            showToast.success(`Scan complete. ${parts.length > 0 ? parts.join(', ') : 'No new resumes found.'}`);
             fetchEmailScannerStatus();
-            fetchEmailLogs();
+            fetchEmailLogs(1);
+            setEmailLogsPage(1);
             fetchDashboardData();
         } catch (err: any) {
             showToast.error(err.response?.data?.error || 'Scan failed');
@@ -208,21 +217,37 @@ const AdminDashboard: React.FC = () => {
         }
     };
 
+    // Auto-poll status & logs when email-scanner tab is active
     useEffect(() => {
         if (activeTab === 'email-scanner') {
             fetchEmailScannerStatus();
-            fetchEmailLogs();
+            fetchEmailLogs(1);
+            setEmailLogsPage(1);
+            const interval = setInterval(() => {
+                fetchEmailScannerStatus();
+                fetchEmailLogs();
+            }, 10000);
+            return () => clearInterval(interval);
         }
     }, [activeTab]);
 
+    const CHART_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899', '#14B8A6', '#F97316', '#6B7280'];
+
     const chartData = useMemo(() => {
-        const statuses = ['profile_submitted', 'interview_1st_round_pending', '1st_round_completed', '2nd_round_qualified', 'rejected', 'blocked'];
-        const statusCounts = statuses.map(status => ({
+        // Dynamically count statuses from actual candidate data
+        const statusMap: Record<string, number> = {};
+        candidates.forEach(c => {
+            if (c.status) {
+                statusMap[c.status] = (statusMap[c.status] || 0) + 1;
+            }
+        });
+        const statusCounts = Object.entries(statusMap).map(([status, count], index) => ({
             name: formatCandidateStatus(status),
-            value: candidates.filter(c => c.status === status).length
+            value: count,
+            fill: CHART_COLORS[index % CHART_COLORS.length]
         }));
 
-        const domains = [...new Set(candidates.map(c => c.domain))];
+        const domains = [...new Set(candidates.map(c => c.domain).filter(Boolean))];
         const domainCounts = domains.map(domain => ({
             name: domain,
             count: candidates.filter(c => c.domain === domain).length
@@ -236,8 +261,6 @@ const AdminDashboard: React.FC = () => {
 
         return { statusCounts, domainCounts, trendData };
     }, [candidates]);
-
-    const COLORS = ['#F59E0B', '#3B82F6', '#EF4444', '#10B981'];
 
     useEffect(() => {
         fetchDashboardData();
@@ -307,12 +330,13 @@ const AdminDashboard: React.FC = () => {
                 console.error('Error fetching HR list:', e);
             }
 
-            const completedInterviews = (sessionsRes.data || []).filter((s: any) => s.status === 'Completed').length;
-            const resumesCount = (candidatesRes.data || []).filter((c: any) => c.resumeUrl).length;
+            const allCandidates = candidatesRes.data || [];
+            const interviewedCount = allCandidates.filter((c: any) => c.overallScore != null && c.overallScore > 0).length;
+            const resumesCount = allCandidates.filter((c: any) => (c.resumeUrl && c.resumeUrl.trim() !== '') || (c.resumeText && c.resumeText.trim() !== '')).length;
 
             setStats({
-                totalCandidates: (candidatesRes.data || []).length,
-                interviewsCompleted: completedInterviews,
+                totalCandidates: allCandidates.length,
+                interviewsCompleted: interviewedCount,
                 resumesProcessed: resumesCount,
                 totalQuestions: (questionsRes.data || []).length,
                 totalHRs: hrList.length + validatedInterviewers.length
@@ -346,8 +370,8 @@ const AdminDashboard: React.FC = () => {
             
             // Get the most recent completed interview
             const latestInterview = interviews
-                .filter(i => i.status === 'Completed')
-                .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())[0];
+                .filter((i: any) => i.status === 'Completed')
+                .sort((a: any, b: any) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())[0];
                 
             if (!latestInterview) {
                 showToast.info('No completed interviews found for this candidate');
@@ -624,45 +648,51 @@ const AdminDashboard: React.FC = () => {
 
                 {activeTab === 'candidates' && (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-                        <div className="card admin-chart-card" style={{ height: '350px', padding: '1.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                        <div className="card admin-chart-card" style={{ padding: '1.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                                 <PieChartIcon size={20} style={{ color: 'var(--primary)' }} />
                                 <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Candidate Status</h3>
                             </div>
-                            <ResponsiveContainer width="100%" height="80%">
-                                <PieChart>
+                            {chartData.statusCounts.length > 0 ? (
+                                <PieChart width={350} height={280}>
                                     <Pie
                                         data={chartData.statusCounts}
-                                        innerRadius={60}
-                                        outerRadius={80}
-                                        paddingAngle={5}
+                                        cx={175}
+                                        cy={120}
+                                        innerRadius={50}
+                                        outerRadius={90}
+                                        paddingAngle={chartData.statusCounts.length > 1 ? 3 : 0}
                                         dataKey="value"
-                                    >
-                                        {chartData.statusCounts.map((_, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
+                                        nameKey="name"
+                                    />
                                     <Tooltip />
-                                    <Legend verticalAlign="bottom" height={36} />
+                                    <Legend verticalAlign="bottom" />
                                 </PieChart>
-                            </ResponsiveContainer>
+                            ) : (
+                                <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                                    No candidate data available
+                                </div>
+                            )}
                         </div>
-                        <div className="card admin-chart-card" style={{ height: '350px', padding: '1.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                        <div className="card admin-chart-card" style={{ padding: '1.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                                 <PieChartIcon size={20} style={{ color: 'var(--primary)' }} />
                                 <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Candidates by Domain</h3>
                             </div>
-                            <ResponsiveContainer width="100%" height="80%">
-                                <ReBarChart data={chartData.domainCounts}>
+                            {chartData.domainCounts.length > 0 ? (
+                                <ReBarChart width={350} height={250} data={chartData.domainCounts}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                     <XAxis dataKey="name" axisLine={false} tickLine={false} />
                                     <YAxis axisLine={false} tickLine={false} />
                                     <Tooltip cursor={{ fill: 'rgba(59, 130, 246, 0.05)' }} />
-                                    <Bar dataKey="count" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
                                 </ReBarChart>
-                            </ResponsiveContainer>
+                            ) : (
+                                <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                                    No domain data available
+                                </div>
+                            )}
                         </div>
-                 
                     </div>
                 )}
 
@@ -748,6 +778,7 @@ const AdminDashboard: React.FC = () => {
                                                             setViewingScreenshotsCandidate({ id: candidate._id, name: candidate.name });
                                                             setShowScreenshotModal(true);
                                                         }}
+                                                        onViewInterview={handleViewInterview}
                                                     />
                                                 ))}
                                         </tbody>
@@ -950,8 +981,15 @@ const AdminDashboard: React.FC = () => {
                         </div>
                     ) : activeTab === 'email-scanner' ? (
                         <div>
+                            {/* Connected Email Info */}
+                            <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', backgroundColor: 'rgba(59, 130, 246, 0.08)', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                                <Mail size={16} style={{ color: '#3B82F6' }} />
+                                Connected: <strong style={{ color: 'var(--text-primary)' }}>{import.meta.env.VITE_IMAP_USER || 'hackathoninterviewsystem@gmail.com'}</strong>
+                                {emailScannerStatus.isScanning && <span style={{ marginLeft: 'auto', color: '#3B82F6', fontWeight: 600 }}>Scanning...</span>}
+                            </div>
+
                             {/* Status Cards */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
                                 <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                     <div style={{ padding: '0.75rem', backgroundColor: emailScannerStatus.isRunning ? 'rgba(16, 185, 129, 0.1)' : 'rgba(107, 114, 128, 0.1)', borderRadius: '0.5rem' }}>
                                         {emailScannerStatus.isRunning ? <Play size={20} style={{ color: '#10B981' }} /> : <Square size={20} style={{ color: '#6B7280' }} />}
@@ -1006,7 +1044,19 @@ const AdminDashboard: React.FC = () => {
 
                             {/* Logs Table */}
                             <div className="card">
-                                <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Processed Email Logs</h2>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                    <h2 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', margin: 0 }}>
+                                        Processed Email Logs {emailLogsTotal > 0 && <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--text-secondary)' }}>({emailLogsTotal})</span>}
+                                    </h2>
+                                    {emailLogs.length > 0 && (
+                                        <button
+                                            onClick={handleClearAllLogs}
+                                            style={{ background: 'none', border: '1px solid #EF4444', color: '#EF4444', padding: '0.4rem 0.75rem', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                        >
+                                            <Trash2 size={14} /> Clear All
+                                        </button>
+                                    )}
+                                </div>
                                 {emailLogs.length === 0 ? (
                                     <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>
                                         No emails scanned yet. Click "Scan Now" to scan your inbox for resumes.
@@ -1068,9 +1118,26 @@ const AdminDashboard: React.FC = () => {
                                         </table>
                                     </div>
                                 )}
-                                {emailLogsTotal > 50 && (
-                                    <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                                        Showing {emailLogs.length} of {emailLogsTotal} logs
+                                {/* Pagination */}
+                                {emailLogsTotal > 20 && (
+                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1rem', padding: '1rem', fontSize: '0.875rem' }}>
+                                        <button
+                                            disabled={emailLogsPage <= 1}
+                                            onClick={() => { const p = emailLogsPage - 1; setEmailLogsPage(p); fetchEmailLogs(p); }}
+                                            style={{ padding: '0.4rem 0.75rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: emailLogsPage <= 1 ? 'not-allowed' : 'pointer', opacity: emailLogsPage <= 1 ? 0.5 : 1 }}
+                                        >
+                                            Previous
+                                        </button>
+                                        <span style={{ color: 'var(--text-secondary)' }}>
+                                            Page {emailLogsPage} of {Math.ceil(emailLogsTotal / 20)}
+                                        </span>
+                                        <button
+                                            disabled={emailLogsPage >= Math.ceil(emailLogsTotal / 20)}
+                                            onClick={() => { const p = emailLogsPage + 1; setEmailLogsPage(p); fetchEmailLogs(p); }}
+                                            style={{ padding: '0.4rem 0.75rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: emailLogsPage >= Math.ceil(emailLogsTotal / 20) ? 'not-allowed' : 'pointer', opacity: emailLogsPage >= Math.ceil(emailLogsTotal / 20) ? 0.5 : 1 }}
+                                        >
+                                            Next
+                                        </button>
                                     </div>
                                 )}
                             </div>
@@ -1168,7 +1235,7 @@ const StatCard: React.FC<{ icon: React.ReactNode, label: string, value: string }
     </div>
 );
 
-const TableRow: React.FC<{ candidate: Candidate, isAdmin: boolean, onView: () => void, onDelete: () => void, onEdit: () => void, onViewScreenshots?: () => void }> = ({ candidate, isAdmin, onView, onDelete, onEdit, onViewScreenshots }) => {
+const TableRow: React.FC<{ candidate: Candidate, isAdmin: boolean, onView: () => void, onDelete: () => void, onEdit: () => void, onViewScreenshots?: () => void, onViewInterview?: (candidateId: string) => void }> = ({ candidate, isAdmin, onView, onDelete, onEdit, onViewScreenshots, onViewInterview }) => {
     const statusColor = getStatusColor(candidate.status);
     const statusBg = getStatusBackgroundColor(candidate.status);
 
@@ -1241,9 +1308,9 @@ const TableRow: React.FC<{ candidate: Candidate, isAdmin: boolean, onView: () =>
                             <ImageIcon size={18} />
                         </button>
                     )}
-                    {(candidate.status === 'interviewed' || candidate.status === 'slot_booked' || candidate.status === 'rejected') && (
+                    {onViewInterview && (candidate.status === 'interviewed' || candidate.status === 'slot_booked' || candidate.status === 'rejected') && (
                         <button
-                            onClick={() => handleViewInterview(candidate._id)}
+                            onClick={() => onViewInterview(candidate._id)}
                             style={{ color: 'var(--success)', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                             title="View Interview Details"
                         >

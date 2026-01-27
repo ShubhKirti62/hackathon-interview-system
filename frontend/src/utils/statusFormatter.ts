@@ -1,8 +1,21 @@
 // Status formatting utilities for candidate display
 
+// Normalize status to snake_case for consistent lookup
+const normalizeStatus = (status: string): string => {
+    if (!status) return '';
+    // If already snake_case, return as-is
+    if (status.includes('_')) return status.toLowerCase();
+    // Convert PascalCase/spaces to snake_case: "Profile Submitted" -> "profile_submitted"
+    return status
+        .replace(/([a-z])([A-Z])/g, '$1_$2')
+        .replace(/\s+/g, '_')
+        .toLowerCase();
+};
+
 export const formatCandidateStatus = (status: string): string => {
     const statusMap: { [key: string]: string } = {
         'profile_submitted': 'Profile Submitted',
+        'profile submitted': 'Profile Submitted',
         'interview_1st_round_pending': 'Interview 1st Round Pending',
         '1st_round_completed': '1st Round Completed',
         '2nd_round_qualified': '2nd Round Qualified',
@@ -13,8 +26,9 @@ export const formatCandidateStatus = (status: string): string => {
         'round_2_completed': 'Round 2 Completed',
         'offer_letter_sent': 'Offer Letter Sent'
     };
-    
-    return statusMap[status] || status;
+
+    const normalized = normalizeStatus(status);
+    return statusMap[normalized] || statusMap[status] || status;
 };
 
 export const getStatusColor = (status: string): string => {
@@ -30,8 +44,9 @@ export const getStatusColor = (status: string): string => {
         'round_2_completed': 'var(--success)',
         'offer_letter_sent': 'var(--success)'
     };
-    
-    return colorMap[status] || 'var(--text-secondary)';
+
+    const normalized = normalizeStatus(status);
+    return colorMap[normalized] || colorMap[status] || 'var(--text-secondary)';
 };
 
 export const getStatusBackgroundColor = (status: string): string => {
@@ -41,12 +56,13 @@ export const getStatusBackgroundColor = (status: string): string => {
         '1st_round_completed': 'rgba(59, 130, 246, 0.1)',
         '2nd_round_qualified': 'rgba(34, 197, 94, 0.1)',
         'rejected': 'rgba(239, 68, 68, 0.1)',
-        'blocked': 'rgba(220, 38, 38, 0.2)', // Brighter red background for blocked status
+        'blocked': 'rgba(220, 38, 38, 0.2)',
         'slot_booked': 'rgba(59, 130, 246, 0.1)',
         'interviewed': 'rgba(59, 130, 246, 0.1)',
         'round_2_completed': 'rgba(34, 197, 94, 0.1)',
         'offer_letter_sent': 'rgba(34, 197, 94, 0.1)'
     };
-    
-    return bgMap[status] || 'rgba(107, 114, 128, 0.1)';
+
+    const normalized = normalizeStatus(status);
+    return bgMap[normalized] || bgMap[status] || 'rgba(107, 114, 128, 0.1)';
 };

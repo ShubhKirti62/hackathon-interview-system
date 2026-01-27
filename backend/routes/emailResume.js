@@ -83,6 +83,16 @@ router.get('/logs', adminAuth, async (req, res) => {
     }
 });
 
+// DELETE /api/email-resume/logs - Clear all logs
+router.delete('/logs', adminAuth, async (req, res) => {
+    try {
+        const result = await EmailResumeLog.deleteMany({});
+        res.json({ message: `Deleted ${result.deletedCount} logs` });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // DELETE /api/email-resume/logs/:id - Delete a log entry
 router.delete('/logs/:id', adminAuth, async (req, res) => {
     try {

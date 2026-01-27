@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Video, Monitor } from 'lucide-react';
 import api from '../services/api';
 import { API_ENDPOINTS } from '../services/endpoints';
@@ -19,6 +19,47 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
     const [cameraStatus, setCameraStatus] = useState<'loading' | 'active' | 'error'>('loading');
     const [screenStatus, setScreenStatus] = useState<'idle' | 'active' | 'error'>('idle');
     const [message, setMessage] = useState('Initializing Proctoring...');
+
+    // Drag logic
+    const panelRef = useRef<HTMLDivElement>(null);
+    const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+    const dragRef = useRef<{ startX: number; startY: number; elX: number; elY: number } | null>(null);
+
+    const onDragStart = useCallback((clientX: number, clientY: number) => {
+        if (!panelRef.current) return;
+        const rect = panelRef.current.getBoundingClientRect();
+        const cur = pos || { x: rect.left, y: rect.top };
+        dragRef.current = { startX: clientX, startY: clientY, elX: cur.x, elY: cur.y };
+        const onMove = (mx: number, my: number) => {
+            if (!dragRef.current || !panelRef.current) return;
+            const r = panelRef.current.getBoundingClientRect();
+            const nx = Math.max(0, Math.min(window.innerWidth - r.width, dragRef.current.elX + mx - dragRef.current.startX));
+            const ny = Math.max(0, Math.min(window.innerHeight - r.height, dragRef.current.elY + my - dragRef.current.startY));
+            setPos({ x: nx, y: ny });
+        };
+        const handleMouseMove = (e: MouseEvent) => onMove(e.clientX, e.clientY);
+        const handleTouchMove = (e: TouchEvent) => onMove(e.touches[0].clientX, e.touches[0].clientY);
+        const handleEnd = () => {
+            dragRef.current = null;
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleEnd);
+            window.removeEventListener('touchmove', handleTouchMove);
+            window.removeEventListener('touchend', handleEnd);
+        };
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleEnd);
+        window.addEventListener('touchmove', handleTouchMove, { passive: false });
+        window.addEventListener('touchend', handleEnd);
+    }, [pos]);
+
+    const dragProps = {
+        onMouseDown: (e: React.MouseEvent) => { e.preventDefault(); onDragStart(e.clientX, e.clientY); },
+        onTouchStart: (e: React.TouchEvent) => { onDragStart(e.touches[0].clientX, e.touches[0].clientY); },
+    };
+
+    const posStyle: React.CSSProperties = pos
+        ? { left: pos.x, top: pos.y, bottom: 'auto', right: 'auto' }
+        : {};
 
     // 1. Start Camera (Mandatory)
     useEffect(() => {
@@ -176,13 +217,13 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
     // Render Setup State if Screen not shared or Camera not active
     if (screenStatus !== 'active' || cameraStatus !== 'active') {
         return (
-            <div className="face-verification-panel" style={{ 
+            <div ref={panelRef} className="face-verification-panel" style={{
                 position: 'fixed', bottom: '20px', right: '20px', zIndex: 1000,
                 background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '0.5rem',
                 border: '1px solid var(--warning)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                width: '280px', textAlign: 'center'
+                width: '280px', textAlign: 'center', ...posStyle
             }}>
-                <div style={{ marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--warning)' }}>
+                <div {...dragProps} style={{ marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--warning)', cursor: 'grab', userSelect: 'none' }}>
                     Test Setup Required
                 </div>
                 <div style={{ fontSize: '0.8rem', marginBottom: '1rem' }}>
@@ -213,18 +254,19 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
     }
 
     return (
-        <div className="face-verification-panel" style={{ 
-            position: 'fixed', bottom: '20px', right: '20px', 
-            width: '240px', background: 'var(--bg-secondary)', 
-            borderRadius: '0.5rem', overflow: 'hidden', 
+        <div ref={panelRef} className="face-verification-panel" style={{
+            position: 'fixed', bottom: '20px', right: '20px',
+            width: '240px', background: 'var(--bg-secondary)',
+            borderRadius: '0.5rem', overflow: 'hidden',
             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
             border: '1px solid var(--success)',
-            zIndex: 1000
+            zIndex: 1000, ...posStyle
         }}>
-            <div style={{ 
-                padding: '0.5rem', background: 'var(--success)', 
+            <div {...dragProps} style={{
+                padding: '0.5rem', background: 'var(--success)',
                 color: 'white',
-                display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', fontWeight: 'bold'
+                display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', fontWeight: 'bold',
+                cursor: 'grab', userSelect: 'none'
             }}>
                 <Video size={16} /> 
                 Proctoring Active
