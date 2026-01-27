@@ -91,11 +91,19 @@ const parseResume = async (input, mimetype, originalFilename = '') => {
 
         // Keywords for Tech Domains (Simple matching)
         const domains = {
-            'Frontend': ['react', 'vue', 'angular', 'html', 'css', 'javascript', 'typescript', 'frontend'],
-            'Backend': ['node', 'express', 'django', 'flask', 'java', 'spring', 'go', 'golang', 'backend', 'sql', 'mongodb'],
-            'Data Science': ['python', 'pandas', 'numpy', 'scikit', 'pytorch', 'tensorflow', 'machine learning', 'data science'],
-            'DevOps': ['docker', 'kubernetes', 'aws', 'azure', 'jenkins', 'ci/cd', 'terraform'],
-            'Mobile': ['react native', 'flutter', 'android', 'ios', 'swift', 'kotlin']
+            'Frontend': ['react', 'vue', 'angular', 'html', 'css', 'javascript', 'typescript', 'frontend', 'ui', 'ux', 'design'],
+            'Backend': ['node', 'express', 'django', 'flask', 'java', 'spring', 'go', 'golang', 'backend', 'sql', 'mongodb', 'database', 'api'],
+            'Full Stack': ['full stack', 'fullstack', 'mern', 'mean', 'lamp', 'both frontend and backend'],
+            'Data Science': ['python', 'pandas', 'numpy', 'scikit', 'pytorch', 'tensorflow', 'machine learning', 'data science', 'analytics', 'statistics'],
+            'DevOps': ['docker', 'kubernetes', 'aws', 'azure', 'jenkins', 'ci/cd', 'terraform', 'deployment', 'infrastructure'],
+            'Sales & Marketing': ['sales', 'marketing', 'business development', 'revenue', 'customer acquisition', 'lead generation', 'crm'],
+            'Business Analyst': ['business analyst', 'ba', 'requirements', 'analysis', 'stakeholder', 'process improvement', 'data analysis'],
+            'QA/Testing': ['qa', 'testing', 'quality assurance', 'automation', 'selenium', 'cypress', 'manual testing', 'test cases'],
+            'UI/UX Design': ['ui', 'ux', 'user interface', 'user experience', 'figma', 'sketch', 'adobe xd', 'prototyping', 'wireframing'],
+            'Product Management': ['product manager', 'product management', 'roadmap', 'agile', 'scrum', 'product strategy', 'backlog'],
+            'HR': ['human resources', 'hr', 'recruitment', 'talent acquisition', 'employee relations', 'payroll', 'training'],
+            'Finance': ['finance', 'accounting', 'financial', 'bookkeeping', 'tax', 'audit', 'budgeting', 'financial analysis'],
+            'Operations': ['operations', 'logistics', 'supply chain', 'process optimization', 'efficiency', 'workflow', 'management']
         };
 
         let detectedDomain = 'Full Stack'; // Default
@@ -119,11 +127,13 @@ const parseResume = async (input, mimetype, originalFilename = '') => {
         const expMatch = textLower.match(/(\d+)\+?\s*years?/);
         if (expMatch) {
             const years = parseInt(expMatch[1]);
-            if (years >= 8) experienceLevel = '8-10 years';
+            if (years >= 10) experienceLevel = '10+ years';
+            else if (years >= 8) experienceLevel = '8-10 years';
             else if (years >= 6) experienceLevel = '6-8 years';
             else if (years >= 4) experienceLevel = '4-6 years';
             else if (years >= 2) experienceLevel = '2-4 years';
             else if (years >= 1) experienceLevel = '1-2 years';
+            else if (years >= 0) experienceLevel = '0-1 years';
         }
 
         return {

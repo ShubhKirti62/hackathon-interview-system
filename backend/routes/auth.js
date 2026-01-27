@@ -6,34 +6,30 @@ const User = require('../models/User');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret_key_123';
 
-// Register User (For Admin to create initial users or self-register if publicly allowed)
+// Register User (Admin only - Candidates cannot create accounts)
 router.post('/register', async (req, res) => {
     try {
         const { name, email, password, role } = req.body;
 
-        // If registering as candidate, check if email exists in candidates collection
-        if (role === 'candidate') {
-            const Candidate = require('../models/Candidate');
-            const existingCandidate = await Candidate.findOne({ email });
-            if (!existingCandidate) {
-                return res.status(403).json({ 
-                    msg: 'Email not found in candidate database. Please contact HR to upload your resume first.' 
-                });
-            }
+        // Only admins can create accounts
+        if (role !== 'admin') {
+            return res.status(403).json({ 
+                msg: 'Only administrators can create accounts. Candidates are created by admins through resume upload.' 
+            });
         }
 
         // Check if user exists
         let user = await User.findOne({ email });
         if (user) {
-            return res.status(400).json({ msg: 'User already exists' });
+            return res.status(400).json({ msg: 'Admin user already exists' });
         }
 
-        // Create new user
+        // Create new admin user
         user = new User({
             name,
             email,
             password,
-            role
+            role: 'admin'
         });
 
         // Hash password

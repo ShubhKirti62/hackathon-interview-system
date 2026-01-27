@@ -146,6 +146,31 @@ router.patch('/:id/status', auth, async (req, res) => {
     }
 });
 
+// Update Candidate Details
+router.patch('/:id', auth, async (req, res) => {
+    try {
+        const allowedUpdates = ['name', 'email', 'phone', 'domain', 'experienceLevel', 'internalReferred'];
+        const updates = {};
+        
+        for (const key of allowedUpdates) {
+            if (req.body[key] !== undefined) {
+                updates[key] = req.body[key];
+            }
+        }
+
+        const candidate = await Candidate.findByIdAndUpdate(
+            req.params.id,
+            updates,
+            { new: true, runValidators: true }
+        );
+
+        if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
+        res.json(candidate);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Get Current Candidate Profile & Active Interview
 router.get('/me', auth, async (req, res) => {
     try {

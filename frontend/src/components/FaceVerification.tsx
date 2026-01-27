@@ -65,7 +65,9 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
     const startScreenShare = async () => {
         try {
             const stream = await navigator.mediaDevices.getDisplayMedia({
-                video: { displaySurface: 'monitor' },
+                video: { 
+                    displaySurface: 'monitor'
+                },
                 audio: false
             });
             
