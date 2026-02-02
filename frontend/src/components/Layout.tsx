@@ -9,47 +9,51 @@ const Layout: React.FC = () => {
     const { user, logout, isAuthenticated } = useAuth();
     const location = useLocation();
 
+    const isAdminPage = location.pathname.startsWith('/admin');
+
     return (
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-            <header style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: '64px',
-                zIndex: 1100,
-                borderBottom: '1px solid var(--border-color)',
-                backgroundColor: 'var(--bg-primary)',
-                display: 'flex',
-                alignItems: 'center'
-            }}>
-                <div className="container" style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Link to={APP_ROUTES.HOME} style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--text-primary)', textDecoration: 'none' }}>
-                        NvestCareers
-                    </Link>
+            {!isAdminPage && (
+                <header style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: '64px',
+                    zIndex: 100,
+                    borderBottom: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-primary)',
+                    display: 'flex',
+                    alignItems: 'center'
+                }}>
+                    <div className="container" style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Link to={APP_ROUTES.HOME} style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--text-primary)', textDecoration: 'none' }}>
+                            NvestCareers
+                        </Link>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <ThemeToggle />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <ThemeToggle />
 
-                        {isAuthenticated ? (
-                            <>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
-                                    <User size={18} /> {user?.name}
-                                </span>
-                                <button onClick={logout} className="btn" style={{ border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
-                                    <LogOut size={18} />
-                                </button>
-                            </>
-                        ) : (
-                            location.pathname !== APP_ROUTES.LOGIN && (
-                                <Link to={APP_ROUTES.LOGIN} className="btn btn-primary">Login</Link>
-                            )
-                        )}
+                            {isAuthenticated ? (
+                                <>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
+                                        <User size={18} /> {user?.name}
+                                    </span>
+                                    <button onClick={logout} className="btn" style={{ border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                                        <LogOut size={18} />
+                                    </button>
+                                </>
+                            ) : (
+                                location.pathname !== APP_ROUTES.LOGIN && (
+                                    <Link to={APP_ROUTES.LOGIN} className="btn btn-primary">Login</Link>
+                                )
+                            )}
+                        </div>
                     </div>
-                </div>
-            </header>
+                </header>
+            )}
 
-            <main style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingTop: '64px' }}>
+            <main style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingTop: isAdminPage ? 0 : '64px' }}>
                 <Outlet />
             </main>
         </div>

@@ -19,8 +19,8 @@ function getImapConfig() {
         port: parseInt(process.env.IMAP_PORT || '993', 10),
         secure: true,
         auth: {
-            user: process.env.IMAP_USER,
-            pass: process.env.IMAP_PASS
+            user: process.env.IMAP_USER || process.env.SMTP_USER,
+            pass: process.env.IMAP_PASS || process.env.SMTP_PASS
         },
         tls: { rejectUnauthorized: false },
         logger: false
@@ -48,8 +48,8 @@ async function scanInbox() {
         return { message: 'Scan already in progress', results: [] };
     }
 
-    if (!process.env.IMAP_USER || !process.env.IMAP_PASS) {
-        throw new Error('IMAP credentials not configured. Set IMAP_USER and IMAP_PASS environment variables.');
+    if (!(process.env.IMAP_USER || process.env.SMTP_USER) || !(process.env.IMAP_PASS || process.env.SMTP_PASS)) {
+        throw new Error('IMAP/SMTP credentials not configured. Please check your .env file.');
     }
 
     isScanning = true;

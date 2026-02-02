@@ -8,16 +8,21 @@ const ThemeToggle: React.FC = () => {
     return (
         <button
             onClick={toggleTheme}
-            className="p-2 rounded-full hover:bg-[var(--bg-secondary)] transition-colors"
             aria-label="Toggle Theme"
             style={{
-                background: 'transparent',
-                border: 'none',
+                background: 'rgba(59, 130, 246, 0.1)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '0.5rem',
                 color: 'var(--text-primary)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                padding: '0.5rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
             }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.2)'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.1)'}
         >
             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
         </button>

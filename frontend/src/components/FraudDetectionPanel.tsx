@@ -275,11 +275,11 @@ const FraudDetectionPanel: React.FC<FraudDetectionPanelProps> = ({
                                             fontSize: '0.75rem', fontWeight: '500',
                                             backgroundColor: statColor.bg, color: statColor.text
                                         }}>
-                                            {alert.status.replace('_', ' ')}
+                                            {alert.status.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
                                         </span>
                                     </td>
                                     <td style={{ padding: '0.75rem', fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                                        {new Date(alert.createdAt).toLocaleDateString()}<br/>
+                                        {new Date(alert.createdAt).toLocaleDateString()}<br />
                                         {new Date(alert.createdAt).toLocaleTimeString()}
                                     </td>
                                     <td style={{ padding: '0.75rem' }}>
@@ -484,10 +484,8 @@ const FraudDetectionPanel: React.FC<FraudDetectionPanelProps> = ({
                             </button>
                             <button
                                 onClick={() => {
-                                    if (window.confirm('This will block the candidate. Are you sure?')) {
-                                        onUpdateAlert(reviewModal._id, 'confirmed_fraud', reviewNotes);
-                                        setReviewModal(null);
-                                    }
+                                    onUpdateAlert(reviewModal._id, 'confirmed_fraud', reviewNotes);
+                                    setReviewModal(null);
                                 }}
                                 style={{
                                     padding: '0.5rem 1rem', borderRadius: '0.375rem', border: 'none',

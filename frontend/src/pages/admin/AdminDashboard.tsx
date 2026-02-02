@@ -1,77 +1,52 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Upload, Plus, Users, BarChart, FileText, CheckCircle, X, Shield, Star, Filter, Phone, Mail, File, ExternalLink, Settings, PieChart as PieChartIcon, Send, Image as ImageIcon, Menu, Inbox, Play, Square, RefreshCw, AlertCircle, Trash2, Calendar, AlertTriangle } from 'lucide-react';
-import FraudDetectionPanel from '../../components/FraudDetectionPanel';
+import {
+    Users,
+    FileText,
+    Shield,
+    Settings as SettingsIcon,
+    Menu,
+    Inbox as InboxIcon,
+    AlertTriangle,
+    Calendar as CalendarIcon,
+    LogOut,
+    Plus,
+} from 'lucide-react';
+
+// Components
+import ThemeToggle from '../../components/ThemeToggle';
+
+// Tabs
+import CandidatesTab from './tabs/CandidatesTab';
+import QuestionsTab from './tabs/QuestionsTab';
+import InterviewSlotsTab from './tabs/InterviewSlotsTab';
+import EmailScannerTab from './tabs/EmailScannerTab';
+import FraudDetectionTab from './tabs/FraudDetectionTab';
+
+// Modals
+import { ViewCandidateModal, AddCandidateModal, EditCandidateModal } from '../../components/admin/modals/CandidateModals';
+import { AddQuestionModal, SettingsModal, BulkUploadModal } from '../../components/admin/modals/QuestionAndSettingsModals';
+import { AddSlotModal, FeedbackModal, SendInviteModal, InterviewDetailsModal } from '../../components/admin/modals/InterviewModals';
 import ScreenshotViewerModal from '../../components/Modals/ScreenshotViewerModal';
 import ConfirmationModal from '../../components/shared/ConfirmationModal';
-import { PieChart, Pie, BarChart as ReBarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
+
+// Services & Utils
 import api from '../../services/api';
 import { API_ENDPOINTS } from '../../services/endpoints';
 import { useAuth } from '../../context/AuthContext';
 import { showToast } from '../../utils/toast';
-import { APP_ROUTES } from '../../routes';
-import { validateTimeRange, restrictDateTimeInput, getRestrictedTimeMessage, validateTimeString, restrictTimeInput, validateDateForWorkingHours, restrictDateInput, getRestrictedDateMessage } from '../../utils/timeValidation';
-import { formatCandidateStatus, getStatusColor, getStatusBackgroundColor } from '../../utils/statusFormatter';
+import { formatCandidateStatus } from '../../utils/statusFormatter';
 
-interface Candidate {
-    _id: string;
-    name: string;
-    email: string;
-    domain: string;
-    experienceLevel: string;
-    status: string;
-    createdAt: string;
-    internalReferred: boolean;
-    resumeUrl?: string;
-    resumeText?: string;
-    phone?: string;
-    remarks?: string;
-    handledBy?: {
-        name: string;
-        role: string;
-    };
-    overallScore?: number;
-    blocked?: boolean;
-    createdBy?: string;
-}
-
-interface Setting {
-    key: string;
-    value: number;
-    description: string;
-}
-
-interface Question {
-    _id: string;
-    text: string;
-    domain: string;
-    experienceLevel: string;
-    difficulty: string;
-    type: 'Descriptive';
-    verified: boolean;
-    keywords?: string[];
-}
-
-interface Stats {
-    totalCandidates: number;
-    interviewsCompleted: number;
-    resumesProcessed: number;
-    totalQuestions: number;
-    totalHRs: number;
-}
-
-interface User {
-    _id: string;
-    name: string;
-    email: string;
-    role: string;
-    createdAt: string;
-}
+// Types
+import type { Candidate, Question, Stats, User } from './types';
 
 const AdminDashboard: React.FC = () => {
-    const { user } = useAuth();
-    const navigate = useNavigate();
+    const { user, logout } = useAuth();
+
+    // Core State
     const [candidates, setCandidates] = useState<Candidate[]>([]);
+    const [questions, setQuestions] = useState<Question[]>([]);
+    const [slots, setSlots] = useState<any[]>([]);
+    const [interviewers, setInterviewers] = useState<User[]>([]);
     const [stats, setStats] = useState<Stats>({
         totalCandidates: 0,
         interviewsCompleted: 0,
@@ -79,70 +54,161 @@ const AdminDashboard: React.FC = () => {
         totalQuestions: 0,
         totalHRs: 0
     });
-    const [now, setNow] = useState(new Date());
 
-    useEffect(() => {
-        const timer = setInterval(() => setNow(new Date()), 1000);
-        return () => clearInterval(timer);
-    }, []);
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [showEditModal, setShowEditModal] = useState(false);
-    const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
-    const [showQuestionModal, setShowQuestionModal] = useState(false);
-    const [showBulkModal, setShowBulkModal] = useState(false);
-    const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
-    const [showSettingsModal, setShowSettingsModal] = useState(false);
-    const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
-    const [filterReferred, setFilterReferred] = useState(false);
+    // UI State
     const [activeTab, setActiveTab] = useState<'candidates' | 'questions' | 'slots' | 'email-scanner' | 'fraud-detection'>('candidates');
-    const [questions, setQuestions] = useState<Question[]>([]);
+    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [filterReferred, setFilterReferred] = useState(false);
 
-    const [interviewers, setInterviewers] = useState<User[]>([]);
-    const [slots, setSlots] = useState<any[]>([]);
-
-    const [showSlotModal, setShowSlotModal] = useState(false);
-    const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
-    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-    const [selectedSlot, setSelectedSlot] = useState<any>(null);
-    const [showInviteModal, setShowInviteModal] = useState(false);
-    const [showScreenshotModal, setShowScreenshotModal] = useState(false);
-    const [showInterviewModal, setShowInterviewModal] = useState(false);
-    const [selectedInterview, setSelectedInterview] = useState<any>(null);
-    const [viewingScreenshotsCandidate, setViewingScreenshotsCandidate] = useState<{ id: string, name: string } | null>(null);
-    const [sidebarOpen, setSidebarOpen] = useState(false);
-
-    // Email Scanner state
-    const [emailScannerStatus, setEmailScannerStatus] = useState<{
-        isRunning: boolean;
-        isScanning: boolean;
-        lastScanTime: string | null;
-        totalProcessed: number;
-        lastError: string | null;
-        counts: { processed: number; failed: number; duplicate: number };
+    // Modal State
+    const [modalState, setModalState] = useState<{
+        viewCandidate: Candidate | null;
+        addCandidate: boolean;
+        editCandidate: Candidate | null;
+        addQuestion: Question | null;
+        bulkQuestion: boolean;
+        settings: boolean;
+        addSlot: boolean;
+        feedback: any | null;
+        sendInvite: Candidate | null;
+        interviewDetails: any | null;
+        screenshotViewer: { id: string, name: string } | null;
     }>({
-        isRunning: false,
-        isScanning: false,
-        lastScanTime: null,
-        totalProcessed: 0,
-        lastError: null,
-        counts: { processed: 0, failed: 0, duplicate: 0 }
+        viewCandidate: null,
+        addCandidate: false,
+        editCandidate: null,
+        addQuestion: null,
+        bulkQuestion: false,
+        settings: false,
+        addSlot: false,
+        feedback: null,
+        sendInvite: null,
+        interviewDetails: null,
+        screenshotViewer: null,
     });
-    const [emailLogs, setEmailLogs] = useState<any[]>([]);
-    const [emailLogsTotal, setEmailLogsTotal] = useState(0);
-    const [emailLogsPage, setEmailLogsPage] = useState(1);
-    const [scanLoading, setScanLoading] = useState(false);
 
-    // Fraud Detection state
-    const [fraudAlerts, setFraudAlerts] = useState<any[]>([]);
-    const [fraudStats, setFraudStats] = useState<any>({ total: 0, pending: 0, byType: {}, bySeverity: {} });
-    const [fraudTotal, setFraudTotal] = useState(0);
-    const [fraudPage, setFraudPage] = useState(1);
+    // Confirmation Modal State
+    const [confirmConfig, setConfirmConfig] = useState<{
+        isOpen: boolean;
+        type: 'clear_all_candidates' | 'delete_candidate' | 'delete_question' | 'clear_email_logs' | 'confirm_fraud' | 'delete_fraud_alert' | null;
+        title: string;
+        message: string;
+        confirmLabel: string;
+        data?: any;
+        isDangerous?: boolean;
+    }>({
+        isOpen: false,
+        type: null,
+        title: '',
+        message: '',
+        confirmLabel: '',
+        isDangerous: false
+    });
 
-    const fetchFraudAlerts = async (page = fraudPage) => {
+    // Email Scanner State
+    const [emailScanner, setEmailScanner] = useState({
+        status: {
+            isRunning: false,
+            isScanning: false,
+            lastScanTime: null as string | null,
+            totalProcessed: 0,
+            lastError: null as string | null,
+            counts: { processed: 0, failed: 0, duplicate: 0 }
+        },
+        logs: [] as any[],
+        totalLogs: 0,
+        page: 1
+    });
+
+    // Fraud Detection State
+    const [fraud, setFraud] = useState({
+        alerts: [] as any[],
+        stats: { total: 0, pending: 0, byType: {}, bySeverity: {} },
+        total: 0,
+        page: 1
+    });
+
+    const CHART_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899', '#14B8A6', '#F97316', '#6B7280'];
+
+    // Data Fetching
+    const fetchDashboardData = async () => {
+        try {
+            const [candidatesRes, questionsRes, slotsRes, interviewersRes, hrsRes] = await Promise.all([
+                api.get(API_ENDPOINTS.CANDIDATES.BASE),
+                api.get(API_ENDPOINTS.QUESTIONS.BASE),
+                api.get(API_ENDPOINTS.SLOTS.BASE),
+                api.get(`${API_ENDPOINTS.AUTH.USERS}?role=interviewer`),
+                api.get(`${API_ENDPOINTS.AUTH.USERS}?role=hr`).catch(() => ({ data: [] }))
+            ]);
+
+            const candidatesList = candidatesRes.data || [];
+            const questionsList = questionsRes.data || [];
+            const slotsList = slotsRes.data || [];
+
+            const processUserList = (data: any): User[] => {
+                if (Array.isArray(data)) return data;
+                if (data && typeof data === 'object') {
+                    if (data._id && data.name) return [data];
+                    return Object.values(data).filter((v: any) => v && typeof v === 'object' && v._id && v.name) as User[];
+                }
+                return [];
+            };
+
+            const validatedInterviewers = processUserList(interviewersRes.data);
+            const validatedHRs = processUserList(hrsRes.data);
+
+            setCandidates(candidatesList);
+            setQuestions(questionsList);
+            setSlots(slotsList);
+            setInterviewers(validatedInterviewers);
+
+            const interviewedCount = candidatesList.filter((c: any) => c.overallScore != null && c.overallScore > 0).length;
+            const resumesCount = candidatesList.filter((c: any) => (c.resumeUrl && c.resumeUrl.trim() !== '') || (c.resumeText && c.resumeText.trim() !== '')).length;
+
+            setStats({
+                totalCandidates: candidatesList.length,
+                interviewsCompleted: interviewedCount,
+                resumesProcessed: resumesCount,
+                totalQuestions: questionsList.length,
+                totalHRs: validatedHRs.length + validatedInterviewers.length
+            });
+        } catch (error) {
+            console.error('Error fetching dashboard data:', error);
+        }
+    };
+
+    const fetchEmailScannerStatus = async () => {
+        try {
+            const res = await api.get(API_ENDPOINTS.EMAIL_RESUME.STATUS);
+            setEmailScanner(prev => ({ ...prev, status: res.data }));
+        } catch (err) {
+            console.error('Failed to fetch email scanner status:', err);
+        }
+    };
+
+    const fetchEmailLogs = async (page = emailScanner.page) => {
+        try {
+            const res = await api.get(`${API_ENDPOINTS.EMAIL_RESUME.LOGS}?page=${page}&limit=20`);
+            setEmailScanner(prev => ({
+                ...prev,
+                logs: res.data.logs || [],
+                totalLogs: res.data.total || 0,
+                page
+            }));
+        } catch (err) {
+            console.error('Failed to fetch email logs:', err);
+        }
+    };
+
+    const fetchFraudAlerts = async (page = fraud.page) => {
         try {
             const res = await api.get(`${API_ENDPOINTS.FRAUD.ALERTS}?page=${page}&limit=20`);
-            setFraudAlerts(res.data.alerts || []);
-            setFraudTotal(res.data.total || 0);
+            setFraud(prev => ({
+                ...prev,
+                alerts: res.data.alerts || [],
+                total: res.data.total || 0,
+                page
+            }));
         } catch (err) {
             console.error('Failed to fetch fraud alerts:', err);
         }
@@ -151,146 +217,22 @@ const AdminDashboard: React.FC = () => {
     const fetchFraudStats = async () => {
         try {
             const res = await api.get(API_ENDPOINTS.FRAUD.STATS);
-            setFraudStats(res.data);
+            setFraud(prev => ({ ...prev, stats: res.data }));
         } catch (err) {
             console.error('Failed to fetch fraud stats:', err);
         }
     };
 
-    const handleUpdateFraudAlert = async (id: string, status: string, reviewNotes?: string) => {
-        try {
-            await api.patch(API_ENDPOINTS.FRAUD.ALERT_BY_ID(id), { status, reviewNotes });
-            showToast.success(status === 'confirmed_fraud' ? 'Fraud confirmed - candidate blocked' : `Alert ${status.replace('_', ' ')}`);
-            fetchFraudAlerts();
-            fetchFraudStats();
-        } catch (err: any) {
-            showToast.error(err.response?.data?.error || 'Failed to update alert');
-        }
-    };
+    // Effects
+    useEffect(() => {
+        fetchDashboardData();
+        fetchFraudStats();
+    }, []);
 
-    const handleDeleteFraudAlert = async (id: string) => {
-        if (!window.confirm('Delete this fraud alert?')) return;
-        try {
-            await api.delete(API_ENDPOINTS.FRAUD.ALERT_BY_ID(id));
-            showToast.success('Alert deleted');
-            fetchFraudAlerts();
-            fetchFraudStats();
-        } catch (err: any) {
-            showToast.error(err.response?.data?.error || 'Failed to delete alert');
-        }
-    };
-
-    const fetchEmailScannerStatus = async () => {
-        try {
-            const res = await api.get(API_ENDPOINTS.EMAIL_RESUME.STATUS);
-            setEmailScannerStatus(res.data);
-        } catch (err) {
-            console.error('Failed to fetch email scanner status:', err);
-        }
-    };
-
-    const fetchEmailLogs = async (page = emailLogsPage) => {
-        try {
-            const res = await api.get(`${API_ENDPOINTS.EMAIL_RESUME.LOGS}?page=${page}&limit=20`);
-            setEmailLogs(res.data.logs || []);
-            setEmailLogsTotal(res.data.total || 0);
-        } catch (err) {
-            console.error('Failed to fetch email logs:', err);
-        }
-    };
-
-    const handleDeleteLog = async (logId: string) => {
-        if (!window.confirm('Are you sure you want to delete this log entry?')) return;
-        try {
-            await api.delete(API_ENDPOINTS.EMAIL_RESUME.LOG_BY_ID(logId));
-            showToast.success('Log entry deleted');
-            fetchEmailLogs();
-            fetchEmailScannerStatus();
-        } catch (err: any) {
-            showToast.error(err.response?.data?.error || 'Failed to delete log');
-        }
-    };
-
-    const handleClearAllLogs = async () => {
-        if (!window.confirm('Delete ALL email logs? This cannot be undone.')) return;
-        try {
-            await api.delete(API_ENDPOINTS.EMAIL_RESUME.LOGS);
-            showToast.success('All logs cleared');
-            setEmailLogsPage(1);
-            fetchEmailLogs(1);
-            fetchEmailScannerStatus();
-        } catch (err: any) {
-            showToast.error(err.response?.data?.error || 'Failed to clear logs');
-        }
-    };
-
-    const handleDeleteAllCandidates = () => {
-        setShowDeleteAllConfirm(true);
-    };
-
-    const confirmDeleteAll = async () => {
-        setShowDeleteAllConfirm(false);
-        try {
-            await api.delete(API_ENDPOINTS.CANDIDATES.DELETE_ALL);
-            showToast.success('All candidates deleted successfully');
-            fetchDashboardData();
-        } catch (err: any) {
-            showToast.error(err.response?.data?.error || 'Failed to delete all candidates');
-        }
-    };
-
-    const handleManualScan = async () => {
-        setScanLoading(true);
-        try {
-            const res = await api.post(API_ENDPOINTS.EMAIL_RESUME.SCAN);
-            const results = res.data.results || [];
-            const processed = results.filter((r: any) => r.status === 'processed').length;
-            const duplicates = results.filter((r: any) => r.status === 'duplicate').length;
-            const skipped = results.filter((r: any) => r.status === 'skipped').length;
-            const failed = results.filter((r: any) => r.status === 'failed').length;
-            const parts = [];
-            if (processed > 0) parts.push(`${processed} new`);
-            if (duplicates > 0) parts.push(`${duplicates} duplicate`);
-            if (failed > 0) parts.push(`${failed} failed`);
-            if (skipped > 0) parts.push(`${skipped} skipped`);
-            showToast.success(`Scan complete. ${parts.length > 0 ? parts.join(', ') : 'No new resumes found.'}`);
-            fetchEmailScannerStatus();
-            fetchEmailLogs(1);
-            setEmailLogsPage(1);
-            fetchDashboardData();
-        } catch (err: any) {
-            showToast.error(err.response?.data?.error || 'Scan failed');
-        } finally {
-            setScanLoading(false);
-        }
-    };
-
-    const handleStartAutoScan = async () => {
-        try {
-            await api.post(API_ENDPOINTS.EMAIL_RESUME.START);
-            showToast.success('Auto-scan started (every 5 minutes)');
-            fetchEmailScannerStatus();
-        } catch (err: any) {
-            showToast.error(err.response?.data?.error || 'Failed to start auto-scan');
-        }
-    };
-
-    const handleStopAutoScan = async () => {
-        try {
-            await api.post(API_ENDPOINTS.EMAIL_RESUME.STOP);
-            showToast.success('Auto-scan stopped');
-            fetchEmailScannerStatus();
-        } catch (err: any) {
-            showToast.error(err.response?.data?.error || 'Failed to stop auto-scan');
-        }
-    };
-
-    // Auto-poll status & logs when email-scanner tab is active
     useEffect(() => {
         if (activeTab === 'email-scanner') {
             fetchEmailScannerStatus();
             fetchEmailLogs(1);
-            setEmailLogsPage(1);
             const interval = setInterval(() => {
                 fetchEmailScannerStatus();
                 fetchEmailLogs();
@@ -299,29 +241,18 @@ const AdminDashboard: React.FC = () => {
         }
     }, [activeTab]);
 
-    // Fetch fraud data when tab activates
     useEffect(() => {
         if (activeTab === 'fraud-detection') {
             fetchFraudAlerts(1);
             fetchFraudStats();
-            setFraudPage(1);
         }
     }, [activeTab]);
 
-    // Also fetch fraud stats on mount for badge count
-    useEffect(() => {
-        fetchFraudStats();
-    }, []);
-
-    const CHART_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899', '#14B8A6', '#F97316', '#6B7280'];
-
+    // Derived Logic
     const chartData = useMemo(() => {
-        // Dynamically count statuses from actual candidate data
         const statusMap: Record<string, number> = {};
         candidates.forEach(c => {
-            if (c.status) {
-                statusMap[c.status] = (statusMap[c.status] || 0) + 1;
-            }
+            if (c.status) statusMap[c.status] = (statusMap[c.status] || 0) + 1;
         });
         const statusCounts = Object.entries(statusMap).map(([status, count], index) => ({
             name: formatCandidateStatus(status),
@@ -335,2318 +266,650 @@ const AdminDashboard: React.FC = () => {
             count: candidates.filter(c => c.domain === domain).length
         }));
 
-        const dates = [...new Set(candidates.map(c => new Date(c.createdAt).toLocaleDateString()))].sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-        const trendData = dates.map(date => ({
-            name: date,
-            candidates: candidates.filter(c => new Date(c.createdAt).toLocaleDateString() === date).length
-        }));
-
-        return { statusCounts, domainCounts, trendData };
+        return { statusCounts, domainCounts, trendData: [] };
     }, [candidates]);
 
-    useEffect(() => {
-        fetchDashboardData();
-    }, []);
-
-    const fetchDashboardData = async () => {
-        try {
-            // Fetch core data available to all roles
-            const coreRequests = await Promise.allSettled([
-                api.get(API_ENDPOINTS.CANDIDATES.BASE),
-                api.get(API_ENDPOINTS.SESSIONS.LIST),
-                api.get(API_ENDPOINTS.QUESTIONS.BASE)
-            ]);
-
-            const candidatesRes = coreRequests[0].status === 'fulfilled' ? coreRequests[0].value : { data: [] };
-
-            const questionsRes = coreRequests[2].status === 'fulfilled' ? coreRequests[2].value : { data: [] };
-
-            setCandidates(candidatesRes.data || []);
-            setQuestions(questionsRes.data || []);
-
-            // Fetch secondary data
-            const secondaryRequests = await Promise.allSettled([
-                api.get(API_ENDPOINTS.SLOTS.BASE),
-                api.get(`${API_ENDPOINTS.AUTH.USERS}?role=interviewer`)
-            ]);
-
-            const slotsRes = secondaryRequests[0].status === 'fulfilled' ? secondaryRequests[0].value : { data: [] };
-            const interviewersRes = secondaryRequests[1].status === 'fulfilled' ? secondaryRequests[1].value : { data: [] };
-
-            setSlots(slotsRes.data || []);
-
-            // Robust Interviewer list processing
-            const interviewerData = interviewersRes.data;
-            let validatedInterviewers: User[] = [];
-            if (Array.isArray(interviewerData)) {
-                validatedInterviewers = interviewerData;
-            } else if (interviewerData && typeof interviewerData === 'object') {
-                if (interviewerData._id && interviewerData.name) {
-                    validatedInterviewers = [interviewerData as User];
-                } else {
-                    validatedInterviewers = Object.values(interviewerData)
-                        .filter((v: any) => v && typeof v === 'object' && v._id && v.name) as User[];
-                }
-            }
-            console.log('Processed Interviewers:', validatedInterviewers);
-            setInterviewers(validatedInterviewers);
-
-            // Handle HR list for Admin and HR users (Robustly)
-            let hrList: User[] = [];
-            try {
-                const hrsRes = await api.get(`${API_ENDPOINTS.AUTH.USERS}?role=hr`);
-                const hrData = hrsRes.data;
-                if (Array.isArray(hrData)) {
-                    hrList = hrData;
-                } else if (hrData && typeof hrData === 'object') {
-                    if (hrData._id && hrData.name) {
-                        hrList = [hrData as User];
-                    } else {
-                        hrList = Object.values(hrData)
-                            .filter((v: any) => v && typeof v === 'object' && v._id && v.name) as User[];
-                    }
-                }
-                console.log('Processed HRs:', hrList);
-
-            } catch (e) {
-                console.error('Error fetching HR list:', e);
-            }
-
-            const allCandidates = candidatesRes.data || [];
-            const interviewedCount = allCandidates.filter((c: any) => c.overallScore != null && c.overallScore > 0).length;
-            const resumesCount = allCandidates.filter((c: any) => (c.resumeUrl && c.resumeUrl.trim() !== '') || (c.resumeText && c.resumeText.trim() !== '')).length;
-
-            setStats({
-                totalCandidates: allCandidates.length,
-                interviewsCompleted: interviewedCount,
-                resumesProcessed: resumesCount,
-                totalQuestions: (questionsRes.data || []).length,
-                totalHRs: hrList.length + validatedInterviewers.length
-            });
-        } catch (error) {
-            console.error('Error fetching dashboard data:', error);
-        }
-    };
-
-
-
+    // Handlers
     const handleViewInterview = async (candidateId: string) => {
         try {
-            // Get interviews for this candidate
             const interviewsRes = await api.get(`${API_ENDPOINTS.INTERVIEWS.BY_ID}?candidateId=${candidateId}`);
             const interviews = interviewsRes.data;
-
             if (interviews.length === 0) {
                 showToast.info('No interviews found for this candidate');
                 return;
             }
-
-            // Get the most recent completed interview
             const latestInterview = interviews
                 .filter((i: any) => i.status === 'Completed')
                 .sort((a: any, b: any) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())[0];
 
             if (!latestInterview) {
-                showToast.info('No completed interviews found for this candidate');
+                showToast.info('No completed interviews found');
                 return;
             }
-
-            // Get detailed interview data
-            const interviewDetailsRes = await api.get(API_ENDPOINTS.INTERVIEWS.GET_DETAILS(latestInterview._id));
-            setSelectedInterview(interviewDetailsRes.data);
-            setShowInterviewModal(true);
-        } catch (err: any) {
+            setModalState(s => ({ ...s, interviewDetails: latestInterview }));
+        } catch (err) {
             showToast.error('Failed to fetch interview details');
         }
     };
 
-    const handleDeleteQuestion = async (id: string) => {
-        if (!window.confirm('Are you sure you want to delete this question?')) return;
-        try {
-            await api.delete(`${API_ENDPOINTS.QUESTIONS.BASE}/${id}`);
-            showToast.success('Question deleted successfully!');
-            fetchDashboardData();
-        } catch (err: any) {
-            showToast.error(err.response?.data?.error || 'Failed to delete question');
-        }
+    const confirmDeleteCandidate = (id: string) => {
+        setConfirmConfig({
+            isOpen: true,
+            type: 'delete_candidate',
+            title: 'Delete Candidate',
+            message: 'Are you sure you want to delete this candidate? This action cannot be undone.',
+            confirmLabel: 'Delete',
+            isDangerous: true,
+            data: { id }
+        });
     };
 
-    const handleDeleteCandidate = async (id: string) => {
-        if (!window.confirm('Are you sure you want to delete this candidate?')) return;
+    const executeDeleteCandidate = async (id: string) => {
         try {
             await api.delete(`${API_ENDPOINTS.CANDIDATES.BASE}/${id}`);
-            showToast.success('Candidate deleted successfully!');
+            showToast.success('Candidate deleted');
+            closeConfirm();
             fetchDashboardData();
-        } catch (err: any) {
-            showToast.error(err.response?.data?.error || 'Failed to delete candidate');
+        } catch (err) {
+            showToast.error('Failed to delete candidate');
         }
     };
 
-    const handleEditCandidate = (candidate: Candidate) => {
-        setEditingCandidate(candidate);
-        setShowEditModal(true);
+    const confirmDeleteQuestion = (id: string) => {
+        setConfirmConfig({
+            isOpen: true,
+            type: 'delete_question',
+            title: 'Delete Question',
+            message: 'Are you sure you want to delete this question?',
+            confirmLabel: 'Delete',
+            isDangerous: true,
+            data: { id }
+        });
     };
 
-    const handleInviteClick = () => {
-        setShowInviteModal(true);
+    const executeDeleteQuestion = async (id: string) => {
+        try {
+            await api.delete(`${API_ENDPOINTS.QUESTIONS.BASE}/${id}`);
+            showToast.success('Question deleted');
+            closeConfirm();
+            fetchDashboardData();
+        } catch (err) {
+            showToast.error('Failed to delete question');
+        }
     };
 
-    return (
-        <div className="admin-dashboard">
-            {/* Mobile Overlay */}
-            <div
-                className={`admin-sidebar-overlay ${sidebarOpen ? 'open' : ''}`}
-                onClick={() => setSidebarOpen(false)}
-            />
+    const confirmClearEmailLogs = () => {
+        setConfirmConfig({
+            isOpen: true,
+            type: 'clear_email_logs',
+            title: 'Clear Email Logs',
+            message: 'Are you sure you want to delete ALL email logs? This cannot be undone.',
+            confirmLabel: 'Clear All',
+            isDangerous: true
+        });
+    };
 
-            {/* Sidebar */}
-            <div className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
-                <div style={{ padding: '2rem 1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <Shield size={28} style={{ color: 'var(--primary)' }} />
-                    <h2 style={{ fontSize: '1.25rem', margin: 0, fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                        Admin Dashboard
-                    </h2>
-                </div>
+    const executeClearEmailLogs = async () => {
+        try {
+            await api.delete(API_ENDPOINTS.EMAIL_RESUME.LOGS);
+            showToast.success('All logs cleared');
+            closeConfirm();
+            fetchEmailLogs(1);
+            fetchEmailScannerStatus();
+        } catch (err) {
+            showToast.error('Failed to clear logs');
+        }
+    };
 
-                <nav style={{ flex: 1, padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <button
-                        onClick={() => { setActiveTab('candidates'); setSidebarOpen(false); }}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem',
-                            padding: '0.75rem 1rem',
-                            borderRadius: '0.5rem',
-                            border: 'none',
-                            background: activeTab === 'candidates' ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-                            color: activeTab === 'candidates' ? 'var(--primary)' : 'var(--text-secondary)',
-                            fontWeight: activeTab === 'candidates' ? '600' : '500',
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            width: '100%',
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        <Users size={20} /> Candidates Management
-                    </button>
+    const handleManualScan = async () => {
+        try {
+            await api.post(API_ENDPOINTS.EMAIL_RESUME.SCAN);
+            showToast.success(`Scan complete.`);
+            fetchEmailScannerStatus();
+            fetchEmailLogs(1);
+            fetchDashboardData();
+        } catch (err) {
+            showToast.error('Scan failed');
+        }
+    };
 
-                    <button
-                        onClick={() => { setActiveTab('questions'); setSidebarOpen(false); }}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem',
-                            padding: '0.75rem 1rem',
-                            borderRadius: '0.5rem',
-                            border: 'none',
-                            background: activeTab === 'questions' ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-                            color: activeTab === 'questions' ? 'var(--primary)' : 'var(--text-secondary)',
-                            fontWeight: activeTab === 'questions' ? '600' : '500',
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            width: '100%',
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        <FileText size={20} /> Questions Library
-                    </button>
+    const confirmDeleteAllCandidates = () => {
+        setConfirmConfig({
+            isOpen: true,
+            type: 'clear_all_candidates',
+            title: 'Clear All Candidates',
+            message: 'Are you sure you want to delete ALL candidates? This action cannot be undone.',
+            confirmLabel: 'Yes, Delete All',
+            isDangerous: true
+        });
+    };
 
-                    <button
-                        onClick={() => { setActiveTab('slots'); setSidebarOpen(false); }}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem',
-                            padding: '0.75rem 1rem',
-                            borderRadius: '0.5rem',
-                            border: 'none',
-                            background: activeTab === 'slots' ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-                            color: activeTab === 'slots' ? 'var(--primary)' : 'var(--text-secondary)',
-                            fontWeight: activeTab === 'slots' ? '600' : '500',
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            width: '100%',
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        <Calendar size={20} /> Interview Slots
-                    </button>
+    const executeDeleteAllCandidates = async () => {
+        try {
+            await api.delete(API_ENDPOINTS.CANDIDATES.DELETE_ALL);
+            showToast.success('All candidates deleted');
+            closeConfirm();
+            fetchDashboardData();
+        } catch (err) {
+            showToast.error('Failed to delete candidates');
+        }
+    };
 
+    const confirmUpdateFraudAlert = (id: string, status: string, reviewNotes?: string) => {
+        if (status === 'confirmed_fraud') {
+            setConfirmConfig({
+                isOpen: true,
+                type: 'confirm_fraud',
+                title: 'Confirm Fraudulent Activity',
+                message: 'This will block the candidate from the platform. Are you sure?',
+                confirmLabel: 'Confirm Fraud',
+                isDangerous: true,
+                data: { id, status, reviewNotes }
+            });
+        } else {
+            executeUpdateFraudAlert(id, status, reviewNotes);
+        }
+    };
 
+    const executeUpdateFraudAlert = async (id: string, status: string, reviewNotes?: string) => {
+        try {
+            await api.patch(API_ENDPOINTS.FRAUD.ALERT_BY_ID(id), { status, reviewNotes });
+            fetchFraudAlerts();
+            fetchFraudStats();
+            showToast.success('Alert updated');
+            closeConfirm();
+        } catch (err) {
+            showToast.error('Failed to update alert');
+        }
+    };
 
-                    <button
-                        onClick={() => { setActiveTab('email-scanner'); setSidebarOpen(false); }}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem',
-                            padding: '0.75rem 1rem',
-                            borderRadius: '0.5rem',
-                            border: 'none',
-                            background: activeTab === 'email-scanner' ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-                            color: activeTab === 'email-scanner' ? 'var(--primary)' : 'var(--text-secondary)',
-                            fontWeight: activeTab === 'email-scanner' ? '600' : '500',
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            width: '100%',
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        <Inbox size={20} /> Email Scanner
-                    </button>
+    const confirmDeleteFraudAlert = (id: string) => {
+        setConfirmConfig({
+            isOpen: true,
+            type: 'delete_fraud_alert',
+            title: 'Delete Fraud Alert',
+            message: 'Are you sure you want to delete this alert?',
+            confirmLabel: 'Delete',
+            isDangerous: true,
+            data: { id }
+        });
+    };
 
-                    <button
-                        onClick={() => { setActiveTab('fraud-detection'); setSidebarOpen(false); }}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem',
-                            padding: '0.75rem 1rem',
-                            borderRadius: '0.5rem',
-                            border: 'none',
-                            background: activeTab === 'fraud-detection' ? 'rgba(220, 38, 38, 0.1)' : 'transparent',
-                            color: activeTab === 'fraud-detection' ? '#DC2626' : 'var(--text-secondary)',
-                            fontWeight: activeTab === 'fraud-detection' ? '600' : '500',
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            width: '100%',
-                            transition: 'all 0.2s',
-                            position: 'relative'
-                        }}
-                    >
-                        <AlertTriangle size={20} /> Fraud Detection
-                        {fraudStats.pending > 0 && (
-                            <span style={{
-                                marginLeft: 'auto',
-                                background: '#DC2626',
-                                color: 'white',
-                                fontSize: '0.7rem',
-                                fontWeight: '700',
-                                padding: '0.1rem 0.4rem',
-                                borderRadius: '9999px',
-                                minWidth: '1.2rem',
-                                textAlign: 'center'
-                            }}>
-                                {fraudStats.pending}
-                            </span>
-                        )}
-                    </button>
-                </nav>
+    const executeDeleteFraudAlert = async (id: string) => {
+        try {
+            await api.delete(API_ENDPOINTS.FRAUD.ALERT_BY_ID(id));
+            fetchFraudAlerts();
+            fetchFraudStats();
+            showToast.success('Alert deleted');
+            closeConfirm();
+        } catch (err) {
+            showToast.error('Failed to delete alert');
+        }
+    };
 
-                <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
-                    <button
-                        onClick={() => setShowSettingsModal(true)}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem',
-                            padding: '0.75rem 1rem',
-                            borderRadius: '0.5rem',
-                            border: 'none',
-                            background: 'transparent',
-                            color: 'var(--text-secondary)',
-                            cursor: 'pointer',
-                            width: '100%',
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        <Settings size={20} /> Settings
-                    </button>
+    const handleViewCandidate = async () => {
+        // Just switch to the candidates tab to show the table
+        setActiveTab('candidates');
+        // Refresh data to ensure new ones are there
+        fetchDashboardData();
+    };
+
+    const handleToggleAutoScan = async () => {
+        try {
+            if (emailScanner.status.isRunning) {
+                await api.post(API_ENDPOINTS.EMAIL_RESUME.STOP);
+                showToast.success('Auto-scan stopped');
+            } else {
+                await api.post(API_ENDPOINTS.EMAIL_RESUME.START);
+                showToast.success('Auto-scan started');
+            }
+            fetchEmailScannerStatus();
+        } catch (err) {
+            showToast.error('Action failed');
+        }
+    };
+
+    const closeConfirm = () => {
+        setConfirmConfig(prev => ({ ...prev, isOpen: false, type: null }));
+    };
+
+    const handleConfirmAction = () => {
+        const { type, data } = confirmConfig;
+        switch (type) {
+            case 'clear_all_candidates': executeDeleteAllCandidates(); break;
+            case 'delete_candidate': executeDeleteCandidate(data.id); break;
+            case 'delete_question': executeDeleteQuestion(data.id); break;
+            case 'clear_email_logs': executeClearEmailLogs(); break;
+            case 'confirm_fraud': executeUpdateFraudAlert(data.id, data.status, data.reviewNotes); break;
+            case 'delete_fraud_alert': executeDeleteFraudAlert(data.id); break;
+            default: closeConfirm();
+        }
+    };
+
+    const renderHeader = () => (
+        <header style={{
+            height: '64px',
+            backgroundColor: 'var(--bg-card)',
+            borderBottom: '1px solid var(--border-color)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 1.5rem',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 100
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <button
+                    onClick={() => setSidebarOpen(!sidebarOpen)}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                >
+                    <Menu size={24} />
+                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{
+                        width: '32px',
+                        height: '32px',
+                        backgroundColor: 'var(--primary)',
+                        borderRadius: '0.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white'
+                    }}>
+                        <Shield size={18} />
+                    </div>
+                    <h1 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0, color: 'var(--text-primary)' }}>NvestCareers</h1>
                 </div>
             </div>
 
-            {/* Main Content */}
-            <div className="admin-main-content">
-                <div className="admin-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <button
-                            className="mobile-menu-toggle"
-                            onClick={() => setSidebarOpen(!sidebarOpen)}
-                        >
-                            <Menu size={24} />
-                        </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ textAlign: 'right', display: window.innerWidth > 768 ? 'block' : 'none' }}>
+                    <div style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text-primary)' }}>{user?.name}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{user?.role}</div>
+                </div>
+                <ThemeToggle />
+                <button
+                    onClick={logout}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '0.5rem',
+                        border: '1px solid var(--border-color)',
+                        backgroundColor: 'transparent',
+                        color: 'var(--error)',
+                        cursor: 'pointer',
+                        fontSize: '0.875rem'
+                    }}
+                >
+                    <LogOut size={16} /> Logout
+                </button>
+            </div>
+        </header>
+    );
+
+    const renderSidebar = () => (
+        <aside style={{
+            width: sidebarOpen ? '260px' : '80px',
+            backgroundColor: 'var(--bg-card)',
+            borderRight: '1px solid var(--border-color)',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            zIndex: 101,
+            height: 'calc(100vh - 64px)'
+        }}>
+            <nav style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+                <SidebarItem
+                    icon={<Users size={20} />}
+                    label="Candidates"
+                    active={activeTab === 'candidates'}
+                    collapsed={!sidebarOpen}
+                    onClick={() => setActiveTab('candidates')}
+                />
+                <SidebarItem
+                    icon={<FileText size={20} />}
+                    label="Questions"
+                    active={activeTab === 'questions'}
+                    collapsed={!sidebarOpen}
+                    onClick={() => setActiveTab('questions')}
+                />
+                <SidebarItem
+                    icon={<CalendarIcon size={20} />}
+                    label="Interviews"
+                    active={activeTab === 'slots'}
+                    collapsed={!sidebarOpen}
+                    onClick={() => setActiveTab('slots')}
+                />
+                <SidebarItem
+                    icon={<InboxIcon size={20} />}
+                    label="Email Scanner"
+                    active={activeTab === 'email-scanner'}
+                    collapsed={!sidebarOpen}
+                    onClick={() => setActiveTab('email-scanner')}
+                />
+                <SidebarItem
+                    icon={<AlertTriangle size={20} />}
+                    label="Fraud Control"
+                    active={activeTab === 'fraud-detection'}
+                    badge={fraud.stats.pending > 0 ? fraud.stats.pending : undefined}
+                    collapsed={!sidebarOpen}
+                    onClick={() => setActiveTab('fraud-detection')}
+                />
+            </nav>
+
+            <div style={{ padding: '1rem', borderTop: '1px solid var(--border-color)' }}>
+                <SidebarItem
+                    icon={<SettingsIcon size={20} />}
+                    label="Settings"
+                    active={false}
+                    collapsed={!sidebarOpen}
+                    onClick={() => setModalState(s => ({ ...s, settings: true }))}
+                />
+            </div>
+        </aside>
+    );
+
+    return (
+        <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-secondary)', display: 'flex', flexDirection: 'column' }}>
+            {renderHeader()}
+
+            <div style={{ display: 'flex', flex: 1, paddingTop: '64px' }}>
+                {renderSidebar()}
+
+                <main style={{ flex: 1, padding: '2rem', overflowY: 'auto', width: '100%' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', maxWidth: '1400px', margin: '0 auto 2rem auto' }}>
                         <div>
-                            <h1 style={{ fontSize: '1.75rem', fontWeight: 'bold', color: 'var(--text-primary)', margin: 0 }}>
-                                {activeTab === 'candidates' ? 'Candidates Oversight' :
-                                    activeTab === 'questions' ? 'Questions Bank' :
-
-                                        activeTab === 'email-scanner' ? 'Email Resume Scanner' :
-                                            activeTab === 'fraud-detection' ? 'Fraud Detection' : 'Interview Scheduling'}
+                            <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', margin: 0, color: 'var(--text-primary)' }}>
+                                {activeTab.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
                             </h1>
-                            <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-                                {activeTab === 'candidates' ? 'Track and manage candidate progress and referrals.' :
-                                    activeTab === 'questions' ? 'Manage your library of technical and conceptual questions.' :
-
-                                        activeTab === 'email-scanner' ? 'Auto-detect resumes from email and create candidate entries.' :
-                                            activeTab === 'fraud-detection' ? 'Monitor duplicate applications, face matches, and proxy interview attempts.' : 'Coordinate and schedule technical interaction slots.'}
+                            <p style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                                Manage your recruitment process effectively.
                             </p>
                         </div>
-                    </div>
-
-                    <div className="admin-header-actions">
-                        {activeTab === 'candidates' ? (
-                            <button
-                                className="btn btn-primary"
-                                style={{ gap: '0.5rem' }}
-                                onClick={() => setShowAddModal(true)}
-                            >
-                                <Plus size={18} /> Add Candidate
-                            </button>
-                        ) : (activeTab === 'questions') ? (
-                            <>
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            {activeTab === 'candidates' && (
                                 <button
-                                    className="btn"
-                                    style={{ gap: '0.5rem', backgroundColor: 'var(--success)', color: 'white', border: 'none' }}
-                                    onClick={() => setShowBulkModal(true)}
-                                >
-                                    <Upload size={18} /> Bulk Upload
-                                </button>
-                                <button
+                                    onClick={() => setModalState(s => ({ ...s, addCandidate: true }))}
                                     className="btn btn-primary"
-                                    style={{ gap: '0.5rem' }}
-                                    onClick={() => {
-                                        setEditingQuestion(null);
-                                        setShowQuestionModal(true);
-                                    }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                                 >
-                                    <Plus size={18} /> Add Question
+                                    <Plus size={18} /> Add Candidate
                                 </button>
-                            </>
-
-                        ) : (activeTab === 'slots') ? (
-                            <button
-                                className="btn btn-primary"
-                                style={{ gap: '0.5rem' }}
-                                onClick={() => setShowSlotModal(true)}
-                            >
-                                <Plus size={18} /> Create Slot
-                            </button>
-                        ) : (activeTab === 'email-scanner') ? (
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            )}
+                            {activeTab === 'questions' && (
+                                <>
+                                    <button
+                                        onClick={() => setModalState(s => ({ ...s, bulkQuestion: true }))}
+                                        className="btn"
+                                        style={{ border: '1px solid var(--border-card)', backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                                    >
+                                        Bulk Upload
+                                    </button>
+                                    <button
+                                        onClick={() => setModalState(s => ({ ...s, addQuestion: { _id: '', text: '', domain: 'Frontend', experienceLevel: 'Fresher/Intern', difficulty: 'Medium', type: 'Descriptive', verified: true } as Question }))}
+                                        className="btn btn-primary"
+                                    >
+                                        Add Question
+                                    </button>
+                                </>
+                            )}
+                            {activeTab === 'slots' && (
                                 <button
+                                    onClick={() => setModalState(s => ({ ...s, addSlot: true }))}
                                     className="btn btn-primary"
-                                    style={{ gap: '0.5rem' }}
-                                    onClick={handleManualScan}
-                                    disabled={scanLoading}
                                 >
-                                    <RefreshCw size={18} className={scanLoading ? 'spin' : ''} /> {scanLoading ? 'Scanning...' : 'Scan Now'}
+                                    Create Slot
                                 </button>
-                                {emailScannerStatus.isRunning ? (
-                                    <button
-                                        className="btn"
-                                        style={{ gap: '0.5rem', backgroundColor: 'var(--danger, #EF4444)', color: 'white', border: 'none' }}
-                                        onClick={handleStopAutoScan}
-                                    >
-                                        <Square size={18} /> Stop Auto-Scan
-                                    </button>
-                                ) : (
-                                    <button
-                                        className="btn"
-                                        style={{ gap: '0.5rem', backgroundColor: 'var(--success, #10B981)', color: 'white', border: 'none' }}
-                                        onClick={handleStartAutoScan}
-                                    >
-                                        <Play size={18} /> Start Auto-Scan
-                                    </button>
-                                )}
-                            </div>
-                        ) : null}
-                    </div>
-                </div>
-
-                {activeTab === 'candidates' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-                        <div className="card admin-chart-card" style={{ padding: '1.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                                <PieChartIcon size={20} style={{ color: 'var(--primary)' }} />
-                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Candidate Status</h3>
-                            </div>
-                            {chartData.statusCounts.length > 0 ? (
-                                <PieChart width={350} height={280}>
-                                    <Pie
-                                        data={chartData.statusCounts}
-                                        cx={175}
-                                        cy={120}
-                                        innerRadius={50}
-                                        outerRadius={90}
-                                        paddingAngle={chartData.statusCounts.length > 1 ? 3 : 0}
-                                        dataKey="value"
-                                        nameKey="name"
-                                    />
-                                    <Tooltip />
-                                    <Legend verticalAlign="bottom" />
-                                </PieChart>
-                            ) : (
-                                <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
-                                    No candidate data available
-                                </div>
                             )}
-                        </div>
-                        <div className="card admin-chart-card" style={{ padding: '1.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                                <PieChartIcon size={20} style={{ color: 'var(--primary)' }} />
-                                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Candidates by Domain</h3>
-                            </div>
-                            {chartData.domainCounts.length > 0 ? (
-                                <ReBarChart width={350} height={250} data={chartData.domainCounts}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                                    <YAxis axisLine={false} tickLine={false} />
-                                    <Tooltip cursor={{ fill: 'rgba(59, 130, 246, 0.05)' }} />
-                                    <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                                </ReBarChart>
-                            ) : (
-                                <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
-                                    No domain data available
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                <div className="admin-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-                    {activeTab === 'candidates' && (
-                        <>
-                            <StatCard icon={<Users />} label="Total Candidates" value={stats.totalCandidates.toString()} />
-                            <StatCard icon={<BarChart />} label="Interviews Completed" value={stats.interviewsCompleted.toString()} />
-                            <StatCard icon={<Upload />} label="Resumes Processed" value={stats.resumesProcessed.toString()} />
-                        </>
-                    )}
-                    {activeTab === 'questions' && (
-                        <>
-                            <StatCard icon={<FileText />} label="Total Questions" value={stats.totalQuestions.toString()} />
-                            <StatCard icon={<File />} label="Descriptive Questions" value={questions.length.toString()} />
-                        </>
-                    )}
-                    {activeTab === 'slots' && (
-                        <>
-                            <StatCard icon={<Calendar />} label="Total Slots" value={slots.length.toString()} />
-                            <StatCard icon={<CheckCircle />} label="Available Slots" value={slots.filter(s => s.status === 'Available').length.toString()} />
-                            <StatCard icon={<Users />} label="Booked Slots" value={slots.filter(s => s.status === 'Booked').length.toString()} />
-                        </>
-                    )}
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem' }}>
-                    {activeTab === 'candidates' ? (
-                        <div className="card" style={{ overflowX: 'auto' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                                <h2 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', margin: 0 }}>Recent Candidates</h2>
-                                <div style={{ display: 'flex', gap: '1rem' }}>
+                            {activeTab === 'email-scanner' && (
+                                <div style={{ display: 'flex', gap: '0.75rem' }}>
                                     <button
-                                        onClick={() => setFilterReferred(!filterReferred)}
+                                        onClick={handleToggleAutoScan}
+                                        className="btn"
                                         style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.5rem',
-                                            padding: '0.5rem 1rem',
-                                            borderRadius: '0.5rem',
-                                            border: '1px solid var(--border-color)',
-                                            backgroundColor: filterReferred ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
-                                            color: filterReferred ? 'var(--warning)' : 'var(--text-secondary)',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s'
+                                            backgroundColor: emailScanner.status.isRunning ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                                            color: emailScanner.status.isRunning ? 'var(--error)' : 'var(--success)',
+                                            border: `1px solid ${emailScanner.status.isRunning ? 'var(--error)' : 'var(--success)'}`
                                         }}
                                     >
-                                        <Filter size={16} />
-                                        {filterReferred ? 'Referred Only' : 'Filter by Referral'}
+                                        {emailScanner.status.isRunning ? 'Stop Auto-Scan' : 'Start Auto-Scan'}
                                     </button>
-                                    <button
-                                        onClick={handleDeleteAllCandidates}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.5rem',
-                                            padding: '0.5rem 1rem',
-                                            borderRadius: '0.5rem',
-                                            border: '1px solid var(--error)',
-                                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                                            color: 'var(--error)',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s'
-                                        }}
-                                    >
-                                        <Trash2 size={16} />
-                                        Clear All
-                                    </button>
-                                </div>
-                            </div>
-                            {candidates.length === 0 ? (
-                                <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>
-                                    No candidates yet. Click "Add Candidate" to get started.
-                                </p>
-                            ) : (
-                                <div className="admin-table-container" style={{ overflowX: 'auto' }}>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-primary)' }}>
-                                        <thead>
-                                            <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
-                                                <th style={{ padding: '0.75rem' }}>Name</th>
-                                                <th style={{ padding: '0.75rem' }}>Email</th>
-                                                <th style={{ padding: '0.75rem' }}>Domain</th>
-                                                <th style={{ padding: '0.75rem' }}>Experience</th>
-                                                <th style={{ padding: '0.75rem' }}>Status</th>
-                                                <th style={{ padding: '0.75rem' }}>Type</th>
-                                                <th style={{ padding: '0.75rem' }}>Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {candidates
-                                                .filter(c => (!filterReferred || c.internalReferred) && (c.createdBy === user?.id || (c.handledBy as any)?._id === user?.id || (c.handledBy as any)?.id === user?.id)) // Filter by creator
-                                                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                                                .slice(0, 10).map((candidate) => (
-                                                    <TableRow
-                                                        key={candidate._id}
-                                                        candidate={candidate}
-                                                        isAdmin={true}
-                                                        onView={() => setSelectedCandidate(candidate)}
-                                                        onEdit={() => handleEditCandidate(candidate)}
-                                                        onDelete={() => handleDeleteCandidate(candidate._id)}
-                                                        onViewScreenshots={() => {
-                                                            setViewingScreenshotsCandidate({ id: candidate._id, name: candidate.name });
-                                                            setShowScreenshotModal(true);
-                                                        }}
-                                                        onViewInterview={handleViewInterview}
-                                                    />
-                                                ))}
-                                        </tbody>
-                                    </table>
+                                    <button onClick={handleManualScan} className="btn btn-primary">Scan Now</button>
                                 </div>
                             )}
                         </div>
-                    ) : activeTab === 'questions' ? (
-                        <div className="card">
-                            <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Questions Bank</h2>
-                            {questions.length === 0 ? (
-                                <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>No questions available.</p>
-                            ) : (
-                                <div className="admin-table-container" style={{ overflowX: 'auto' }}>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-primary)' }}>
-                                        <thead>
-                                            <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
-                                                <th style={{ padding: '0.75rem' }}>Question Text</th>
-                                                <th style={{ padding: '0.75rem' }}>Domain</th>
-                                                <th style={{ padding: '0.75rem' }}>Level</th>
-                                                <th style={{ padding: '0.75rem' }}>Difficulty</th>
-                                                <th style={{ padding: '0.75rem' }}>Type</th>
-                                                <th style={{ padding: '0.75rem' }}>Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {questions.map((q) => (
-                                                <tr key={q._id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                                                    <td style={{ padding: '0.75rem', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{q.text}</td>
-                                                    <td style={{ padding: '0.75rem' }}>{q.domain}</td>
-                                                    <td style={{ padding: '0.75rem' }}>{q.experienceLevel}</td>
-                                                    <td style={{ padding: '0.75rem' }}>
-                                                        <span style={{
-                                                            fontSize: '0.75rem',
-                                                            padding: '0.2rem 0.5rem',
-                                                            borderRadius: '4px',
-                                                            backgroundColor: q.difficulty === 'Easy' ? 'var(--success)' : q.difficulty === 'Medium' ? 'var(--warning)' : 'var(--error)',
-                                                            color: 'white'
-                                                        }}>
-                                                            {q.difficulty}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ padding: '0.75rem' }}>{q.type}</td>
-                                                    <td style={{ padding: '0.75rem' }}>
-                                                        <div style={{ display: 'flex', gap: '0.75rem' }}>
-                                                            <button
-                                                                onClick={() => {
-                                                                    setEditingQuestion(q);
-                                                                    setShowQuestionModal(true);
-                                                                }}
-                                                                style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.875rem' }}
-                                                            >
-                                                                Edit
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDeleteQuestion(q._id)}
-                                                                style={{ color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.875rem' }}
-                                                            >
-                                                                Delete
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </div>
+                    </div>
 
-                    ) : activeTab === 'slots' ? (
-                        <div className="card">
-                            <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Round 2 Slots</h2>
-                            {slots.length === 0 ? (
-                                <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>No slots created yet.</p>
-                            ) : (
-                                <div className="admin-table-container" style={{ overflowX: 'auto' }}>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-primary)' }}>
-                                        <thead>
-                                            <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
-                                                <th style={{ padding: '0.75rem' }}>Interviewer</th>
-                                                <th style={{ padding: '0.75rem' }}>Time</th>
-                                                <th style={{ padding: '0.75rem' }}>Candidate</th>
-                                                <th style={{ padding: '0.75rem' }}>Status</th>
-                                                <th style={{ padding: '0.75rem' }}>Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {slots.map((slot) => (
-                                                <tr key={slot._id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.875rem' }}>
-                                                    <td style={{ padding: '0.75rem' }}>{slot.interviewerId?.name}</td>
-                                                    <td style={{ padding: '0.75rem' }}>
-                                                        {new Date(slot.startTime).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                                                    </td>
-                                                    <td style={{ padding: '0.75rem' }}>{slot.candidateId?.name || <span style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>Unbooked</span>}</td>
-                                                    <td style={{ padding: '0.75rem' }}>
-                                                        <span style={{
-                                                            padding: '0.2rem 0.5rem',
-                                                            borderRadius: '999px',
-                                                            fontSize: '0.7rem',
-                                                            backgroundColor: slot.status === 'Available' ? 'rgba(59, 130, 246, 0.1)' : slot.status === 'Booked' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                                                            color: slot.status === 'Available' ? 'var(--primary)' : slot.status === 'Booked' ? 'var(--warning)' : 'var(--success)'
-                                                        }}>
-                                                            {slot.status}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ padding: '0.75rem' }}>
-                                                        {slot.status === 'Booked' && (() => {
-                                                            const startTime = new Date(slot.startTime).getTime();
-                                                            const endTime = new Date(slot.endTime).getTime();
-                                                            const isLive = now.getTime() >= (startTime - 5 * 60 * 1000) && now.getTime() <= endTime;
+                    <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+                        {activeTab === 'candidates' && (
+                            <CandidatesTab
+                                candidates={candidates}
+                                stats={stats}
+                                filterReferred={filterReferred}
+                                setFilterReferred={setFilterReferred}
+                                handleDeleteAllCandidates={confirmDeleteAllCandidates}
+                                onView={(c) => setModalState(s => ({ ...s, viewCandidate: c }))}
+                                onEdit={(c) => setModalState(s => ({ ...s, editCandidate: c }))}
+                                onDelete={confirmDeleteCandidate}
+                                onViewScreenshots={(id, name) => setModalState(s => ({ ...s, screenshotViewer: { id, name } }))}
+                                onViewInterview={handleViewInterview}
+                                chartData={chartData}
+                            />
+                        )}
 
-                                                            return (
-                                                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                                                    <button
-                                                                        onClick={() => navigate(APP_ROUTES.INTERVIEW.MEETING.replace(':id', slot._id))}
-                                                                        style={{
-                                                                            color: isLive ? 'white' : 'var(--success)',
-                                                                            fontSize: '0.8rem',
-                                                                            fontWeight: 'bold',
-                                                                            backgroundColor: isLive ? 'var(--success)' : 'transparent',
-                                                                            border: isLive ? 'none' : 'none',
-                                                                            padding: isLive ? '0.4rem 0.8rem' : '0',
-                                                                            borderRadius: '0.5rem',
-                                                                            cursor: 'pointer',
-                                                                            boxShadow: isLive ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none'
-                                                                        }}
-                                                                    >
-                                                                        Join {isLive ? 'Live Interview' : 'Meeting'}
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setSelectedSlot(slot);
-                                                                            setShowFeedbackModal(true);
-                                                                        }}
-                                                                        style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem' }}
-                                                                    >
-                                                                        Enter Feedback
-                                                                    </button>
-                                                                </div>
-                                                            );
-                                                        })()}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </div>
-                    ) : activeTab === 'email-scanner' ? (
-                        <div style={{ overflowX: 'auto' }}>
-                            {/* Connected Email Info */}
-                            <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', backgroundColor: 'rgba(59, 130, 246, 0.08)', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                <Mail size={16} style={{ color: '#3B82F6' }} />
-                                Connected: <strong style={{ color: 'var(--text-primary)' }}>{import.meta.env.VITE_IMAP_USER || 'hackathoninterviewsystem@gmail.com'}</strong>
-                                {emailScannerStatus.isScanning && <span style={{ marginLeft: 'auto', color: '#3B82F6', fontWeight: 600 }}>Scanning...</span>}
-                            </div>
+                        {activeTab === 'questions' && (
+                            <QuestionsTab
+                                questions={questions}
+                                stats={stats}
+                                onEdit={(q) => setModalState(s => ({ ...s, addQuestion: q }))}
+                                onDelete={confirmDeleteQuestion}
+                            />
+                        )}
 
-                            {/* Status Cards */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-                                <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                    <div style={{ padding: '0.75rem', backgroundColor: emailScannerStatus.isRunning ? 'rgba(16, 185, 129, 0.1)' : 'rgba(107, 114, 128, 0.1)', borderRadius: '0.5rem' }}>
-                                        {emailScannerStatus.isRunning ? <Play size={20} style={{ color: '#10B981' }} /> : <Square size={20} style={{ color: '#6B7280' }} />}
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Auto-Scan</div>
-                                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: emailScannerStatus.isRunning ? '#10B981' : 'var(--text-primary)' }}>
-                                            {emailScannerStatus.isRunning ? 'Running' : 'Stopped'}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                    <div style={{ padding: '0.75rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: '0.5rem' }}>
-                                        <CheckCircle size={20} style={{ color: '#3B82F6' }} />
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Processed</div>
-                                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{emailScannerStatus.counts.processed}</div>
-                                    </div>
-                                </div>
-                                <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                    <div style={{ padding: '0.75rem', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderRadius: '0.5rem' }}>
-                                        <AlertCircle size={20} style={{ color: '#F59E0B' }} />
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Duplicates</div>
-                                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{emailScannerStatus.counts.duplicate}</div>
-                                    </div>
-                                </div>
-                                <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                    <div style={{ padding: '0.75rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '0.5rem' }}>
-                                        <X size={20} style={{ color: '#EF4444' }} />
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Failed</div>
-                                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{emailScannerStatus.counts.failed}</div>
-                                    </div>
-                                </div>
-                            </div>
+                        {activeTab === 'slots' && (
+                            <InterviewSlotsTab
+                                slots={slots}
+                                onFeedback={(slot) => setModalState(s => ({ ...s, feedback: slot }))}
+                            />
+                        )}
 
-                            {/* Last scan info */}
-                            {emailScannerStatus.lastScanTime && (
-                                <div style={{ marginBottom: '1rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                    Last scan: {new Date(emailScannerStatus.lastScanTime).toLocaleString()}
-                                </div>
-                            )}
-                            {emailScannerStatus.lastError && (
-                                <div style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '0.5rem', color: '#EF4444', fontSize: '0.875rem' }}>
-                                    Last error: {emailScannerStatus.lastError}
-                                </div>
-                            )}
+                        {activeTab === 'email-scanner' && (
+                            <EmailScannerTab
+                                status={emailScanner.status}
+                                logs={emailScanner.logs}
+                                logsTotal={emailScanner.totalLogs}
+                                onClearLogs={confirmClearEmailLogs}
+                                onViewCandidate={handleViewCandidate}
+                            />
+                        )}
 
-                            {/* Logs Table */}
-                            <div className="card">
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                                    <h2 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', margin: 0 }}>
-                                        Processed Email Logs {emailLogsTotal > 0 && <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--text-secondary)' }}>({emailLogsTotal})</span>}
-                                    </h2>
-                                    {emailLogs.length > 0 && (
-                                        <button
-                                            onClick={handleClearAllLogs}
-                                            style={{ background: 'none', border: '1px solid #EF4444', color: '#EF4444', padding: '0.4rem 0.75rem', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                                        >
-                                            <Trash2 size={14} /> Clear All
-                                        </button>
-                                    )}
-                                </div>
-                                {emailLogs.length === 0 ? (
-                                    <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>
-                                        No emails scanned yet. Click "Scan Now" to scan your inbox for resumes.
-                                    </p>
-                                ) : (
-                                    <div className="admin-table-container" style={{ overflowX: 'auto' }}>
-                                        <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-primary)' }}>
-                                            <thead>
-                                                <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
-                                                    <th style={{ padding: '0.75rem' }}>From</th>
-                                                    <th style={{ padding: '0.75rem' }}>Subject</th>
-                                                    <th style={{ padding: '0.75rem' }}>Attachment</th>
-                                                    <th style={{ padding: '0.75rem' }}>Status</th>
-                                                    <th style={{ padding: '0.75rem' }}>Candidate</th>
-                                                    <th style={{ padding: '0.75rem' }}>Date</th>
-                                                    <th style={{ padding: '0.75rem' }}>Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {emailLogs.map((log: any) => (
-                                                    <tr key={log._id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.875rem' }}>
-                                                        <td style={{ padding: '0.75rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.from}</td>
-                                                        <td style={{ padding: '0.75rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.subject}</td>
-                                                        <td style={{ padding: '0.75rem' }}>{log.attachmentName}</td>
-                                                        <td style={{ padding: '0.75rem' }}>
-                                                            <span style={{
-                                                                padding: '0.2rem 0.5rem',
-                                                                borderRadius: '999px',
-                                                                fontSize: '0.7rem',
-                                                                fontWeight: 'bold',
-                                                                backgroundColor: log.status === 'processed' ? 'rgba(16, 185, 129, 0.1)' : log.status === 'duplicate' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                                                color: log.status === 'processed' ? '#10B981' : log.status === 'duplicate' ? '#F59E0B' : '#EF4444'
-                                                            }}>
-                                                                {log.status}
-                                                            </span>
-                                                        </td>
-                                                        <td style={{ padding: '0.75rem' }}>
-                                                            {log.candidateId ? (
-                                                                <span style={{ color: 'var(--primary)', cursor: 'pointer' }} onClick={() => { setActiveTab('candidates'); }}>
-                                                                    {log.candidateId.name || log.candidateId.email}
-                                                                </span>
-                                                            ) : (
-                                                                <span style={{ color: 'var(--text-secondary)' }}>-</span>
-                                                            )}
-                                                        </td>
-                                                        <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>{new Date(log.createdAt).toLocaleString()}</td>
-                                                        <td style={{ padding: '0.75rem' }}>
-                                                            <button
-                                                                onClick={() => handleDeleteLog(log._id)}
-                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '0.25rem' }}
-                                                                title="Delete log entry"
-                                                            >
-                                                                <Trash2 size={16} />
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
-                                {/* Pagination */}
-                                {emailLogsTotal > 20 && (
-                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1rem', padding: '1rem', fontSize: '0.875rem' }}>
-                                        <button
-                                            disabled={emailLogsPage <= 1}
-                                            onClick={() => { const p = emailLogsPage - 1; setEmailLogsPage(p); fetchEmailLogs(p); }}
-                                            style={{ padding: '0.4rem 0.75rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: emailLogsPage <= 1 ? 'not-allowed' : 'pointer', opacity: emailLogsPage <= 1 ? 0.5 : 1 }}
-                                        >
-                                            Previous
-                                        </button>
-                                        <span style={{ color: 'var(--text-secondary)' }}>
-                                            Page {emailLogsPage} of {Math.ceil(emailLogsTotal / 20)}
-                                        </span>
-                                        <button
-                                            disabled={emailLogsPage >= Math.ceil(emailLogsTotal / 20)}
-                                            onClick={() => { const p = emailLogsPage + 1; setEmailLogsPage(p); fetchEmailLogs(p); }}
-                                            style={{ padding: '0.4rem 0.75rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: emailLogsPage >= Math.ceil(emailLogsTotal / 20) ? 'not-allowed' : 'pointer', opacity: emailLogsPage >= Math.ceil(emailLogsTotal / 20) ? 0.5 : 1 }}
-                                        >
-                                            Next
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    ) : activeTab === 'fraud-detection' ? (
-                        <FraudDetectionPanel
-                            alerts={fraudAlerts}
-                            stats={fraudStats}
-                            totalAlerts={fraudTotal}
-                            page={fraudPage}
-                            onPageChange={(p) => { setFraudPage(p); fetchFraudAlerts(p); }}
-                            onRefresh={() => { fetchFraudAlerts(fraudPage); fetchFraudStats(); }}
-                            onUpdateAlert={handleUpdateFraudAlert}
-                            onDeleteAlert={handleDeleteFraudAlert}
-                        />
-                    ) : null}
-                </div>
+                        {activeTab === 'fraud-detection' && (
+                            <FraudDetectionTab
+                                alerts={fraud.alerts}
+                                stats={fraud.stats}
+                                total={fraud.total}
+                                page={fraud.page}
+                                onPageChange={(p) => {
+                                    setFraud(prev => ({ ...prev, page: p }));
+                                    fetchFraudAlerts(p);
+                                }}
+                                onUpdateAlert={confirmUpdateFraudAlert}
+                                onDeleteAlert={confirmDeleteFraudAlert}
+                                onRefresh={() => {
+                                    fetchFraudAlerts(1);
+                                    fetchFraudStats();
+                                }}
+                            />
+                        )}
+                    </div>
+                </main>
             </div>
 
-            {showAddModal && <AddCandidateModal onClose={() => setShowAddModal(false)} onSuccess={fetchDashboardData} />}
-            {
-                showEditModal && editingCandidate && (
-                    <EditCandidateModal
-                        onClose={() => setShowEditModal(false)}
-                        onSuccess={fetchDashboardData}
-                        candidate={editingCandidate}
-                    />
-                )
-            }
-            {
-                showQuestionModal && (
-                    <AddQuestionModal
-                        onClose={() => setShowQuestionModal(false)}
-                        onSuccess={fetchDashboardData}
-                        existingQuestion={editingQuestion}
-                    />
-                )
-            }
-            {showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
-            {
-                showBulkModal && (
-                    <BulkUploadModal
-                        onClose={() => setShowBulkModal(false)}
-                        onSuccess={fetchDashboardData}
-                    />
-                )
-            }
-
-            {
-                showSlotModal && (
-                    <AddSlotModal
-                        onClose={() => setShowSlotModal(false)}
-                        onSuccess={fetchDashboardData}
-                        interviewers={interviewers}
-                        candidates={candidates}
-                    />
-                )
-            }
-            {
-                showFeedbackModal && selectedSlot && (
-                    <FeedbackModal
-                        slot={selectedSlot}
-                        onClose={() => setShowFeedbackModal(false)}
-                        onSuccess={fetchDashboardData}
-                        type="admin"
-                    />
-                )
-            }
-            {showDeleteAllConfirm && (
-                <ConfirmationModal
-                    isOpen={showDeleteAllConfirm}
-                    onClose={() => setShowDeleteAllConfirm(false)}
-                    onConfirm={confirmDeleteAll}
-                    title="Clear All Candidates"
-                    message="Are you sure you want to delete ALL candidates? This action cannot be undone and will remove all candidate data, including interview records and resumes."
-                    confirmLabel="Yes, Delete All"
-                    isDangerous={true}
+            {/* Modals Rendering */}
+            {modalState.viewCandidate && (
+                <ViewCandidateModal
+                    candidate={modalState.viewCandidate}
+                    onClose={() => setModalState(s => ({ ...s, viewCandidate: null }))}
+                    onSuccess={fetchDashboardData}
+                    onInvite={() => {
+                        const cand = modalState.viewCandidate;
+                        setModalState(s => ({ ...s, viewCandidate: null, sendInvite: cand }));
+                    }}
                 />
             )}
-            {
-                showInviteModal && selectedCandidate && (
-                    <SendInviteModal
-                        candidate={selectedCandidate}
-                        onClose={() => setShowInviteModal(false)}
-                        onSuccess={fetchDashboardData}
-                    />
-                )
-            }
-            {
-                showInterviewModal && selectedInterview && (
-                    <InterviewDetailsModal
-                        interview={selectedInterview}
-                        onClose={() => setShowInterviewModal(false)}
-                    />
-                )
-            }
-            {
-                showScreenshotModal && viewingScreenshotsCandidate && (
-                    <ScreenshotViewerModal
-                        candidateId={viewingScreenshotsCandidate.id}
-                        candidateName={viewingScreenshotsCandidate.name}
-                        onClose={() => setShowScreenshotModal(false)}
-                    />
-                )
-            }
-            {
-                selectedCandidate && (
-                    <ViewCandidateModal
-                        candidate={selectedCandidate}
-                        onClose={() => setSelectedCandidate(null)}
-                        onSuccess={fetchDashboardData}
-                        onInvite={handleInviteClick}
-                    />
-                )
-            }
-        </div >
+
+            {modalState.addCandidate && (
+                <AddCandidateModal
+                    onClose={() => setModalState(s => ({ ...s, addCandidate: false }))}
+                    onSuccess={fetchDashboardData}
+                />
+            )}
+
+            {modalState.editCandidate && (
+                <EditCandidateModal
+                    candidate={modalState.editCandidate}
+                    onClose={() => setModalState(s => ({ ...s, editCandidate: null }))}
+                    onSuccess={fetchDashboardData}
+                />
+            )}
+
+            {modalState.addQuestion && (
+                <AddQuestionModal
+                    existingQuestion={modalState.addQuestion._id ? modalState.addQuestion : null}
+                    onClose={() => setModalState(s => ({ ...s, addQuestion: null }))}
+                    onSuccess={fetchDashboardData}
+                />
+            )}
+
+            {modalState.bulkQuestion && (
+                <BulkUploadModal
+                    onClose={() => setModalState(s => ({ ...s, bulkQuestion: false }))}
+                    onSuccess={fetchDashboardData}
+                />
+            )}
+
+            {modalState.settings && (
+                <SettingsModal
+                    onClose={() => setModalState(s => ({ ...s, settings: false }))}
+                />
+            )}
+
+            {modalState.addSlot && (
+                <AddSlotModal
+                    interviewers={interviewers}
+                    candidates={candidates}
+                    onClose={() => setModalState(s => ({ ...s, addSlot: false }))}
+                    onSuccess={fetchDashboardData}
+                />
+            )}
+
+            {modalState.feedback && (
+                <FeedbackModal
+                    slot={modalState.feedback}
+                    type="admin"
+                    onClose={() => setModalState(s => ({ ...s, feedback: null }))}
+                    onSuccess={fetchDashboardData}
+                />
+            )}
+
+            {modalState.sendInvite && (
+                <SendInviteModal
+                    candidate={modalState.sendInvite}
+                    onClose={() => setModalState(s => ({ ...s, sendInvite: null }))}
+                    onSuccess={fetchDashboardData}
+                />
+            )}
+
+            {modalState.interviewDetails && (
+                <InterviewDetailsModal
+                    interview={modalState.interviewDetails}
+                    onClose={() => setModalState(s => ({ ...s, interviewDetails: null }))}
+                />
+            )}
+
+            {modalState.screenshotViewer && (
+                <ScreenshotViewerModal
+                    onClose={() => setModalState(s => ({ ...s, screenshotViewer: null }))}
+                    candidateId={modalState.screenshotViewer.id}
+                    candidateName={modalState.screenshotViewer.name}
+                />
+            )}
+
+            {confirmConfig.isOpen && (
+                <ConfirmationModal
+                    isOpen={true}
+                    onClose={closeConfirm}
+                    onConfirm={handleConfirmAction}
+                    title={confirmConfig.title}
+                    message={confirmConfig.message}
+                    confirmLabel={confirmConfig.confirmLabel}
+                    isDangerous={confirmConfig.isDangerous}
+                />
+            )}
+        </div>
     );
 };
 
+interface SidebarItemProps {
+    icon: React.ReactNode;
+    label: string;
+    active: boolean;
+    collapsed: boolean;
+    badge?: number;
+    onClick: () => void;
+}
 
-const StatCard: React.FC<{ icon: React.ReactNode, label: string, value: string }> = ({ icon, label, value }) => (
-    <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <div style={{ padding: '1rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '0.5rem', color: 'var(--primary)' }}>
+const SidebarItem: React.FC<SidebarItemProps> = ({ icon, label, active, collapsed, badge, onClick }) => (
+    <button
+        onClick={onClick}
+        style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: collapsed ? '0' : '1rem',
+            padding: '0.875rem',
+            width: '100%',
+            borderRadius: '0.75rem',
+            border: 'none',
+            backgroundColor: active ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+            color: active ? 'var(--primary)' : 'var(--text-secondary)',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            position: 'relative'
+        }}
+    >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '24px' }}>
             {icon}
         </div>
-        <div>
-            <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{label}</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{value}</div>
-        </div>
-    </div>
+        {!collapsed && <span style={{ fontWeight: active ? '600' : '500', fontSize: '0.925rem' }}>{label}</span>}
+        {badge !== undefined && (
+            <span style={{
+                position: collapsed ? 'absolute' : 'static',
+                top: collapsed ? '0.25rem' : 'auto',
+                right: collapsed ? '0.25rem' : 'auto',
+                marginLeft: collapsed ? '0' : 'auto',
+                backgroundColor: 'var(--error)',
+                color: 'white',
+                fontSize: '0.7rem',
+                fontWeight: 'bold',
+                padding: '0.2rem 0.4rem',
+                borderRadius: '999px',
+                minWidth: '1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}>
+                {badge}
+            </span>
+        )}
+        {active && !collapsed && <div style={{ width: '4px', height: '16px', backgroundColor: 'var(--primary)', borderRadius: '2px', marginLeft: 'auto' }} />}
+    </button>
 );
-
-const TableRow: React.FC<{ candidate: Candidate, isAdmin: boolean, onView: () => void, onDelete: () => void, onEdit: () => void, onViewScreenshots?: () => void, onViewInterview?: (candidateId: string) => void }> = ({ candidate, onView, onDelete, onEdit, onViewScreenshots, onViewInterview }) => {
-    let statusColor = getStatusColor(candidate.status);
-    let statusBg = getStatusBackgroundColor(candidate.status);
-    let displayStatus = formatCandidateStatus(candidate.status);
-
-    // Override if remarks indicate blocking but status is just Rejected
-    if (candidate.blocked || (candidate.status.toLowerCase() === 'rejected' && candidate.remarks &&
-        (candidate.remarks.toLowerCase().includes('blocked') ||
-            candidate.remarks.toLowerCase().includes('violation') ||
-            candidate.remarks.toLowerCase().includes('fraud')))) {
-        displayStatus = 'Blocked';
-        statusColor = 'var(--error)';
-        statusBg = 'rgba(220, 38, 38, 0.2)';
-    }
-
-    return (
-        <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
-            <td style={{ padding: '0.75rem' }}>{candidate.name}</td>
-            <td style={{ padding: '0.75rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{candidate.email}</td>
-            <td style={{ padding: '0.75rem' }}>{candidate.domain}</td>
-            <td style={{ padding: '0.75rem' }}>{candidate.experienceLevel}</td>
-            <td style={{ padding: '0.75rem' }}>
-                <span style={{
-                    padding: '0.25rem 0.75rem',
-                    borderRadius: '999px',
-                    fontSize: '0.875rem',
-                    backgroundColor: statusBg,
-                    color: statusColor,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    maxWidth: '150px',
-                    display: 'inline-block'
-                }}>
-                    {displayStatus}
-                </span>
-            </td>
-            <td style={{ padding: '0.75rem' }}>
-                {candidate.internalReferred ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--warning)' }}>
-                        <Star size={14} fill="var(--warning)" />
-                        <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>Referred</span>
-                    </div>
-                ) : (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Direct</span>
-                )}
-            </td>
-            <td style={{ padding: '0.75rem' }}>
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <button
-                        onClick={onView}
-                        style={{ color: 'var(--primary)', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer' }}
-                    >
-                        View
-                    </button>
-                    {displayStatus !== 'Blocked' && (
-                        <button
-                            onClick={onEdit}
-                            style={{ color: 'var(--warning)', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer' }}
-                        >
-                            Edit
-                        </button>
-                    )}
-                    {onViewScreenshots && (candidate.status === 'interviewed' || candidate.status === 'slot_booked' || candidate.status === 'rejected' || candidate.status === '2nd_round_qualified' || candidate.status === 'round_2_completed') && (
-                        <button
-                            onClick={onViewScreenshots}
-                            style={{ color: 'var(--text-secondary)', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                            title="View Screenshots"
-                        >
-                            <ImageIcon size={18} />
-                        </button>
-                    )}
-                    {onViewInterview && (candidate.status === 'interviewed' || candidate.status === 'slot_booked' || candidate.status === 'rejected') && (
-                        <button
-                            onClick={() => onViewInterview(candidate._id)}
-                            style={{ color: 'var(--success)', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                            title="View Interview Details"
-                        >
-                            <FileText size={18} />
-                        </button>
-                    )}
-                    <button
-                        onClick={onDelete}
-                        style={{ color: 'var(--error)', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer' }}
-                    >
-                        Delete
-                    </button>
-                </div>
-            </td>
-        </tr>
-    );
-};
-
-const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () => void, onSuccess: () => void, onInvite: () => void }> = ({ candidate, onClose, onSuccess, onInvite }) => {
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [remarks, setRemarks] = useState(candidate.remarks || '');
-    const [activeTab, setActiveTab] = useState<'info' | 'resume' | 'status'>('info');
-
-    const getNextPendingItem = (status: string) => {
-        switch (status) {
-            case 'Profile Submitted': return 'Send Invitation Mail';
-            case 'Interview 1st Round Pending': return 'Waiting for Interview Results';
-            case '1st Round Completed': return 'Result: Send 2nd Round Invitiation (Qualified) or Reject';
-            case '2nd Round Qualified': return 'Final Offer / Decision';
-            case 'Rejected': return 'None (Archived)';
-            default: return 'Unknown';
-        }
-    };
-
-    const handleStatusUpdate = async (newStatus: string) => {
-        if (!remarks.trim()) {
-            setError('Please provide remarks/reason for this decision.');
-            return;
-        }
-        setLoading(true);
-        setError('');
-        try {
-            await api.patch(API_ENDPOINTS.CANDIDATES.UPDATE_STATUS(candidate._id), {
-                status: newStatus,
-                remarks: remarks
-            });
-            onSuccess();
-            onClose();
-        } catch (err: any) {
-            setError(err.response?.data?.error || 'Failed to update status');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const getResumeUrl = (path: string) => {
-        if (!path) return '';
-        if (path.startsWith('http')) return path;
-        const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000';
-        return `${baseUrl}/${path.replace(/\\/g, '/')}`;
-    };
-
-    return (
-        <div className="admin-modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '2rem' }}>
-            <div className="card admin-modal" style={{ width: '100%', maxWidth: '900px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
-                <div style={{
-                    padding: '1.5rem',
-                    borderBottom: '1px solid var(--border-color)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    backgroundColor: 'var(--bg-card)',
-                    zIndex: 10
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <h2 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', margin: 0 }}>Candidate Profile</h2>
-                        {candidate.internalReferred && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--warning)', backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: '0.25rem 0.5rem', borderRadius: '0.5rem' }}>
-                                <Star size={16} fill="var(--warning)" />
-                                <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Referred</span>
-                            </div>
-                        )}
-                    </div>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                        <X size={24} />
-                    </button>
-                </div>
-                <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)', zIndex: 10 }}>
-                    <button onClick={() => setActiveTab('info')} style={{ padding: '1rem 2rem', border: 'none', background: activeTab === 'info' ? 'var(--bg-card)' : 'transparent', color: activeTab === 'info' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: '600', borderRight: '1px solid var(--border-color)', cursor: 'pointer' }}>Detailed Info</button>
-                    <button onClick={() => setActiveTab('resume')} style={{ padding: '1rem 2rem', border: 'none', background: activeTab === 'resume' ? 'var(--bg-card)' : 'transparent', color: activeTab === 'resume' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: '600', borderRight: '1px solid var(--border-color)', cursor: 'pointer' }}>Resume Content</button>
-                    <button onClick={() => setActiveTab('status')} style={{ padding: '1rem 2rem', border: 'none', background: activeTab === 'status' ? 'var(--bg-card)' : 'transparent', color: activeTab === 'status' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: '600', borderRight: '1px solid var(--border-color)', cursor: 'pointer' }}>Status</button>
-                </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', backgroundColor: 'var(--bg-card)' }}>
-                    {activeTab === 'info' ? (
-                        <div className="admin-modal-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-                            <div>
-                                <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Personal Details</h3>
-                                <div style={{ marginBottom: '1rem' }}><div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Full Name</div><div style={{ fontSize: '1.1rem', fontWeight: '600' }}>{candidate.name}</div></div>
-                                <div style={{ marginBottom: '1rem' }}><div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Mail size={14} /> Email Address</div><div>{candidate.email}</div></div>
-                                <div style={{ marginBottom: '1rem' }}><div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Phone size={14} /> Phone Number</div><div>{candidate.phone || 'N/A'}</div></div>
-                                <h3 style={{ fontSize: '1rem', marginTop: '2rem', marginBottom: '1rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Professional Profile</h3>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-                                    <div><div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Domain</div><div style={{ fontWeight: '500' }}>{candidate.domain}</div></div>
-                                    <div><div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Experience</div><div style={{ fontWeight: '500' }}>{candidate.experienceLevel}</div></div>
-                                </div>
-                                <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Decision Remarks</h3>
-                                <textarea className="input" placeholder="Enter reason for approval or rejection..." value={remarks} onChange={(e) => setRemarks(e.target.value)} rows={4} disabled={candidate.status === '2nd_round_qualified' || candidate.status === 'rejected'} style={{ resize: 'none' }} />
-                            </div>
-                            <div>
-                                {candidate.overallScore !== undefined && (
-                                    <>
-                                        <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Interview Performance</h3>
-                                        <div style={{ padding: '1.5rem', backgroundColor: 'rgba(59, 130, 246, 0.05)', borderRadius: '1rem', border: '1px solid var(--primary)', textAlign: 'center', marginBottom: '1rem' }}>
-                                            <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Overall AI Score</div>
-                                            <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--primary)' }}>{candidate.overallScore}/5.0</div>
-                                        </div>
-                                    </>
-                                )}
-                                <h3 style={{ fontSize: '1rem', marginTop: '1rem', marginBottom: '1rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Resume File</h3>
-                                {candidate.resumeUrl ? (
-                                    <a href={getResumeUrl(candidate.resumeUrl)} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ width: '100%', gap: '0.5rem' }}><File size={20} /> View Resume PDF <ExternalLink size={16} /></a>
-                                ) : <div style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>No resume uploaded</div>}
-                            </div>
-                        </div>
-                    ) : activeTab === 'resume' ? (
-                        <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '1.5rem', borderRadius: '0.5rem' }}>
-                            <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '0.9rem' }}>{candidate.resumeText || 'No text content available.'}</pre>
-                        </div>
-                    ) : (
-                        <div style={{ padding: '1.5rem' }}>
-                            <h3 style={{ fontSize: '1rem', marginBottom: '1.5rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Current Status</h3>
-                            <div style={{
-                                display: 'inline-block',
-                                padding: '0.75rem 1.5rem',
-                                borderRadius: '2rem',
-                                fontWeight: 'bold',
-                                fontSize: '1.1rem',
-                                backgroundColor: getStatusBackgroundColor(candidate.status),
-                                color: getStatusColor(candidate.status),
-                                marginBottom: '2rem'
-                            }}>
-                                {formatCandidateStatus(candidate.status)}
-                            </div>
-
-                            <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Next Pending Item</h3>
-                            <div style={{
-                                padding: '1.5rem',
-                                backgroundColor: 'var(--bg-secondary)',
-                                borderRadius: '0.75rem',
-                                borderLeft: '4px solid var(--primary)',
-                                fontWeight: '500',
-                                fontSize: '1.1rem'
-                            }}>
-                                {getNextPendingItem(candidate.status)}
-                            </div>
-                        </div>
-                    )}
-                </div>
-                {activeTab === 'status' && (
-                    <div style={{
-                        padding: '1.5rem',
-                        borderTop: '1px solid var(--border-color)',
-                        display: 'flex',
-                        gap: '1rem',
-                        justifyContent: 'flex-end',
-                        backgroundColor: 'var(--bg-secondary)',
-                        zIndex: 10
-                    }}>
-                        {error && <div style={{ color: 'var(--error)', flex: 1, alignSelf: 'center' }}>{error}</div>}
-
-                        {candidate.status === 'Profile Submitted' && (
-                            <button onClick={onInvite} className="btn" style={{ background: 'var(--primary)', border: 'none', color: 'white' }} disabled={loading}>
-                                {loading ? 'Processing...' : 'Send Invitation Mail'}
-                            </button>
-                        )}
-
-                        {candidate.status === 'Interview 1st Round Pending' && (
-                            <div style={{ fontStyle: 'italic', color: 'var(--text-secondary)' }}>Waiting for interview results...</div>
-                        )}
-
-                        {candidate.status === '1st Round Completed' && (
-                            <>
-                                <button onClick={() => handleStatusUpdate('2nd Round Qualified')} className="btn" style={{ background: 'var(--success)', border: 'none', color: 'white' }} disabled={loading}>
-                                    {loading ? 'Processing...' : 'Send 2nd Round Invite'}
-                                </button>
-                                <button onClick={() => handleStatusUpdate('Rejected')} className="btn" style={{ background: 'var(--error)', border: 'none', color: 'white' }} disabled={loading}>
-                                    {loading ? 'Processing...' : 'Reject'}
-                                </button>
-                            </>
-                        )}
-
-                        {/* Pending fallbacks */}
-                        {(candidate.status === 'Pending' || candidate.status === 'Shortlisted') && (
-                            <button onClick={() => handleStatusUpdate('Profile Submitted')} className="btn" style={{ background: 'var(--primary)', border: 'none', color: 'white' }} disabled={loading}>
-                                {loading ? 'Processing...' : 'Move to Profile Submitted'}
-                            </button>
-                        )}
-
-                        {(candidate.status === '2nd Round Qualified' || candidate.status === 'Rejected') && (
-                            <div style={{ color: candidate.status === '2nd Round Qualified' ? 'var(--success)' : 'var(--error)', fontWeight: 'bold' }}>Decision: {candidate.status}</div>
-                        )}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
-
-const AddCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void }> = ({ onClose, onSuccess }) => {
-    const [formData, setFormData] = useState({ name: '', email: '', phone: '', domain: 'Frontend', experienceLevel: 'Fresher/Intern', internalReferred: false, noticePeriod: 30 });
-    const [resumeFile, setResumeFile] = useState<File | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [parsing, setParsing] = useState(false);
-    const [error, setError] = useState('');
-    const [phoneError, setPhoneError] = useState('');
-
-    const validateIndianPhone = (phone: string): boolean => {
-        // Remove all non-digit characters
-        const digitsOnly = phone.replace(/\D/g, '');
-        // Check if it starts with 91 and has exactly 10 digits after that (total 12 digits including country code)
-        return digitsOnly.length === 12 && digitsOnly.startsWith('91');
-    };
-
-    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        let value = e.target.value;
-
-        // Always ensure it starts with +91
-        if (!value.startsWith('+91')) {
-            value = '+91' + value.replace(/^\+91/, '');
-        }
-
-        // Add space after +91 for better readability
-        if (value.length === 3 && !value.includes(' ')) {
-            value = '+91 ';
-        }
-
-        // Remove any non-digit characters after +91 
-        const afterCountryCode = value.substring(4); // Skip "+91 "
-        const digitsOnly = afterCountryCode.replace(/\D/g, '');
-
-        // Limit to maximum 10 digits after +91
-        const limitedDigits = digitsOnly.substring(0, 10);
-        const formattedValue = '+91 ' + limitedDigits;
-
-        setFormData({ ...formData, phone: formattedValue });
-
-        // Validate phone number
-        if (limitedDigits.length > 0) {
-            if (limitedDigits.length < 10) {
-                setPhoneError('Please enter a complete 10-digit Indian mobile number');
-            } else {
-                setPhoneError('');
-            }
-        } else {
-            setPhoneError('');
-        }
-    };
-
-    const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            setResumeFile(file);
-            setParsing(true);
-            const fd = new FormData();
-            fd.append('resume', file);
-            try {
-                const res = await api.post(API_ENDPOINTS.CANDIDATES.PARSE_RESUME, fd, {
-                    headers: { 'Content-Type': 'multipart/form-data' }
-                });
-                setFormData(prev => ({ ...prev, ...res.data }));
-            } catch (err: any) {
-                setError(err.response?.data?.error || 'Failed to parse resume');
-            }
-            finally { setParsing(false); }
-        }
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        // Validate phone number
-        if (!validateIndianPhone(formData.phone)) {
-            setPhoneError('Please enter a valid 10-digit Indian mobile number');
-            return;
-        }
-
-        setLoading(true);
-        const fd = new FormData();
-        Object.entries(formData).forEach(([k, v]) => fd.append(k, v.toString()));
-        if (resumeFile) fd.append('resume', resumeFile);
-        try {
-            await api.post(API_ENDPOINTS.CANDIDATES.BASE, fd, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            showToast.success('Candidate added successfully!');
-            onSuccess();
-            onClose();
-        } catch (err) { setError('Failed to add candidate'); }
-        finally { setLoading(false); }
-    };
-
-    return (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
-            <div className="card" style={{ width: '100%', maxWidth: '500px', maxHeight: '90vh', padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '1.5rem',
-                    backgroundColor: 'var(--bg-card)',
-                    borderBottom: '1px solid var(--border-color)',
-                    zIndex: 10
-                }}>
-                    <h2 style={{ margin: 0 }}>Add Candidate</h2>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                        <X size={24} />
-                    </button>
-                </div>
-
-                <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
-                    {error && <div style={{ color: 'var(--error)', marginBottom: '1rem' }}>{error}</div>}
-                    <div style={{ marginBottom: '1.5rem', padding: '1.5rem', border: resumeFile ? '2px solid var(--primary)' : '2px dashed var(--border-color)', borderRadius: '0.75rem', textAlign: 'center', backgroundColor: resumeFile ? 'rgba(59, 130, 246, 0.05)' : 'var(--bg-secondary)' }}>
-                        <label style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-                            <Upload size={32} style={{ color: resumeFile ? 'var(--primary)' : 'var(--primary)' }} />
-                            <div style={{ fontWeight: '600' }}>
-                                {resumeFile ? 'Change Resume' : 'Auto-fill from Resume'}
-                            </div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>PDF or Word (DOCX)</div>
-                            <input type="file" accept=".pdf,.docx,.doc" onChange={handleResumeUpload} style={{ display: 'none' }} />
-                        </label>
-                        {parsing && <div style={{ marginTop: '0.5rem', color: 'var(--primary)', fontWeight: '500' }}>Analyzing resume...</div>}
-
-                        {resumeFile && !parsing && (
-                            <div style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: '0.5rem', border: '1px solid var(--primary)' }}>
-                                <div style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--primary)', marginBottom: '0.25rem' }}>
-                                    📄 {resumeFile.name}
-                                </div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                    Size: {(resumeFile.size / 1024).toFixed(1)} KB
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <form id="add-candidate-form" onSubmit={handleSubmit}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                            <div><label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Full Name</label><input className="input" placeholder="e.g. John Doe" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} /></div>
-                            <div><label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Email Address</label><input className="input" type="email" placeholder="john@example.com" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} /></div>
-                            <div>
-                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Phone Number</label>
-                                <input
-                                    className="input"
-                                    placeholder="+91 98765 43210"
-                                    value={formData.phone}
-                                    onChange={handlePhoneChange}
-                                    style={{
-                                        borderColor: phoneError ? 'var(--error)' : undefined,
-                                        backgroundColor: phoneError ? 'rgba(239, 68, 68, 0.05)' : undefined
-                                    }}
-                                />
-                                {phoneError && (
-                                    <div style={{ color: 'var(--error)', fontSize: '0.75rem', marginTop: '0.25rem' }}>
-                                        {phoneError}
-                                    </div>
-                                )}
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Target Domain</label>
-                                <select className="input" value={formData.domain} onChange={e => setFormData({ ...formData, domain: e.target.value })}>
-                                    <option value="Frontend">Frontend</option>
-                                    <option value="Backend">Backend</option>
-                                    <option value="Full Stack">Full Stack</option>
-                                    <option value="Sales & Marketing">Sales & Marketing</option>
-                                    <option value="Business Analyst">Business Analyst</option>
-                                    <option value="Data Science">Data Science</option>
-                                    <option value="DevOps">DevOps</option>
-                                    <option value="QA/Testing">QA/Testing</option>
-                                    <option value="UI/UX Design">UI/UX Design</option>
-                                    <option value="Product Management">Product Management</option>
-                                    <option value="HR">HR</option>
-                                    <option value="Finance">Finance</option>
-                                    <option value="Operations">Operations</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Experience Level</label>
-                                <select className="input" value={formData.experienceLevel} onChange={e => setFormData({ ...formData, experienceLevel: e.target.value })}>
-                                    <option value="Fresher/Intern">Fresher/Intern</option>
-                                    <option value="0-1 years">0-1 years</option>
-                                    <option value="1-2 years">1-2 years</option>
-                                    <option value="2-4 years">2-4 years</option>
-                                    <option value="4-6 years">4-6 years</option>
-                                    <option value="6-8 years">6-8 years</option>
-                                    <option value="8-10 years">8-10 years</option>
-                                    <option value="10+ years">10+ years</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Notice Period</label>
-                                <select className="input" value={formData.noticePeriod} onChange={e => setFormData({ ...formData, noticePeriod: parseInt(e.target.value) })}>
-                                    <option value={15}>Immediate (≤ 15 days)</option>
-                                    <option value={30}>1 Month (≤ 30 days)</option>
-                                    <option value={60}>2 Months (≤ 60 days)</option>
-                                    <option value={90}>3 Months (≤ 90 days)</option>
-                                </select>
-                            </div>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', padding: '0.5rem 0' }}>
-                                <input type="checkbox" style={{ width: '1.1rem', height: '1.1rem' }} checked={formData.internalReferred} onChange={e => setFormData({ ...formData, internalReferred: e.target.checked })} />
-                                <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>Internal Referral Candidate</span>
-                            </label>
-                        </div>
-                    </form>
-                </div>
-
-                <div style={{
-                    display: 'flex',
-                    gap: '1rem',
-                    padding: '1.5rem',
-                    backgroundColor: 'var(--bg-secondary)',
-                    borderTop: '1px solid var(--border-color)'
-                }}>
-                    <button type="button" onClick={onClose} className="btn" style={{ flex: 1, backgroundColor: 'var(--text-primary)', color: "var(--bg-primary)" }}>Cancel</button>
-                    <button type="submit" form="add-candidate-form" className="btn btn-primary" style={{ flex: 1 }} disabled={loading}>{loading ? 'Adding...' : 'Add Candidate'}</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const EditCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void, candidate: Candidate }> = ({ onClose, onSuccess, candidate }) => {
-    // Ensure phone number has proper +91 format with space
-    const formatPhone = (phone: string | undefined): string => {
-        if (!phone) return '+91 ';
-        const digitsOnly = phone.replace(/\D/g, '');
-        if (digitsOnly.startsWith('91') && digitsOnly.length >= 2) {
-            const mobileDigits = digitsOnly.substring(2);
-            return '+91 ' + mobileDigits.substring(0, 10);
-        }
-        return '+91 ' + digitsOnly.substring(0, 10);
-    };
-
-    const [formData, setFormData] = useState({
-        name: candidate.name,
-        email: candidate.email,
-        phone: formatPhone(candidate.phone),
-        domain: candidate.domain,
-        experienceLevel: candidate.experienceLevel,
-        internalReferred: candidate.internalReferred
-    });
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [phoneError, setPhoneError] = useState('');
-
-    const validateIndianPhone = (phone: string): boolean => {
-        const digitsOnly = phone.replace(/\D/g, '');
-        return digitsOnly.length === 12 && digitsOnly.startsWith('91');
-    };
-
-    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        let value = e.target.value;
-
-        if (!value.startsWith('+91')) {
-            value = '+91' + value.replace(/^\+91/, '');
-        }
-
-        if (value.length === 3 && !value.includes(' ')) {
-            value = '+91 ';
-        }
-
-        const afterCountryCode = value.substring(4);
-        const digitsOnly = afterCountryCode.replace(/\D/g, '');
-        const limitedDigits = digitsOnly.substring(0, 10);
-        const formattedValue = '+91 ' + limitedDigits;
-
-        setFormData({ ...formData, phone: formattedValue });
-
-        if (limitedDigits.length > 0) {
-            if (limitedDigits.length < 10) {
-                setPhoneError('Please enter a complete 10-digit Indian mobile number');
-            } else {
-                setPhoneError('');
-            }
-        } else {
-            setPhoneError('');
-        }
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        if (!validateIndianPhone(formData.phone)) {
-            setPhoneError('Please enter a valid 10-digit Indian mobile number');
-            return;
-        }
-
-        setLoading(true);
-        try {
-            await api.patch(`${API_ENDPOINTS.CANDIDATES.BASE}/${candidate._id}`, formData);
-            showToast.success('Candidate updated successfully!');
-            onSuccess();
-            onClose();
-        } catch (err) { setError('Failed to update candidate'); }
-        finally { setLoading(false); }
-    };
-
-    return (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
-            <div className="card" style={{ width: '100%', maxWidth: '500px', maxHeight: '90vh', padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '1.5rem',
-                    backgroundColor: 'var(--bg-card)',
-                    borderBottom: '1px solid var(--border-color)',
-                    zIndex: 10
-                }}>
-                    <h2 style={{ margin: 0 }}>Edit Candidate</h2>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                        <X size={24} />
-                    </button>
-                </div>
-
-                <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
-                    {error && <div style={{ color: 'var(--error)', marginBottom: '1rem' }}>{error}</div>}
-
-                    <form id="edit-candidate-form" onSubmit={handleSubmit}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                            <div><label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Full Name</label><input className="input" placeholder="e.g. John Doe" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} /></div>
-                            <div><label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Email Address</label><input className="input" type="email" placeholder="john@example.com" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} /></div>
-                            <div>
-                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Phone Number</label>
-                                <input
-                                    className="input"
-                                    placeholder="+91 98765 43210"
-                                    value={formData.phone}
-                                    onChange={handlePhoneChange}
-                                    style={{
-                                        borderColor: phoneError ? 'var(--error)' : undefined,
-                                        backgroundColor: phoneError ? 'rgba(239, 68, 68, 0.05)' : undefined
-                                    }}
-                                />
-                                {phoneError && (
-                                    <div style={{ color: 'var(--error)', fontSize: '0.75rem', marginTop: '0.25rem' }}>
-                                        {phoneError}
-                                    </div>
-                                )}
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Target Domain</label>
-                                <select className="input" value={formData.domain} onChange={e => setFormData({ ...formData, domain: e.target.value })}>
-                                    <option value="Frontend">Frontend</option>
-                                    <option value="Backend">Backend</option>
-                                    <option value="Full Stack">Full Stack</option>
-                                    <option value="Sales & Marketing">Sales & Marketing</option>
-                                    <option value="Business Analyst">Business Analyst</option>
-                                    <option value="Data Science">Data Science</option>
-                                    <option value="DevOps">DevOps</option>
-                                    <option value="QA/Testing">QA/Testing</option>
-                                    <option value="UI/UX Design">UI/UX Design</option>
-                                    <option value="Product Management">Product Management</option>
-                                    <option value="HR">HR</option>
-                                    <option value="Finance">Finance</option>
-                                    <option value="Operations">Operations</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Experience Level</label>
-                                <select className="input" value={formData.experienceLevel} onChange={e => setFormData({ ...formData, experienceLevel: e.target.value })}>
-                                    <option value="Fresher/Intern">Fresher/Intern</option>
-                                    <option value="0-1 years">0-1 years</option>
-                                    <option value="1-2 years">1-2 years</option>
-                                    <option value="2-4 years">2-4 years</option>
-                                    <option value="4-6 years">4-6 years</option>
-                                    <option value="6-8 years">6-8 years</option>
-                                    <option value="8-10 years">8-10 years</option>
-                                    <option value="10+ years">10+ years</option>
-                                </select>
-                            </div>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', padding: '0.5rem 0' }}>
-                                <input type="checkbox" style={{ width: '1.1rem', height: '1.1rem' }} checked={formData.internalReferred} onChange={e => setFormData({ ...formData, internalReferred: e.target.checked })} />
-                                <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>Internal Referral Candidate</span>
-                            </label>
-                        </div>
-                    </form>
-                </div>
-
-                <div style={{
-                    display: 'flex',
-                    gap: '1rem',
-                    padding: '1.5rem',
-                    backgroundColor: 'var(--bg-secondary)',
-                    borderTop: '1px solid var(--border-color)'
-                }}>
-                    <button type="button" onClick={onClose} className="btn" style={{ flex: 1, backgroundColor: 'var(--text-primary)', color: "var(--bg-primary)" }}>Cancel</button>
-                    <button type="submit" form="edit-candidate-form" className="btn btn-primary" style={{ flex: 1 }} disabled={loading}>{loading ? 'Updating...' : 'Update Candidate'}</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const AddQuestionModal: React.FC<{ onClose: () => void, onSuccess: () => void, existingQuestion: Question | null }> = ({ onClose, onSuccess, existingQuestion }) => {
-    const [formData, setFormData] = useState({
-        text: existingQuestion?.text || '',
-        domain: existingQuestion?.domain || 'Frontend',
-        experienceLevel: existingQuestion?.experienceLevel || 'Fresher/Intern',
-        difficulty: existingQuestion?.difficulty || 'Medium',
-        type: 'Descriptive',
-        keywords: existingQuestion?.keywords?.join(', ') || ''
-    });
-    const [loading, setLoading] = useState(false);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        try {
-            const payload = {
-                ...formData,
-                type: 'Descriptive', // Always Descriptive for AI evaluation
-                keywords: formData.keywords.split(',').map(k => k.trim()).filter(k => k)
-            };
-
-            if (existingQuestion) await api.patch(`${API_ENDPOINTS.QUESTIONS.BASE}/${existingQuestion._id}`, payload);
-            else await api.post(API_ENDPOINTS.QUESTIONS.BASE, payload);
-            onSuccess(); onClose();
-        } catch (err) { showToast.error('Failed to save question'); }
-        finally { setLoading(false); }
-    };
-
-    return (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
-            <div className="card" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '1.5rem',
-                    backgroundColor: 'var(--bg-card)',
-                    borderBottom: '1px solid var(--border-color)',
-                    zIndex: 10
-                }}>
-                    <h2 style={{ margin: 0 }}>{existingQuestion ? 'Edit' : 'Add'} Question</h2>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                        <X size={24} />
-                    </button>
-                </div>
-
-                <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
-                    <form id="question-form" onSubmit={handleSubmit}>
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Question Text</label>
-                            <textarea className="input" placeholder="Type your question here..." required value={formData.text} onChange={e => setFormData({ ...formData, text: e.target.value })} style={{ minHeight: '120px', resize: 'vertical' }} />
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-                            <div>
-                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Domain</label>
-                                <select className="input" value={formData.domain} onChange={e => setFormData({ ...formData, domain: e.target.value })}>
-                                    <option value="Frontend">Frontend</option>
-                                    <option value="Backend">Backend</option>
-                                    <option value="Full Stack">Full Stack</option>
-                                    <option value="Sales & Marketing">Sales & Marketing</option>
-                                    <option value="Business Analyst">Business Analyst</option>
-                                    <option value="Data Science">Data Science</option>
-                                    <option value="DevOps">DevOps</option>
-                                    <option value="QA/Testing">QA/Testing</option>
-                                    <option value="UI/UX Design">UI/UX Design</option>
-                                    <option value="Product Management">Product Management</option>
-                                    <option value="HR">HR</option>
-                                    <option value="Finance">Finance</option>
-                                    <option value="Operations">Operations</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Difficulty</label>
-                                <select className="input" value={formData.difficulty} onChange={e => setFormData({ ...formData, difficulty: e.target.value })}>
-                                    <option value="Easy">Easy</option><option value="Medium">Medium</option><option value="Hard">Hard</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Keyword field - Required for AI evaluation */}
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>
-                                Mandatory Keywords / Concepts <span style={{ fontSize: '0.7em', color: 'var(--primary)' }}>(AI Grading)</span>
-                            </label>
-                            <input
-                                className="input"
-                                placeholder="e.g. Virtual DOM, State, Props (comma separated)"
-                                value={formData.keywords}
-                                onChange={e => setFormData({ ...formData, keywords: e.target.value })}
-                            />
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                                The AI will check for these specific terms when evaluating answers.
-                            </div>
-                        </div>
-                    </form>
-                </div>
-
-                <div style={{
-                    padding: '1.5rem',
-                    backgroundColor: 'var(--bg-secondary)',
-                    borderTop: '1px solid var(--border-color)',
-                    textAlign: 'right'
-                }}>
-                    <button type="submit" form="question-form" className="btn btn-primary" style={{ minWidth: '150px' }} disabled={loading}>
-                        {loading ? 'Saving...' : existingQuestion ? 'Update Question' : 'Save Question'}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-    const [settings, setSettings] = useState<Setting[]>([]);
-    useEffect(() => { api.get(API_ENDPOINTS.SETTINGS.BASE).then(res => setSettings(res.data)); }, []);
-    const handleUpdate = (key: string, value: number) => api.post(API_ENDPOINTS.SETTINGS.BASE, { key, value }).then(() => showToast.success('Settings updated successfully!'));
-
-    return (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
-            <div className="card" style={{ width: '100%', maxWidth: '500px', maxHeight: '90vh', padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '1.5rem',
-                    backgroundColor: 'var(--bg-card)',
-                    borderBottom: '1px solid var(--border-color)',
-                    zIndex: 10
-                }}>
-                    <h2 style={{ margin: 0 }}>System Settings</h2>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                        <X size={24} />
-                    </button>
-                </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                        {settings.map(s => (
-                            <div key={s.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', padding: '1rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '0.75rem' }}>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontWeight: '600', fontSize: '1rem', marginBottom: '0.25rem' }}>{s.key}</div>
-                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{s.description}</div>
-                                </div>
-                                <input type="number" className="input" style={{ width: '120px', fontWeight: 'bold' }} defaultValue={s.value} onBlur={e => handleUpdate(s.key, parseInt(e.target.value))} />
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-
-
-const AddSlotModal: React.FC<{ onClose: () => void, onSuccess: () => void, interviewers: User[], candidates: Candidate[] }> = ({ onClose, onSuccess, interviewers, candidates }) => {
-    const [formData, setFormData] = useState({ interviewerId: '', candidateId: '', startTime: '', endTime: '' });
-
-    // Get first round completed candidates
-    const firstRoundCompletedCandidates = candidates.filter(c => c.status === '1st_round_completed');
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        try {
-            await api.post(API_ENDPOINTS.SLOTS.BASE, formData);
-            showToast.success('Interview slot created successfully!');
-            onSuccess();
-            onClose();
-        } catch (err) {
-            showToast.error('Failed to create slot');
-        }
-    };
-    return (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
-            <div className="card" style={{ width: '100%', maxWidth: '500px', maxHeight: '90vh', padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '1.5rem',
-                    backgroundColor: 'var(--bg-card)',
-                    borderBottom: '1px solid var(--border-color)',
-                    zIndex: 10
-                }}>
-                    <h2 style={{ margin: 0 }}>Create Slot</h2>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                        <X size={24} />
-                    </button>
-                </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
-                    <form id="create-slot-form" onSubmit={handleSubmit}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                            <div>
-                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Select Interviewer</label>
-                                <select className="input" required value={formData.interviewerId} onChange={e => setFormData({ ...formData, interviewerId: e.target.value })}>
-                                    <option value="">Select Interviewer</option>
-                                    {(() => {
-                                        const list = Array.isArray(interviewers) ? interviewers : Object.values(interviewers || {});
-                                        return list.filter((i: any) => i && i._id && i.name).map((i: any) => (
-                                            <option key={i._id} value={i._id}>{i.name}</option>
-                                        ));
-                                    })()}
-                                </select>
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Select Candidate</label>
-                                <select className="input" required value={formData.candidateId} onChange={e => setFormData({ ...formData, candidateId: e.target.value })}>
-                                    <option value="">Select Candidate (1st Round Completed)</option>
-                                    {firstRoundCompletedCandidates.map((candidate: any) => (
-                                        <option key={candidate._id} value={candidate._id}>
-                                            {candidate.name} - {candidate.domain}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div><label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Start Time</label><input type="datetime-local" className="input" required value={formData.startTime} min="10:00" max="19:00" onChange={e => {
-                                const restrictedTime = restrictDateTimeInput(e.target.value);
-                                if (!validateTimeRange(e.target.value)) {
-                                    showToast.error(getRestrictedTimeMessage());
-                                }
-                                setFormData({ ...formData, startTime: restrictedTime });
-                            }} /></div>
-                            <div><label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>End Time</label><input type="datetime-local" className="input" required value={formData.endTime} min="10:00" max="19:00" onChange={e => {
-                                const restrictedTime = restrictDateTimeInput(e.target.value);
-                                if (!validateTimeRange(e.target.value)) {
-                                    showToast.error(getRestrictedTimeMessage());
-                                }
-                                setFormData({ ...formData, endTime: restrictedTime });
-                            }} /></div>
-                        </div>
-                    </form>
-                </div>
-                <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}>
-                    <button type="submit" form="create-slot-form" className="btn btn-primary" style={{ width: '100%' }}>Create Interview Slot</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const FeedbackModal: React.FC<{ slot: any, onClose: () => void, onSuccess: () => void, type: 'admin' | 'candidate' }> = ({ slot, onClose, onSuccess, type }) => {
-    const [formData, setFormData] = useState({ score: 0, remarks: '' });
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        try {
-            await api.post(API_ENDPOINTS.SLOTS.FEEDBACK(slot._id), { ...formData, type });
-            showToast.success('Feedback submitted successfully!');
-            onSuccess();
-            onClose();
-        } catch (err) {
-            showToast.error('Failed to submit feedback');
-        }
-    };
-    return (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
-            <div className="card" style={{ width: '100%', maxWidth: '450px', maxHeight: '90vh', padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '1.5rem',
-                    backgroundColor: 'var(--bg-card)',
-                    borderBottom: '1px solid var(--border-color)',
-                    zIndex: 10
-                }}>
-                    <h2 style={{ margin: 0 }}>{type.toUpperCase()} Feedback</h2>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                        <X size={24} />
-                    </button>
-                </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
-                    <form id="feedback-form" onSubmit={handleSubmit}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                            <div>
-                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Performance Score (0-10)</label>
-                                <input type="number" min="0" max="10" className="input" required value={formData.score} onChange={e => setFormData({ ...formData, score: parseInt(e.target.value) })} style={{ fontSize: '1.25rem', fontWeight: 'bold', textAlign: 'center' }} />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Constructive Feedback</label>
-                                <textarea className="input" rows={6} required value={formData.remarks} onChange={e => setFormData({ ...formData, remarks: e.target.value })} placeholder="Describe the candidate's performance, strengths, and areas for improvement..." style={{ resize: 'vertical' }} />
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}>
-                    <button type="submit" form="feedback-form" className="btn btn-primary" style={{ width: '100%' }}>Submit Feedback</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const BulkUploadModal: React.FC<{ onClose: () => void, onSuccess: () => void }> = ({ onClose, onSuccess }) => {
-    const [file, setFile] = useState<File | null>(null);
-    const handleUpload = async () => {
-        if (!file) return;
-        const fd = new FormData(); fd.append('file', file);
-        try {
-            await api.post(API_ENDPOINTS.QUESTIONS.BULK_UPLOAD, fd);
-            showToast.success('Questions uploaded successfully!');
-            onSuccess();
-            onClose();
-        } catch (err) {
-            showToast.error('Upload failed');
-        }
-    };
-    return (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
-            <div className="card" style={{ width: '100%', maxWidth: '400px', maxHeight: '90vh', padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '1.5rem',
-                    backgroundColor: 'var(--bg-card)',
-                    borderBottom: '1px solid var(--border-color)',
-                    zIndex: 10
-                }}>
-                    <h2 style={{ margin: 0 }}>Bulk Upload</h2>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                        <X size={24} />
-                    </button>
-                </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
-                    <div style={{ padding: '0.75rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '0.5rem', marginBottom: '1.5rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: '600', marginBottom: '0.5rem' }}>
-                            <AlertCircle size={16} /> Instructions
-                        </div>
-                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
-                            Please upload an Excel file with the following columns in the first row:
-                        </p>
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
-                            {['Text', 'Difficulty', 'Type'].map(col => (
-                                <span key={col} style={{ fontSize: '0.75rem', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', padding: '0.25rem 0.5rem', borderRadius: '0.25rem', fontFamily: 'monospace' }}>
-                                    {col}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div style={{ padding: '2rem', border: '2px dashed var(--border-color)', borderRadius: '0.75rem', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', marginBottom: '1rem' }}>
-                        <label style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
-                            <File size={32} style={{ color: 'var(--primary)' }} />
-                            <div style={{ fontWeight: '600' }}>Click to select spreadsheet</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Supported formats: .xlsx, .xls</div>
-                            <input type="file" accept=".xlsx, .xls" onChange={e => setFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                        </label>
-                        {file && <div style={{ marginTop: '1rem', fontSize: '0.875rem', fontWeight: '500', color: 'var(--success)' }}>Selected: {file.name}</div>}
-                    </div>
-                </div>
-                <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}>
-                    <button onClick={handleUpload} className="btn btn-primary" style={{ width: '100%' }} disabled={!file}>
-                        Start Upload
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const SendInviteModal: React.FC<{
-    candidate: Candidate;
-    onClose: () => void;
-    onSuccess: () => void;
-}> = ({ candidate, onClose, onSuccess }) => {
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState(false);
-
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-    const [time, setTime] = useState('10:00');
-    const [link, setLink] = useState('https://meet.google.com/xyz-abc-def');
-    const [message, setMessage] = useState('');
-
-    const handleSend = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
-
-        try {
-            await api.post(API_ENDPOINTS.INVITES.SEND, {
-                candidateId: candidate._id,
-                interviewDate: date,
-                interviewTime: time,
-                meetingLink: link,
-                message: message
-            });
-            setSuccess(true);
-            showToast.success('Interview invitation sent successfully!');
-            setTimeout(() => {
-                onSuccess();
-                onClose();
-            }, 2000);
-        } catch (err: any) {
-            setError(err.response?.data?.msg || 'Failed to send invitation');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    if (success) {
-        return (
-            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
-                <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '1rem', textAlign: 'center' }}>
-                    <div style={{ color: 'var(--success)', fontSize: '3rem', marginBottom: '1rem' }}><CheckCircle /></div>
-                    <h3>Invitation Sent!</h3>
-                    <p>Candidate has been notified and status updated.</p>
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '2rem' }}>
-            <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '0', overflow: 'hidden', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-card)' }}>
-                <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Send Interview Invitation</h2>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={24} /></button>
-                </div>
-
-                <form onSubmit={handleSend} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    {error && <div style={{ color: 'var(--error)', fontSize: '0.9rem' }}>{error}</div>}
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                        <div>
-                            <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Date</label>
-                            <input type="date" className="input" required value={date} onChange={e => {
-                                const restrictedDate = restrictDateInput(e.target.value);
-                                if (!validateDateForWorkingHours(e.target.value)) {
-                                    showToast.error(getRestrictedDateMessage());
-                                }
-                                setDate(restrictedDate);
-                            }} />
-                        </div>
-                        <div>
-                            <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Time</label>
-                            <input type="time" className="input" required value={time} min="10:00" max="19:00" onChange={e => {
-                                const restrictedTime = restrictTimeInput(e.target.value);
-                                if (!validateTimeString(e.target.value)) {
-                                    showToast.error(getRestrictedTimeMessage());
-                                }
-                                setTime(restrictedTime);
-                            }} />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Meeting Link</label>
-                        <input type="url" className="input" placeholder="https://meet.google.com/..." required value={link} onChange={e => setLink(e.target.value)} />
-                    </div>
-
-                    <div>
-                        <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Additional Message (Optional)</label>
-                        <textarea className="input" rows={4} placeholder="Any specific instructions..." value={message} onChange={e => setMessage(e.target.value)} style={{ resize: 'none' }} />
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-                        <button type="button" onClick={onClose} className="btn" style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>Cancel</button>
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
-                            {loading ? 'Sending...' : 'Send Invitation'} <Send size={16} style={{ marginLeft: '0.5rem' }} />
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-};
-
-const InterviewDetailsModal: React.FC<{ interview: any, onClose: () => void }> = ({ interview, onClose }) => {
-    if (!interview) return null;
-
-    return (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
-            <div className="card" style={{ width: '100%', maxWidth: '900px', maxHeight: '90vh', padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                        <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-primary)' }}>Interview Details</h2>
-                        <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                            {interview.candidateId?.name} - {interview.domain} - {interview.round}
-                        </p>
-                    </div>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>×</button>
-                </div>
-
-                <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
-                    {/* Interview Summary */}
-                    <div style={{ marginBottom: '2rem', padding: '1rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '0.5rem' }}>
-                        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', color: 'var(--text-primary)' }}>Interview Summary</h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                            <div>
-                                <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Status:</span>
-                                <div style={{ fontWeight: '500' }}>{interview.status}</div>
-                            </div>
-                            <div>
-                                <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Completed:</span>
-                                <div style={{ fontWeight: '500' }}>{interview.completedAt ? new Date(interview.completedAt).toLocaleDateString() : 'N/A'}</div>
-                            </div>
-                            <div>
-                                <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Overall Score:</span>
-                                <div style={{ fontWeight: '500' }}>{interview.feedback?.technical || 'N/A'}/10</div>
-                            </div>
-                        </div>
-                        {interview.aiOverallSummary && (
-                            <div style={{ marginTop: '1rem' }}>
-                                <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>AI Summary:</span>
-                                <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', lineHeight: '1.5' }}>{interview.aiOverallSummary}</p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Questions and Answers */}
-                    <div>
-                        <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1rem', color: 'var(--text-primary)' }}>Questions & Answers</h3>
-                        {interview.responses && interview.responses.length > 0 ? (
-                            interview.responses.map((response: any, index: number) => (
-                                <div key={response._id || index} style={{ marginBottom: '2rem', padding: '1rem', border: '1px solid var(--border-color)', borderRadius: '0.5rem' }}>
-                                    <div style={{ marginBottom: '1rem' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                                            <h4 style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-primary)' }}>Question {index + 1}</h4>
-                                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                                {response.questionId?.difficulty && (
-                                                    <span style={{
-                                                        fontSize: '0.75rem',
-                                                        padding: '0.2rem 0.5rem',
-                                                        borderRadius: '4px',
-                                                        backgroundColor: response.questionId.difficulty === 'Easy' ? 'rgba(34, 197, 94, 0.1)' :
-                                                            response.questionId.difficulty === 'Medium' ? 'rgba(251, 146, 60, 0.1)' :
-                                                                'rgba(239, 68, 68, 0.1)',
-                                                        color: response.questionId.difficulty === 'Easy' ? 'var(--success)' :
-                                                            response.questionId.difficulty === 'Medium' ? 'var(--warning)' :
-                                                                'var(--error)'
-                                                    }}>
-                                                        {response.questionId.difficulty}
-                                                    </span>
-                                                )}
-                                                {response.score !== undefined && (
-                                                    <span style={{
-                                                        fontSize: '0.75rem',
-                                                        padding: '0.2rem 0.5rem',
-                                                        borderRadius: '4px',
-                                                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                                        color: 'var(--primary)',
-                                                        fontWeight: 'bold'
-                                                    }}>
-                                                        Score: {response.score}/10
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
-                                            {response.questionId?.text || 'Question not available'}
-                                        </p>
-                                        {response.questionId?.keywords && response.questionId.keywords.length > 0 && (
-                                            <div style={{ marginTop: '0.5rem' }}>
-                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Keywords: </span>
-                                                {response.questionId.keywords.map((keyword: string, i: number) => (
-                                                    <span key={i} style={{
-                                                        fontSize: '0.75rem',
-                                                        padding: '0.1rem 0.3rem',
-                                                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                                        color: 'var(--primary)',
-                                                        borderRadius: '3px',
-                                                        marginRight: '0.25rem'
-                                                    }}>
-                                                        {keyword}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div style={{ marginBottom: '1rem' }}>
-                                        <h5 style={{ margin: '0 0 0.5rem 0', fontSize: '0.875rem', color: 'var(--text-primary)' }}>Candidate's Answer:</h5>
-                                        <div style={{
-                                            padding: '0.75rem',
-                                            backgroundColor: 'var(--bg-secondary)',
-                                            borderRadius: '0.25rem',
-                                            fontSize: '0.875rem',
-                                            lineHeight: '1.5',
-                                            color: 'var(--text-primary)'
-                                        }}>
-                                            {response.userResponseText || 'No text response available'}
-                                        </div>
-                                        {response.timeTakenSeconds && (
-                                            <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                                Time taken: {Math.floor(response.timeTakenSeconds / 60)}m {response.timeTakenSeconds % 60}s
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {response.aiFeedback && (
-                                        <div>
-                                            <h5 style={{ margin: '0 0 0.5rem 0', fontSize: '0.875rem', color: 'var(--text-primary)' }}>AI Feedback:</h5>
-                                            <div style={{
-                                                padding: '0.75rem',
-                                                backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                                                borderRadius: '0.25rem',
-                                                fontSize: '0.875rem',
-                                                lineHeight: '1.5',
-                                                color: 'var(--text-primary)'
-                                            }}>
-                                                {response.aiFeedback}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            ))
-                        ) : (
-                            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
-                                No responses available for this interview.
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
-                    <button onClick={onClose} className="btn btn-primary" style={{ width: '100%' }}>
-                        Close
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
 
 export default AdminDashboard;

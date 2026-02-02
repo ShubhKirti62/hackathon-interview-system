@@ -200,6 +200,18 @@ router.get('/', async (req, res) => {
     }
 });
 
+// Get Single Candidate
+router.get('/:id', auth, async (req, res) => {
+    try {
+        const candidate = await Candidate.findById(req.params.id)
+            .populate('handledBy', 'name email role');
+        if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
+        res.json(candidate);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Update Candidate Status (Shortlist/Reject)
 router.patch('/:id/status', auth, async (req, res) => {
     try {
