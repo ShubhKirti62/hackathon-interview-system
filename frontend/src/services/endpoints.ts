@@ -10,6 +10,7 @@ export const API_ENDPOINTS = {
         BY_ID: (id: string) => `/candidates/${id}`,
         PARSE_RESUME: '/candidates/parse-resume',
         UPDATE_STATUS: (id: string) => `/candidates/${id}/status`,
+        DELETE_ALL: '/candidates/delete-all',
     },
     FACE: {
         REGISTER: '/face/register',

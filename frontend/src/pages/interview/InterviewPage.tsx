@@ -5,7 +5,7 @@ import api from '../../services/api';
 import { API_ENDPOINTS } from '../../services/endpoints';
 import { APP_ROUTES } from '../../routes';
 import { showToast } from '../../utils/toast';
-import { TypeAnimation } from 'react-type-animation';
+import Typewriter from '../../components/shared/Typewriter';
 import { useFaceVerification } from '../../context/FaceVerificationContext';
 import { useTabDetection } from '../../hooks/useTabDetection';
 
@@ -486,7 +486,9 @@ const InterviewPage: React.FC = () => {
                             transition: 'all 0.3s'
                         }}
                     >
-                        {isRecording ? <MicOff size={20} color="white" /> : <Mic size={20} color="white" />}
+                        <div>
+                            {isRecording ? <MicOff size={20} color="white" /> : <Mic size={20} color="white" />}
+                        </div>
                     </button>
                 </div>
             </div>
@@ -498,13 +500,12 @@ const InterviewPage: React.FC = () => {
                 justifyContent: 'center',
                 borderLeft: `6px solid ${currentQuestion?.difficulty === 'Hard' ? 'var(--error)' : currentQuestion?.difficulty === 'Medium' ? 'var(--warning)' : 'var(--success)'}`
             }}>
-                <h2 style={{ fontSize: '1.5rem', textAlign: 'center', color: 'var(--text-primary)', lineHeight: '1.4' }}>
-                    <TypeAnimation
+                <h2 style={{ fontSize: '1.5rem', textAlign: 'left', color: 'var(--text-primary)', lineHeight: '1.4' }}>
+                    <Typewriter
                         key={currentQuestion?._id || currentQIndex}
-                        sequence={[`"${currentQuestion?.text || ''}"`]}
+                        text={`"${currentQuestion?.text || ''}"`}
                         speed={70}
                         cursor={false}
-                        wrapper="span"
                     />
                 </h2>
             </div>
@@ -547,9 +548,8 @@ const InterviewPage: React.FC = () => {
                         minHeight: '150px',
                         backgroundColor: 'var(--bg-secondary)',
                         marginBottom: '1.5rem',
-                        border: '2px solid var(--primary)'
                     }}>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 'bold', textTransform: 'uppercase' }}>
                             Manual Answer Input
                         </div>
                         <textarea
@@ -567,10 +567,8 @@ const InterviewPage: React.FC = () => {
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                    <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                        Progress auto-saved locally and to server
-                    </div>
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+
                     <button
                         onClick={handleNextQuestion}
                         className="btn btn-primary"

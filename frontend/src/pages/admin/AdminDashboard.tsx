@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Upload, Plus, Users, BarChart, FileText, CheckCircle, X, Shield, Star, Filter, Phone, Mail, File, ExternalLink, Settings, PieChart as PieChartIcon, Send, Image as ImageIcon, Menu, Inbox, Play, Square, RefreshCw, AlertCircle, Trash2, Calendar, AlertTriangle } from 'lucide-react';
 import FraudDetectionPanel from '../../components/FraudDetectionPanel';
 import ScreenshotViewerModal from '../../components/Modals/ScreenshotViewerModal';
+import ConfirmationModal from '../../components/shared/ConfirmationModal';
 import { PieChart, Pie, BarChart as ReBarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import api from '../../services/api';
 import { API_ENDPOINTS } from '../../services/endpoints';
@@ -30,6 +31,8 @@ interface Candidate {
         role: string;
     };
     overallScore?: number;
+    blocked?: boolean;
+    createdBy?: string;
 }
 
 interface Setting {
@@ -66,7 +69,7 @@ interface User {
 }
 
 const AdminDashboard: React.FC = () => {
-    const { } = useAuth();
+    const { user } = useAuth();
     const navigate = useNavigate();
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [stats, setStats] = useState<Stats>({
@@ -98,6 +101,7 @@ const AdminDashboard: React.FC = () => {
     const [slots, setSlots] = useState<any[]>([]);
 
     const [showSlotModal, setShowSlotModal] = useState(false);
+    const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [selectedSlot, setSelectedSlot] = useState<any>(null);
     const [showInviteModal, setShowInviteModal] = useState(false);
@@ -217,6 +221,21 @@ const AdminDashboard: React.FC = () => {
             fetchEmailScannerStatus();
         } catch (err: any) {
             showToast.error(err.response?.data?.error || 'Failed to clear logs');
+        }
+    };
+
+    const handleDeleteAllCandidates = () => {
+        setShowDeleteAllConfirm(true);
+    };
+
+    const confirmDeleteAll = async () => {
+        setShowDeleteAllConfirm(false);
+        try {
+            await api.delete(API_ENDPOINTS.CANDIDATES.DELETE_ALL);
+            showToast.success('All candidates deleted successfully');
+            fetchDashboardData();
+        } catch (err: any) {
+            showToast.error(err.response?.data?.error || 'Failed to delete all candidates');
         }
     };
 
@@ -532,6 +551,27 @@ const AdminDashboard: React.FC = () => {
                         <FileText size={20} /> Questions Library
                     </button>
 
+                    <button
+                        onClick={() => { setActiveTab('slots'); setSidebarOpen(false); }}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.75rem',
+                            padding: '0.75rem 1rem',
+                            borderRadius: '0.5rem',
+                            border: 'none',
+                            background: activeTab === 'slots' ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                            color: activeTab === 'slots' ? 'var(--primary)' : 'var(--text-secondary)',
+                            fontWeight: activeTab === 'slots' ? '600' : '500',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            width: '100%',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        <Calendar size={20} /> Interview Slots
+                    </button>
+
 
 
                     <button
@@ -791,24 +831,44 @@ const AdminDashboard: React.FC = () => {
                         <div className="card" style={{ overflowX: 'auto' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                                 <h2 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', margin: 0 }}>Recent Candidates</h2>
-                                <button
-                                    onClick={() => setFilterReferred(!filterReferred)}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.5rem',
-                                        padding: '0.5rem 1rem',
-                                        borderRadius: '0.5rem',
-                                        border: '1px solid var(--border-color)',
-                                        backgroundColor: filterReferred ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
-                                        color: filterReferred ? 'var(--warning)' : 'var(--text-secondary)',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s'
-                                    }}
-                                >
-                                    <Filter size={16} />
-                                    {filterReferred ? 'Showing Referred Only' : 'Filter by Referral'}
-                                </button>
+                                <div style={{ display: 'flex', gap: '1rem' }}>
+                                    <button
+                                        onClick={() => setFilterReferred(!filterReferred)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            padding: '0.5rem 1rem',
+                                            borderRadius: '0.5rem',
+                                            border: '1px solid var(--border-color)',
+                                            backgroundColor: filterReferred ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
+                                            color: filterReferred ? 'var(--warning)' : 'var(--text-secondary)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        <Filter size={16} />
+                                        {filterReferred ? 'Referred Only' : 'Filter by Referral'}
+                                    </button>
+                                    <button
+                                        onClick={handleDeleteAllCandidates}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            padding: '0.5rem 1rem',
+                                            borderRadius: '0.5rem',
+                                            border: '1px solid var(--error)',
+                                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                            color: 'var(--error)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        <Trash2 size={16} />
+                                        Clear All
+                                    </button>
+                                </div>
                             </div>
                             {candidates.length === 0 ? (
                                 <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>
@@ -825,13 +885,12 @@ const AdminDashboard: React.FC = () => {
                                                 <th style={{ padding: '0.75rem' }}>Experience</th>
                                                 <th style={{ padding: '0.75rem' }}>Status</th>
                                                 <th style={{ padding: '0.75rem' }}>Type</th>
-                                                <th style={{ padding: '0.75rem' }}>Handled By</th>
                                                 <th style={{ padding: '0.75rem' }}>Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {candidates
-                                                .filter(c => !filterReferred || c.internalReferred)
+                                                .filter(c => (!filterReferred || c.internalReferred) && (c.createdBy === user?.id || (c.handledBy as any)?._id === user?.id || (c.handledBy as any)?.id === user?.id)) // Filter by creator
                                                 .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                                                 .slice(0, 10).map((candidate) => (
                                                     <TableRow
@@ -1175,73 +1234,102 @@ const AdminDashboard: React.FC = () => {
             </div>
 
             {showAddModal && <AddCandidateModal onClose={() => setShowAddModal(false)} onSuccess={fetchDashboardData} />}
-            {showEditModal && editingCandidate && (
-                <EditCandidateModal
-                    onClose={() => setShowEditModal(false)}
-                    onSuccess={fetchDashboardData}
-                    candidate={editingCandidate}
-                />
-            )}
-            {showQuestionModal && (
-                <AddQuestionModal
-                    onClose={() => setShowQuestionModal(false)}
-                    onSuccess={fetchDashboardData}
-                    existingQuestion={editingQuestion}
-                />
-            )}
+            {
+                showEditModal && editingCandidate && (
+                    <EditCandidateModal
+                        onClose={() => setShowEditModal(false)}
+                        onSuccess={fetchDashboardData}
+                        candidate={editingCandidate}
+                    />
+                )
+            }
+            {
+                showQuestionModal && (
+                    <AddQuestionModal
+                        onClose={() => setShowQuestionModal(false)}
+                        onSuccess={fetchDashboardData}
+                        existingQuestion={editingQuestion}
+                    />
+                )
+            }
             {showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
-            {showBulkModal && (
-                <BulkUploadModal
-                    onClose={() => setShowBulkModal(false)}
-                    onSuccess={fetchDashboardData}
-                />
-            )}
+            {
+                showBulkModal && (
+                    <BulkUploadModal
+                        onClose={() => setShowBulkModal(false)}
+                        onSuccess={fetchDashboardData}
+                    />
+                )
+            }
 
-            {showSlotModal && (
-                <AddSlotModal
-                    onClose={() => setShowSlotModal(false)}
-                    onSuccess={fetchDashboardData}
-                    interviewers={interviewers}
-                    candidates={candidates}
+            {
+                showSlotModal && (
+                    <AddSlotModal
+                        onClose={() => setShowSlotModal(false)}
+                        onSuccess={fetchDashboardData}
+                        interviewers={interviewers}
+                        candidates={candidates}
+                    />
+                )
+            }
+            {
+                showFeedbackModal && selectedSlot && (
+                    <FeedbackModal
+                        slot={selectedSlot}
+                        onClose={() => setShowFeedbackModal(false)}
+                        onSuccess={fetchDashboardData}
+                        type="admin"
+                    />
+                )
+            }
+            {showDeleteAllConfirm && (
+                <ConfirmationModal
+                    isOpen={showDeleteAllConfirm}
+                    onClose={() => setShowDeleteAllConfirm(false)}
+                    onConfirm={confirmDeleteAll}
+                    title="Clear All Candidates"
+                    message="Are you sure you want to delete ALL candidates? This action cannot be undone and will remove all candidate data, including interview records and resumes."
+                    confirmLabel="Yes, Delete All"
+                    isDangerous={true}
                 />
             )}
-            {showFeedbackModal && selectedSlot && (
-                <FeedbackModal
-                    slot={selectedSlot}
-                    onClose={() => setShowFeedbackModal(false)}
-                    onSuccess={fetchDashboardData}
-                    type="admin"
-                />
-            )}
-            {showInviteModal && selectedCandidate && (
-                <SendInviteModal
-                    candidate={selectedCandidate}
-                    onClose={() => setShowInviteModal(false)}
-                    onSuccess={fetchDashboardData}
-                />
-            )}
-            {showInterviewModal && selectedInterview && (
-                <InterviewDetailsModal
-                    interview={selectedInterview}
-                    onClose={() => setShowInterviewModal(false)}
-                />
-            )}
-            {showScreenshotModal && viewingScreenshotsCandidate && (
-                <ScreenshotViewerModal
-                    candidateId={viewingScreenshotsCandidate.id}
-                    candidateName={viewingScreenshotsCandidate.name}
-                    onClose={() => setShowScreenshotModal(false)}
-                />
-            )}
-            {selectedCandidate && (
-                <ViewCandidateModal
-                    candidate={selectedCandidate}
-                    onClose={() => setSelectedCandidate(null)}
-                    onSuccess={fetchDashboardData}
-                    onInvite={handleInviteClick}
-                />
-            )}
-        </div>
+            {
+                showInviteModal && selectedCandidate && (
+                    <SendInviteModal
+                        candidate={selectedCandidate}
+                        onClose={() => setShowInviteModal(false)}
+                        onSuccess={fetchDashboardData}
+                    />
+                )
+            }
+            {
+                showInterviewModal && selectedInterview && (
+                    <InterviewDetailsModal
+                        interview={selectedInterview}
+                        onClose={() => setShowInterviewModal(false)}
+                    />
+                )
+            }
+            {
+                showScreenshotModal && viewingScreenshotsCandidate && (
+                    <ScreenshotViewerModal
+                        candidateId={viewingScreenshotsCandidate.id}
+                        candidateName={viewingScreenshotsCandidate.name}
+                        onClose={() => setShowScreenshotModal(false)}
+                    />
+                )
+            }
+            {
+                selectedCandidate && (
+                    <ViewCandidateModal
+                        candidate={selectedCandidate}
+                        onClose={() => setSelectedCandidate(null)}
+                        onSuccess={fetchDashboardData}
+                        onInvite={handleInviteClick}
+                    />
+                )
+            }
+        </div >
     );
 };
 
@@ -1258,9 +1346,20 @@ const StatCard: React.FC<{ icon: React.ReactNode, label: string, value: string }
     </div>
 );
 
-const TableRow: React.FC<{ candidate: Candidate, isAdmin: boolean, onView: () => void, onDelete: () => void, onEdit: () => void, onViewScreenshots?: () => void, onViewInterview?: (candidateId: string) => void }> = ({ candidate, isAdmin, onView, onDelete, onEdit, onViewScreenshots, onViewInterview }) => {
-    const statusColor = getStatusColor(candidate.status);
-    const statusBg = getStatusBackgroundColor(candidate.status);
+const TableRow: React.FC<{ candidate: Candidate, isAdmin: boolean, onView: () => void, onDelete: () => void, onEdit: () => void, onViewScreenshots?: () => void, onViewInterview?: (candidateId: string) => void }> = ({ candidate, onView, onDelete, onEdit, onViewScreenshots, onViewInterview }) => {
+    let statusColor = getStatusColor(candidate.status);
+    let statusBg = getStatusBackgroundColor(candidate.status);
+    let displayStatus = formatCandidateStatus(candidate.status);
+
+    // Override if remarks indicate blocking but status is just Rejected
+    if (candidate.blocked || (candidate.status.toLowerCase() === 'rejected' && candidate.remarks &&
+        (candidate.remarks.toLowerCase().includes('blocked') ||
+            candidate.remarks.toLowerCase().includes('violation') ||
+            candidate.remarks.toLowerCase().includes('fraud')))) {
+        displayStatus = 'Blocked';
+        statusColor = 'var(--error)';
+        statusBg = 'rgba(220, 38, 38, 0.2)';
+    }
 
     return (
         <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
@@ -1281,7 +1380,7 @@ const TableRow: React.FC<{ candidate: Candidate, isAdmin: boolean, onView: () =>
                     maxWidth: '150px',
                     display: 'inline-block'
                 }}>
-                    {formatCandidateStatus(candidate.status)}
+                    {displayStatus}
                 </span>
             </td>
             <td style={{ padding: '0.75rem' }}>
@@ -1294,20 +1393,6 @@ const TableRow: React.FC<{ candidate: Candidate, isAdmin: boolean, onView: () =>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Direct</span>
                 )}
             </td>
-            {isAdmin && (
-                <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
-                    {candidate.handledBy ? (
-                        <div>
-                            <div style={{ fontWeight: '500' }}>{candidate.handledBy.name}</div>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-                                Admin
-                            </div>
-                        </div>
-                    ) : (
-                        <span style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>Pending</span>
-                    )}
-                </td>
-            )}
             <td style={{ padding: '0.75rem' }}>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                     <button
@@ -1316,12 +1401,14 @@ const TableRow: React.FC<{ candidate: Candidate, isAdmin: boolean, onView: () =>
                     >
                         View
                     </button>
-                    <button
-                        onClick={onEdit}
-                        style={{ color: 'var(--warning)', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer' }}
-                    >
-                        Edit
-                    </button>
+                    {displayStatus !== 'Blocked' && (
+                        <button
+                            onClick={onEdit}
+                            style={{ color: 'var(--warning)', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer' }}
+                        >
+                            Edit
+                        </button>
+                    )}
                     {onViewScreenshots && (candidate.status === 'interviewed' || candidate.status === 'slot_booked' || candidate.status === 'rejected' || candidate.status === '2nd_round_qualified' || candidate.status === 'round_2_completed') && (
                         <button
                             onClick={onViewScreenshots}
@@ -2261,6 +2348,22 @@ const BulkUploadModal: React.FC<{ onClose: () => void, onSuccess: () => void }> 
                     </button>
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+                    <div style={{ padding: '0.75rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '0.5rem', marginBottom: '1.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: '600', marginBottom: '0.5rem' }}>
+                            <AlertCircle size={16} /> Instructions
+                        </div>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
+                            Please upload an Excel file with the following columns in the first row:
+                        </p>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+                            {['Text', 'Difficulty', 'Type'].map(col => (
+                                <span key={col} style={{ fontSize: '0.75rem', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', padding: '0.25rem 0.5rem', borderRadius: '0.25rem', fontFamily: 'monospace' }}>
+                                    {col}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+
                     <div style={{ padding: '2rem', border: '2px dashed var(--border-color)', borderRadius: '0.75rem', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', marginBottom: '1rem' }}>
                         <label style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
                             <File size={32} style={{ color: 'var(--primary)' }} />

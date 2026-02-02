@@ -182,7 +182,7 @@ router.post('/', upload.single('resume'), auth, async (req, res) => {
         console.error('Candidate Creation Error:', error);
         // Handle duplicate email specifically
         if (error.code === 11000) {
-             return res.status(400).json({ error: 'Email already exists. Please use a different email.' });
+            return res.status(400).json({ error: 'Email already exists. Please use a different email.' });
         }
         res.status(500).json({ error: error.message });
     }
@@ -231,7 +231,7 @@ router.patch('/:id', auth, async (req, res) => {
     try {
         const allowedUpdates = ['name', 'email', 'phone', 'domain', 'experienceLevel', 'internalReferred'];
         const updates = {};
-        
+
         for (const key of allowedUpdates) {
             if (req.body[key] !== undefined) {
                 updates[key] = req.body[key];
@@ -280,6 +280,16 @@ router.delete('/:id', async (req, res) => {
     try {
         await Candidate.findByIdAndDelete(req.params.id);
         res.json({ message: 'Candidate deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Delete All Candidates
+router.delete('/delete-all', auth, async (req, res) => {
+    try {
+        await Candidate.deleteMany({});
+        res.json({ message: 'All candidates deleted successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
