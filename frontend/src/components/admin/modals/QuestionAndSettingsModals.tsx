@@ -123,12 +123,47 @@ export const AddQuestionModal: React.FC<{ onClose: () => void, onSuccess: () => 
 
 export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const [settings, setSettings] = useState<Setting[]>([]);
+    const [draftValues, setDraftValues] = useState<Record<string, number>>({});
+    const [saving, setSaving] = useState(false);
+
     useEffect(() => {
-        api.get(API_ENDPOINTS.SETTINGS.BASE).then(res => setSettings(res.data));
+        api.get(API_ENDPOINTS.SETTINGS.BASE).then(res => {
+            setSettings(res.data);
+            const initialDraft: Record<string, number> = {};
+            res.data.forEach((s: Setting) => {
+                initialDraft[s.key] = s.value;
+            });
+            setDraftValues(initialDraft);
+        });
     }, []);
 
-    const handleUpdate = (key: string, value: number) =>
-        api.post(API_ENDPOINTS.SETTINGS.BASE, { key, value }).then(() => showToast.success('Settings updated successfully!'));
+    const handleDraftUpdate = (key: string, value: string) => {
+        setDraftValues(prev => ({ ...prev, [key]: parseInt(value) || 0 }));
+    };
+
+    const handleSaveAll = async () => {
+        // Validation: Min 60 seconds for all
+        const invalidKeys = Object.entries(draftValues).filter(([_, val]) => val < 60);
+        if (invalidKeys.length > 0) {
+            showToast.error('Time limits must be at least 60 seconds');
+            return;
+        }
+
+        setSaving(true);
+        try {
+            await Promise.all(
+                Object.entries(draftValues).map(([key, value]) =>
+                    api.post(API_ENDPOINTS.SETTINGS.BASE, { key, value })
+                )
+            );
+            showToast.success('All settings saved successfully!');
+            onClose();
+        } catch (err) {
+            showToast.error('Failed to save some settings');
+        } finally {
+            setSaving(false);
+        }
+    };
 
     return (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
@@ -148,10 +183,9 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                     </button>
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '1rem' }}>
                         {settings.length > 0 ? (
                             settings.map(s => {
-                                // Format key for display: time_limit_easy -> Easy Question Time Limit
                                 const displayKey = s.key
                                     .replace('time_limit_', '')
                                     .split('_')
@@ -167,14 +201,14 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                                         padding: '1.25rem',
                                         backgroundColor: 'var(--bg-secondary)',
                                         borderRadius: '0.75rem',
-                                        border: '1px solid var(--border-color)'
+                                        border: draftValues[s.key] < 60 ? '1px solid var(--error)' : '1px solid var(--border-color)'
                                     }}>
                                         <div style={{ flex: 1 }}>
                                             <div style={{ fontWeight: '600', fontSize: '0.95rem', marginBottom: '0.25rem', color: 'var(--text-primary)' }}>
                                                 {displayKey}
                                             </div>
-                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                                                {s.description || `Adjust time limit for ${s.key.split('_').pop()} level questions.`}
+                                            <div style={{ fontSize: '0.8rem', color: draftValues[s.key] < 60 ? 'var(--error)' : 'var(--text-secondary)' }}>
+                                                {draftValues[s.key] < 60 ? 'Minimum limit is 60 seconds' : (s.description || `Adjust time limit for ${s.key.split('_').pop()} level questions.`)}
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -182,8 +216,8 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                                                 type="number"
                                                 className="input"
                                                 style={{ width: '90px', fontWeight: 'bold', textAlign: 'center' }}
-                                                defaultValue={s.value}
-                                                onBlur={e => handleUpdate(s.key, parseInt(e.target.value))}
+                                                value={draftValues[s.key] ?? s.value}
+                                                onChange={e => handleDraftUpdate(s.key, e.target.value)}
                                             />
                                         </div>
                                     </div>
@@ -195,6 +229,16 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                             </div>
                         )}
                     </div>
+                </div>
+                <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}>
+                    <button
+                        onClick={handleSaveAll}
+                        className="btn btn-primary"
+                        style={{ width: '100%' }}
+                        disabled={saving || settings.length === 0}
+                    >
+                        {saving ? 'Saving...' : 'Save All Settings'}
+                    </button>
                 </div>
             </div>
         </div>
