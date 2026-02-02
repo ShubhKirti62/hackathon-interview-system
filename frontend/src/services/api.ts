@@ -10,8 +10,13 @@ const api = axios.create({
 
 // Add interceptors for auth and loader
 api.interceptors.request.use((config) => {
-    // Show loader on request start
-    showLoader();
+    // Show loader on request start, EXCEPT for background tasks
+    const silentEndpoints = ['/state', '/screenshot', '/proxy-check', '/violation'];
+    const isSilent = silentEndpoints.some(endpoint => config.url?.includes(endpoint));
+
+    if (!isSilent) {
+        showLoader();
+    }
 
     const token = localStorage.getItem('token');
     if (token) {
@@ -25,12 +30,11 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
     (response) => {
-        // Hide loader on success response
+        // Always try to hide loader (it's safe and idempotent)
         hideLoader();
         return response;
     },
     (error) => {
-        // Hide loader on error response
         hideLoader();
         return Promise.reject(error);
     }

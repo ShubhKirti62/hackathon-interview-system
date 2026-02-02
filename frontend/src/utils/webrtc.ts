@@ -18,7 +18,7 @@ export class VideoCallManager {
         { urls: 'stun:stun1.l.google.com:19302' },
       ]
     };
-    
+
     this.peerConnection = new RTCPeerConnection(config || defaultConfig);
     this.setupPeerConnection();
   }
@@ -66,7 +66,7 @@ export class VideoCallManager {
       };
 
       this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
-      
+
       if (this.localVideoRef) {
         this.localVideoRef.srcObject = this.localStream;
       }
@@ -90,7 +90,7 @@ export class VideoCallManager {
 
     const offer = await this.peerConnection.createOffer();
     await this.peerConnection.setLocalDescription(offer);
-    
+
     return offer;
   }
 
@@ -100,19 +100,19 @@ export class VideoCallManager {
     await this.peerConnection.setRemoteDescription(offer);
     const answer = await this.peerConnection.createAnswer();
     await this.peerConnection.setLocalDescription(answer);
-    
+
     return answer;
   }
 
   async handleAnswer(answer: RTCSessionDescriptionInit): Promise<void> {
     if (!this.peerConnection) throw new Error('Peer connection not initialized');
-    
+
     await this.peerConnection.setRemoteDescription(answer);
   }
 
   async handleIceCandidate(candidate: RTCIceCandidateInit): Promise<void> {
     if (!this.peerConnection) throw new Error('Peer connection not initialized');
-    
+
     await this.peerConnection.addIceCandidate(candidate);
   }
 
@@ -137,11 +137,24 @@ export class VideoCallManager {
   async startScreenShare(): Promise<MediaStream> {
     try {
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { 
-          displaySurface: 'monitor'
+        video: {
+          displaySurface: 'monitor',
+          // @ts-ignore - Chrome specific
+          monitorTypeSurfaces: "include",
+          surfaceSwitching: "exclude",
+          selfBrowserSurface: "exclude"
         },
         audio: true
       });
+
+      // Strict Validation: Ensure user picked 'Entire Screen'
+      const track = screenStream.getVideoTracks()[0];
+      // @ts-ignore
+      const settings = track.getSettings();
+      if (settings.displaySurface !== 'monitor') {
+        track.stop();
+        throw new Error('ENTIRE_SCREEN_REQUIRED');
+      }
 
       // Replace video track with screen share
       if (this.localStream && this.peerConnection) {
@@ -149,7 +162,7 @@ export class VideoCallManager {
         const sender = this.peerConnection.getSenders().find(
           s => s.track && s.track.kind === 'video'
         );
-        
+
         if (sender) {
           await sender.replaceTrack(videoTrack);
         }
@@ -174,7 +187,7 @@ export class VideoCallManager {
       const sender = this.peerConnection.getSenders().find(
         s => s.track && s.track.kind === 'video'
       );
-      
+
       if (sender && videoTrack) {
         await sender.replaceTrack(videoTrack);
       }

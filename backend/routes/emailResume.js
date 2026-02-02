@@ -17,7 +17,7 @@ const adminAuth = (req, res, next) => {
 // POST /api/email-resume/scan - Trigger manual scan
 router.post('/scan', adminAuth, async (req, res) => {
     try {
-        const result = await scanInbox();
+        const result = await scanInbox(req.user.id);
         res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });

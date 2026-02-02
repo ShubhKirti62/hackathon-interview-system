@@ -137,8 +137,8 @@ const AdminDashboard: React.FC = () => {
                 api.get(API_ENDPOINTS.CANDIDATES.BASE),
                 api.get(API_ENDPOINTS.QUESTIONS.BASE),
                 api.get(API_ENDPOINTS.SLOTS.BASE),
-                api.get(`${API_ENDPOINTS.AUTH.USERS}?role=interviewer`),
-                api.get(`${API_ENDPOINTS.AUTH.USERS}?role=hr`).catch(() => ({ data: [] }))
+                api.get(`${API_ENDPOINTS.AUTH.USERS}?role=admin`),
+                api.get(`${API_ENDPOINTS.AUTH.USERS}?role=admin`).catch(() => ({ data: [] }))
             ]);
 
             const candidatesList = candidatesRes.data || [];

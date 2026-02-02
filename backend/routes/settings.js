@@ -6,7 +6,11 @@ const auth = require('../middleware/auth');
 // Get all settings
 router.get('/', async (req, res) => {
     try {
-        const settings = await Setting.find();
+        let settings = await Setting.find();
+        if (settings.length === 0) {
+            await seedDefaults();
+            settings = await Setting.find();
+        }
         res.json(settings);
     } catch (error) {
         res.status(500).json({ error: error.message });

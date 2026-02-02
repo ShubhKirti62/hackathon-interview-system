@@ -180,12 +180,30 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId, interv
         try {
             const stream = await navigator.mediaDevices.getDisplayMedia({
                 video: {
-                    displaySurface: 'monitor'
+                    displaySurface: 'monitor',
+                    // @ts-ignore
+                    monitorTypeSurfaces: "include",
+                    // @ts-ignore
+                    surfaceSwitching: "exclude",
+                    // @ts-ignore
+                    selfBrowserSurface: "exclude"
                 },
                 audio: false
             });
 
             screenStreamRef.current = stream;
+
+            // Strict Validation: Ensure user picked 'Entire Screen'
+            const track = stream.getVideoTracks()[0];
+            // @ts-ignore - displaySurface is available in modern browsers
+            const settings = track.getSettings();
+            if (settings.displaySurface !== 'monitor') {
+                track.stop();
+                setScreenStatus('idle');
+                setMessage('Error: You MUST select "Entire Screen".');
+                return;
+            }
+
             setScreenStatus('active');
             setMessage('Monitoring Active: Camera & Screen');
 
@@ -297,8 +315,8 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId, interv
                 animation: proxyStatus === 'critical' ? 'pulse 1s infinite' : undefined
             }} title={
                 proxyStatus === 'ok' ? 'Identity verified' :
-                proxyStatus === 'warning' ? 'Face inconsistency detected' :
-                'Proxy detected!'
+                    proxyStatus === 'warning' ? 'Face inconsistency detected' :
+                        'Proxy detected!'
             }>
                 {c.icon}
             </div>
@@ -327,9 +345,9 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId, interv
                 </div>
 
                 {cameraStatus === 'error' && (
-                     <div style={{ color: 'var(--error)', fontSize: '0.75rem', marginBottom: '1rem' }}>
-                         Camera access denied or failed. Please check permissions.
-                     </div>
+                    <div style={{ color: 'var(--error)', fontSize: '0.75rem', marginBottom: '1rem' }}>
+                        Camera access denied or failed. Please check permissions.
+                    </div>
                 )}
 
                 <button

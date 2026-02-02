@@ -44,7 +44,7 @@ function getMimeType(filename) {
     }
 }
 
-async function scanInbox() {
+async function scanInbox(adminId = null) {
     if (isScanning) {
         return { message: 'Scan already in progress', results: [] };
     }
@@ -153,7 +153,10 @@ async function scanInbox() {
                             experienceLevel: parsed.experienceLevel || 'Fresher/Intern',
                             resumeUrl: resumeUrl,
                             resumeText: parsed.resumeText || '',
-                            status: 'profile_submitted'
+                            status: 'profile_submitted',
+                            createdBy: adminId,
+                            handledBy: adminId,
+                            handledAt: adminId ? new Date() : undefined
                         });
 
                         // Log success

@@ -56,6 +56,7 @@ const CandidateSchema = new mongoose.Schema({
     handledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     handledAt: { type: Date },
     remarks: { type: String },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     blocked: { type: Boolean, default: false },
     blockedReason: { type: String },
     blockedAt: { type: Date },

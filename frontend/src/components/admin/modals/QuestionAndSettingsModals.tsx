@@ -149,15 +149,51 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                        {settings.map(s => (
-                            <div key={s.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', padding: '1rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '0.75rem' }}>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontWeight: '600', fontSize: '1rem', marginBottom: '0.25rem' }}>{s.key}</div>
-                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{s.description}</div>
-                                </div>
-                                <input type="number" className="input" style={{ width: '120px', fontWeight: 'bold' }} defaultValue={s.value} onBlur={e => handleUpdate(s.key, parseInt(e.target.value))} />
+                        {settings.length > 0 ? (
+                            settings.map(s => {
+                                // Format key for display: time_limit_easy -> Easy Question Time Limit
+                                const displayKey = s.key
+                                    .replace('time_limit_', '')
+                                    .split('_')
+                                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                                    .join(' ') + ' Time Limit (Sec)';
+
+                                return (
+                                    <div key={s.key} style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        gap: '1rem',
+                                        padding: '1.25rem',
+                                        backgroundColor: 'var(--bg-secondary)',
+                                        borderRadius: '0.75rem',
+                                        border: '1px solid var(--border-color)'
+                                    }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontWeight: '600', fontSize: '0.95rem', marginBottom: '0.25rem', color: 'var(--text-primary)' }}>
+                                                {displayKey}
+                                            </div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                                {s.description || `Adjust time limit for ${s.key.split('_').pop()} level questions.`}
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <input
+                                                type="number"
+                                                className="input"
+                                                style={{ width: '90px', fontWeight: 'bold', textAlign: 'center' }}
+                                                defaultValue={s.value}
+                                                onBlur={e => handleUpdate(s.key, parseInt(e.target.value))}
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        ) : (
+                            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                                Loading settings...
                             </div>
-                        ))}
+                        )}
                     </div>
                 </div>
             </div>

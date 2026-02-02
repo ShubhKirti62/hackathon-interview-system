@@ -10,11 +10,35 @@ import type { Candidate, User } from '../../../pages/admin/types';
 export const AddSlotModal: React.FC<{ onClose: () => void, onSuccess: () => void, interviewers: User[], candidates: Candidate[] }> = ({ onClose, onSuccess, interviewers, candidates }) => {
     const [formData, setFormData] = useState({ interviewerId: '', candidateId: '', startTime: '', endTime: '' });
 
-    // Get first round completed candidates
-    const firstRoundCompletedCandidates = candidates.filter(c => c.status === '1st_round_completed');
+    // Get first round completed candidates - allow flexible status matching
+    const firstRoundCompletedCandidates = candidates.filter(c => {
+        const s = (c.status || '').toLowerCase();
+        return s === 'interviewed' || s === '1st_round_completed';
+    });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Validation
+        if (!formData.interviewerId || !formData.candidateId || !formData.startTime || !formData.endTime) {
+            showToast.error('All fields are mandatory');
+            return;
+        }
+
+        const start = new Date(formData.startTime);
+        const end = new Date(formData.endTime);
+        const now = new Date();
+
+        if (start < now) {
+            showToast.error('Start time must be in the future');
+            return;
+        }
+
+        if (end <= start) {
+            showToast.error('End time must be after start time');
+            return;
+        }
+
         try {
             await api.post(API_ENDPOINTS.SLOTS.BASE, formData);
             showToast.success('Interview slot created successfully!');
@@ -45,7 +69,7 @@ export const AddSlotModal: React.FC<{ onClose: () => void, onSuccess: () => void
                     <form id="create-slot-form" onSubmit={handleSubmit}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                             <div>
-                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Select Interviewer</label>
+                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Select Interviewer *</label>
                                 <select className="input" required value={formData.interviewerId} onChange={e => setFormData({ ...formData, interviewerId: e.target.value })}>
                                     <option value="">Select Interviewer</option>
                                     {(() => {
@@ -57,7 +81,7 @@ export const AddSlotModal: React.FC<{ onClose: () => void, onSuccess: () => void
                                 </select>
                             </div>
                             <div>
-                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Select Candidate</label>
+                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Select Candidate *</label>
                                 <select className="input" required value={formData.candidateId} onChange={e => setFormData({ ...formData, candidateId: e.target.value })}>
                                     <option value="">Select Candidate (1st Round Completed)</option>
                                     {firstRoundCompletedCandidates.map((candidate: any) => (
@@ -66,21 +90,24 @@ export const AddSlotModal: React.FC<{ onClose: () => void, onSuccess: () => void
                                         </option>
                                     ))}
                                 </select>
+                                {firstRoundCompletedCandidates.length === 0 && (
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--error)', marginTop: '0.25rem' }}>
+                                        No candidates found with "Completed" status.
+                                    </div>
+                                )}
                             </div>
-                            <div><label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Start Time</label><input type="datetime-local" className="input" required value={formData.startTime} min="10:00" max="19:00" onChange={e => {
-                                const restrictedTime = restrictDateTimeInput(e.target.value);
-                                if (!validateTimeRange(e.target.value)) {
-                                    showToast.error(getRestrictedTimeMessage());
-                                }
-                                setFormData({ ...formData, startTime: restrictedTime });
-                            }} /></div>
-                            <div><label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>End Time</label><input type="datetime-local" className="input" required value={formData.endTime} min="10:00" max="19:00" onChange={e => {
-                                const restrictedTime = restrictDateTimeInput(e.target.value);
-                                if (!validateTimeRange(e.target.value)) {
-                                    showToast.error(getRestrictedTimeMessage());
-                                }
-                                setFormData({ ...formData, endTime: restrictedTime });
-                            }} /></div>
+                            <div>
+                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Start Time *</label>
+                                <input type="datetime-local" className="input" required value={formData.startTime} onChange={e => {
+                                    setFormData({ ...formData, startTime: e.target.value });
+                                }} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>End Time *</label>
+                                <input type="datetime-local" className="input" required value={formData.endTime} onChange={e => {
+                                    setFormData({ ...formData, endTime: e.target.value });
+                                }} />
+                            </div>
                         </div>
                     </form>
                 </div>

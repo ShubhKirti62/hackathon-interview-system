@@ -6,6 +6,7 @@ import api from '../../services/api';
 import { API_ENDPOINTS } from '../../services/endpoints';
 import { APP_ROUTES } from '../../routes';
 import { showToast } from '../../utils/toast';
+import { formatCandidateStatus, getStatusColor, getStatusBackgroundColor } from '../../utils/statusFormatter';
 
 
 interface Candidate {
@@ -142,7 +143,7 @@ const CandidateHome: React.FC = () => {
                 <p style={{ color: 'var(--text-secondary)' }}>Manage your application and track your interview progress here.</p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
                 {/* Profile Card */}
                 <div className="card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -153,17 +154,11 @@ const CandidateHome: React.FC = () => {
                             fontSize: '0.75rem',
                             padding: '0.25rem 0.75rem',
                             borderRadius: '1rem',
-                            backgroundColor: candidate?.status === 'Shortlisted' ? 'rgba(16, 185, 129, 0.1)' :
-                                candidate?.status === 'Rejected' ? 'rgba(239, 68, 68, 0.1)' :
-                                    candidate?.status === 'Slot_Booked' ? 'rgba(139, 92, 246, 0.1)' :
-                                    candidate?.status === 'Round_2_Completed' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                            color: candidate?.status === 'Shortlisted' ? 'var(--success)' :
-                                candidate?.status === 'Rejected' ? 'var(--error)' :
-                                    candidate?.status === 'Slot_Booked' ? '#8B5CF6' :
-                                    candidate?.status === 'Round_2_Completed' ? '#22c55e' : 'var(--primary)',
+                            backgroundColor: getStatusBackgroundColor(candidate?.status || ''),
+                            color: getStatusColor(candidate?.status || ''),
                             fontWeight: 'bold'
                         }}>
-                            {candidate?.status === 'Round_2_Completed' ? 'Round 2 Completed' : candidate?.status}
+                            {formatCandidateStatus(candidate?.status || '')}
                         </span>
                     </div>
 
@@ -350,8 +345,8 @@ const CandidateHome: React.FC = () => {
                                 style={{ width: '100%', opacity: 0.5, border: '1px solid var(--border-color)' }}
                             >
                                 {candidate?.status === 'Interviewed' ? 'Evaluation in Progress' :
-                                    candidate?.status === 'Slot_Booked' ? 'Slot Booked' : 
-                                    candidate?.status === 'Round_2_Completed' ? 'Interview Completed' : 'No Active Session'}
+                                    candidate?.status === 'Slot_Booked' ? 'Slot Booked' :
+                                        candidate?.status === 'Round_2_Completed' ? 'Interview Completed' : 'No Active Session'}
                             </button>
                         )}
                     </div>
@@ -366,44 +361,46 @@ const CandidateHome: React.FC = () => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
                                 <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Round 2: Live Technical Interview</h3>
-                                <p style={{ color: 'var(--text-secondary)', marginBottom: 0 }}>You have cleared Round 1! Please book a slot for your live interaction with an interviewer.</p>
+                                <p style={{ color: 'var(--text-secondary)', marginBottom: 0 }}>
+                                    {availableSlots.length > 0
+                                        ? 'You have cleared Round 1! Please book a slot for your live interaction'
+                                        : 'You have cleared Round 1! Please wait for update from Recruiter for Round 2.'}
+                                </p>
                             </div>
-                            <button className="btn btn-primary" onClick={() => setBookingMode(!bookingMode)}>
-                                {bookingMode ? 'Close Slots' : 'Book a Slot'}
-                            </button>
+                            {availableSlots.length > 0 && (
+                                <button className="btn btn-primary" onClick={() => setBookingMode(!bookingMode)}>
+                                    {bookingMode ? 'Close Slots' : 'Book a Slot'}
+                                </button>
+                            )}
                         </div>
 
-                        {bookingMode && (
+                        {bookingMode && availableSlots.length > 0 && (
                             <div style={{ marginTop: '1.5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-                                {availableSlots.length > 0 ? (
-                                    availableSlots.map(slot => (
-                                        <div key={slot._id} style={{
-                                            padding: '1rem',
-                                            background: 'var(--bg-secondary)',
-                                            borderRadius: '0.75rem',
-                                            border: '1px solid var(--border-color)',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '0.5rem'
-                                        }}>
-                                            <div style={{ fontWeight: 'bold', fontSize: '0.875rem' }}>{new Date(slot.startTime).toLocaleDateString()}</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                                {new Date(slot.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} -
-                                                {new Date(slot.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </div>
-                                            <div style={{ fontSize: '0.75rem' }}>Interviewer: {slot.interviewerId.name}</div>
-                                            <button
-                                                className="btn btn-primary"
-                                                style={{ padding: '0.4rem', fontSize: '0.75rem', marginTop: '0.5rem' }}
-                                                onClick={() => handleBookSlot(slot._id)}
-                                            >
-                                                Select Slot
-                                            </button>
+                                {availableSlots.map(slot => (
+                                    <div key={slot._id} style={{
+                                        padding: '1rem',
+                                        background: 'var(--bg-secondary)',
+                                        borderRadius: '0.75rem',
+                                        border: '1px solid var(--border-color)',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '0.5rem'
+                                    }}>
+                                        <div style={{ fontWeight: 'bold', fontSize: '0.875rem' }}>{new Date(slot.startTime).toLocaleDateString()}</div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                            {new Date(slot.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} -
+                                            {new Date(slot.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </div>
-                                    ))
-                                ) : (
-                                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>No slots available at the moment. Please check back later.</p>
-                                )}
+                                        <div style={{ fontSize: '0.75rem' }}>Interviewer: {slot.interviewerId.name}</div>
+                                        <button
+                                            className="btn btn-primary"
+                                            style={{ padding: '0.4rem', fontSize: '0.75rem', marginTop: '0.5rem' }}
+                                            onClick={() => handleBookSlot(slot._id)}
+                                        >
+                                            Select Slot
+                                        </button>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>
@@ -439,17 +436,17 @@ const CandidateHome: React.FC = () => {
                                     ]}>
                                         <PolarGrid stroke="var(--border-color)" />
                                         <PolarAngleAxis dataKey="metric" tick={{ fill: 'var(--text-secondary)', fontSize: '0.75rem' }} />
-                                        <PolarRadiusAxis 
-                                            angle={90} 
-                                            domain={[0, 5]} 
+                                        <PolarRadiusAxis
+                                            angle={90}
+                                            domain={[0, 5]}
                                             tickCount={6}
                                             tick={{ fill: 'var(--text-secondary)', fontSize: '0.75rem' }}
                                         />
-                                        <Radar 
-                                            name="Performance" 
-                                            dataKey="value" 
-                                            stroke="var(--primary)" 
-                                            fill="var(--primary)" 
+                                        <Radar
+                                            name="Performance"
+                                            dataKey="value"
+                                            stroke="var(--primary)"
+                                            fill="var(--primary)"
                                             fillOpacity={0.6}
                                             strokeWidth={2}
                                         />
@@ -473,27 +470,27 @@ const CandidateHome: React.FC = () => {
                                         { name: 'Honesty', score: candidate.evaluationMetrics.honesty }
                                     ]}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                                        <XAxis 
-                                            dataKey="name" 
+                                        <XAxis
+                                            dataKey="name"
                                             tick={{ fill: 'var(--text-secondary)', fontSize: '0.75rem' }}
                                             angle={-45}
                                             textAnchor="end"
                                             height={60}
                                         />
-                                        <YAxis 
-                                            domain={[0, 5]} 
+                                        <YAxis
+                                            domain={[0, 5]}
                                             tick={{ fill: 'var(--text-secondary)', fontSize: '0.75rem' }}
                                         />
-                                        <Tooltip 
-                                            contentStyle={{ 
-                                                backgroundColor: 'var(--bg-primary)', 
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor: 'var(--bg-primary)',
                                                 border: '1px solid var(--border-color)',
                                                 borderRadius: '0.5rem'
                                             }}
                                             labelStyle={{ color: 'var(--text-primary)' }}
                                         />
-                                        <Bar 
-                                            dataKey="score" 
+                                        <Bar
+                                            dataKey="score"
                                             fill="var(--primary)"
                                             radius={[4, 4, 0, 0]}
                                         />
