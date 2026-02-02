@@ -14,6 +14,7 @@ export const API_ENDPOINTS = {
     FACE: {
         REGISTER: '/face/register',
         VERIFY: '/face/verify',
+        PROXY_CHECK: '/face/proxy-check',
         STATUS: (candidateId: string) => `/face/status/${candidateId}`,
         REPORT: (sessionId: string) => `/face/report/${sessionId}`,
         SCREENSHOT: '/face/screenshot',
@@ -57,6 +58,11 @@ export const API_ENDPOINTS = {
         AVAILABLE: '/slots/available',
         BOOK: (id: string) => `/slots/book/${id}`,
         FEEDBACK: (id: string) => `/slots/feedback/${id}`,
+    },
+    FRAUD: {
+        ALERTS: '/fraud/alerts',
+        ALERT_BY_ID: (id: string) => `/fraud/alerts/${id}`,
+        STATS: '/fraud/stats',
     },
     EMAIL_RESUME: {
         SCAN: '/email-resume/scan',

@@ -586,8 +586,9 @@ const InterviewPage: React.FC = () => {
 
             {/* Video Monitor Panel */}
             {interview && (
-                <FaceVerification 
-                    candidateId={typeof interview.candidateId === 'string' ? interview.candidateId : interview.candidateId._id} 
+                <FaceVerification
+                    candidateId={typeof interview.candidateId === 'string' ? interview.candidateId : interview.candidateId._id}
+                    interviewId={interview._id}
                 />
             )}
         </div>

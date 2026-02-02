@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Candidate = require('../models/Candidate');
 const FaceVerificationLog = require('../models/FaceVerificationLog');
+const FraudAlert = require('../models/FraudAlert');
 const Screenshot = require('../models/Screenshot');
 
 // Threshold for face matching (lower = more strict)
@@ -82,6 +83,41 @@ router.post('/register', async (req, res) => {
             ipAddress: req.ip,
             userAgent: req.get('User-Agent'),
         });
+
+        // Cross-candidate face matching (non-blocking)
+        (async () => {
+            try {
+                const otherCandidates = await Candidate.find({
+                    _id: { $ne: candidate._id },
+                    faceDescriptor: { $exists: true, $ne: [] }
+                }).select('name email phone faceDescriptor');
+
+                for (const other of otherCandidates) {
+                    if (!other.faceDescriptor || other.faceDescriptor.length !== 128) continue;
+                    const distance = euclideanDistance(descriptor, Array.from(other.faceDescriptor));
+                    if (distance < FACE_MATCH_THRESHOLD) {
+                        const differentContact = (candidate.email !== other.email) && (candidate.phone !== other.phone);
+                        const severity = differentContact ? 'critical' : 'high';
+
+                        await FraudAlert.create({
+                            candidateId: candidate._id,
+                            matchedCandidateId: other._id,
+                            alertType: 'face_match',
+                            severity,
+                            details: {
+                                faceDistance: Math.round(distance * 1000) / 1000,
+                                matchedName: other.name,
+                                matchedEmail: other.email,
+                                description: `Face matches ${other.name} (${other.email}) with distance ${Math.round(distance * 1000) / 1000}. ${differentContact ? 'Different contact info - possible duplicate identity.' : 'Partial contact match.'}`
+                            }
+                        });
+                        console.log(`FRAUD ALERT: Face match detected between ${candidate._id} and ${other._id} (distance: ${distance})`);
+                    }
+                }
+            } catch (err) {
+                console.error('Cross-face matching error (non-blocking):', err);
+            }
+        })();
 
         res.json({
             success: true,
@@ -320,6 +356,146 @@ router.get('/screenshot/:id', async (req, res) => {
     } catch (error) {
         console.error('Get screenshot error:', error);
         res.status(500).json({ error: 'Failed to get screenshot' });
+    }
+});
+
+// Proxy check during interview - compare live face against registered face
+router.post('/proxy-check', async (req, res) => {
+    try {
+        const { candidateId, descriptor, interviewId } = req.body;
+
+        if (!candidateId || !descriptor) {
+            return res.status(400).json({ error: 'candidateId and descriptor are required' });
+        }
+
+        if (!Array.isArray(descriptor) || descriptor.length !== 128) {
+            return res.status(400).json({ error: 'Invalid face descriptor' });
+        }
+
+        const candidate = await Candidate.findById(candidateId);
+        if (!candidate) {
+            return res.status(404).json({ error: 'Candidate not found' });
+        }
+
+        // Self-check: compare against registered face
+        if (candidate.faceDescriptor && candidate.faceDescriptor.length === 128) {
+            const selfDistance = euclideanDistance(descriptor, Array.from(candidate.faceDescriptor));
+
+            if (selfDistance < FACE_MATCH_THRESHOLD) {
+                // Face matches registered candidate - all good
+                await FaceVerificationLog.create({
+                    candidateId: candidate._id,
+                    interviewId,
+                    verificationType: 'verification',
+                    distance: selfDistance,
+                    verified: true,
+                    ipAddress: req.ip,
+                    userAgent: req.get('User-Agent'),
+                });
+
+                return res.json({
+                    status: 'ok',
+                    selfMatch: true,
+                    distance: Math.round(selfDistance * 1000) / 1000
+                });
+            }
+
+            // Self-check failed - scan all candidates for a proxy match
+            const allCandidates = await Candidate.find({
+                _id: { $ne: candidate._id },
+                faceDescriptor: { $exists: true, $ne: [] }
+            }).select('name email phone faceDescriptor');
+
+            let proxyMatch = null;
+            for (const other of allCandidates) {
+                if (!other.faceDescriptor || other.faceDescriptor.length !== 128) continue;
+                const dist = euclideanDistance(descriptor, Array.from(other.faceDescriptor));
+                if (dist < FACE_MATCH_THRESHOLD) {
+                    proxyMatch = { candidate: other, distance: dist };
+                    break;
+                }
+            }
+
+            if (proxyMatch) {
+                // Different person detected who matches another candidate
+                await FraudAlert.create({
+                    candidateId: candidate._id,
+                    matchedCandidateId: proxyMatch.candidate._id,
+                    interviewId,
+                    alertType: 'proxy_detected',
+                    severity: 'critical',
+                    details: {
+                        faceDistance: Math.round(proxyMatch.distance * 1000) / 1000,
+                        matchedName: proxyMatch.candidate.name,
+                        matchedEmail: proxyMatch.candidate.email,
+                        description: `Proxy detected during interview. Face matches ${proxyMatch.candidate.name} (${proxyMatch.candidate.email}) instead of registered candidate.`
+                    }
+                });
+
+                await FaceVerificationLog.create({
+                    candidateId: candidate._id,
+                    interviewId,
+                    verificationType: 'mismatch',
+                    distance: selfDistance,
+                    verified: false,
+                    ipAddress: req.ip,
+                    userAgent: req.get('User-Agent'),
+                });
+
+                console.log(`FRAUD ALERT: Proxy detected for candidate ${candidateId} - matches ${proxyMatch.candidate._id}`);
+
+                return res.json({
+                    status: 'proxy_detected',
+                    selfMatch: false,
+                    distance: Math.round(selfDistance * 1000) / 1000,
+                    matchedCandidate: proxyMatch.candidate.name
+                });
+            }
+
+            // No proxy match found - face inconsistency (rate-limit: 1 per 5 min)
+            const recentInconsistency = await FraudAlert.findOne({
+                candidateId: candidate._id,
+                interviewId,
+                alertType: 'face_inconsistency',
+                createdAt: { $gte: new Date(Date.now() - 5 * 60 * 1000) }
+            });
+
+            if (!recentInconsistency) {
+                await FraudAlert.create({
+                    candidateId: candidate._id,
+                    interviewId,
+                    alertType: 'face_inconsistency',
+                    severity: 'medium',
+                    details: {
+                        faceDistance: Math.round(selfDistance * 1000) / 1000,
+                        description: `Face does not match registered face (distance: ${Math.round(selfDistance * 1000) / 1000}). No other candidate match found.`
+                    }
+                });
+                console.log(`FRAUD ALERT: Face inconsistency for candidate ${candidateId}`);
+            }
+
+            await FaceVerificationLog.create({
+                candidateId: candidate._id,
+                interviewId,
+                verificationType: 'mismatch',
+                distance: selfDistance,
+                verified: false,
+                ipAddress: req.ip,
+                userAgent: req.get('User-Agent'),
+            });
+
+            return res.json({
+                status: 'face_inconsistency',
+                selfMatch: false,
+                distance: Math.round(selfDistance * 1000) / 1000
+            });
+        }
+
+        // No registered face - just log it
+        return res.json({ status: 'no_registered_face' });
+    } catch (error) {
+        console.error('Proxy check error:', error);
+        res.status(500).json({ error: 'Failed to perform proxy check' });
     }
 });
 

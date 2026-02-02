@@ -1,9 +1,33 @@
 const express = require('express');
 const router = express.Router();
 const Candidate = require('../models/Candidate');
+const FraudAlert = require('../models/FraudAlert');
 const multer = require('multer');
 const path = require('path');
 const auth = require('../middleware/auth');
+
+// Dice coefficient for name similarity
+function nameSimilarity(a, b) {
+    a = a.toLowerCase().trim();
+    b = b.toLowerCase().trim();
+    if (a === b) return 1;
+    if (a.length < 2 || b.length < 2) return 0;
+    const bigrams = (str) => {
+        const set = new Map();
+        for (let i = 0; i < str.length - 1; i++) {
+            const bi = str.substring(i, i + 2);
+            set.set(bi, (set.get(bi) || 0) + 1);
+        }
+        return set;
+    };
+    const aBi = bigrams(a);
+    const bBi = bigrams(b);
+    let intersection = 0;
+    for (const [bi, count] of aBi) {
+        if (bBi.has(bi)) intersection += Math.min(count, bBi.get(bi));
+    }
+    return (2 * intersection) / (a.length - 1 + b.length - 1);
+}
 
 // Configure Multer for resume uploads
 // Configure Multer for resume uploads (Disk Storage for persistence)
@@ -97,6 +121,62 @@ router.post('/', upload.single('resume'), auth, async (req, res) => {
         console.log('Saving candidate to DB...');
         const savedCandidate = await newCandidate.save();
         console.log('Candidate saved successfully:', savedCandidate._id);
+
+        // Non-blocking fraud detection after save
+        (async () => {
+            try {
+                // Check phone duplicates
+                if (phone) {
+                    const phoneDuplicates = await Candidate.find({
+                        phone: phone,
+                        _id: { $ne: savedCandidate._id }
+                    }).select('name email phone');
+
+                    for (const dup of phoneDuplicates) {
+                        await FraudAlert.create({
+                            candidateId: savedCandidate._id,
+                            matchedCandidateId: dup._id,
+                            alertType: 'duplicate_phone',
+                            severity: 'high',
+                            details: {
+                                phoneMatch: phone,
+                                matchedName: dup.name,
+                                matchedEmail: dup.email,
+                                description: `Same phone number "${phone}" used by ${dup.name} (${dup.email})`
+                            }
+                        });
+                        console.log(`FRAUD ALERT: Duplicate phone detected for candidate ${savedCandidate._id}`);
+                    }
+                }
+
+                // Check name similarity
+                const allCandidates = await Candidate.find({
+                    _id: { $ne: savedCandidate._id }
+                }).select('name email phone');
+
+                for (const other of allCandidates) {
+                    const similarity = nameSimilarity(name, other.name);
+                    if (similarity > 0.85) {
+                        await FraudAlert.create({
+                            candidateId: savedCandidate._id,
+                            matchedCandidateId: other._id,
+                            alertType: 'duplicate_name',
+                            severity: 'medium',
+                            details: {
+                                nameSimilarity: Math.round(similarity * 100) / 100,
+                                matchedName: other.name,
+                                matchedEmail: other.email,
+                                description: `Name "${name}" is ${Math.round(similarity * 100)}% similar to "${other.name}" (${other.email})`
+                            }
+                        });
+                        console.log(`FRAUD ALERT: Similar name detected for candidate ${savedCandidate._id}`);
+                    }
+                }
+            } catch (fraudErr) {
+                console.error('Fraud detection error (non-blocking):', fraudErr);
+            }
+        })();
+
         res.status(201).json(savedCandidate);
     } catch (error) {
         console.error('Candidate Creation Error:', error);

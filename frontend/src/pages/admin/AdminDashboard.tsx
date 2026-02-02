@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Plus, Users, BarChart, FileText, CheckCircle, X, Camera, ChevronLeft, ChevronRight, Shield, Star, Filter, Phone, Mail, File, ExternalLink, Settings, Clock, PieChart as PieChartIcon, TrendingUp, Send, Image as ImageIcon, Menu, Inbox, Play, Square, RefreshCw, AlertCircle, Trash2, Calendar } from 'lucide-react';
+import { Upload, Plus, Users, BarChart, FileText, CheckCircle, X, Camera, ChevronLeft, ChevronRight, Shield, Star, Filter, Phone, Mail, File, ExternalLink, Settings, Clock, PieChart as PieChartIcon, TrendingUp, Send, Image as ImageIcon, Menu, Inbox, Play, Square, RefreshCw, AlertCircle, Trash2, Calendar, AlertTriangle } from 'lucide-react';
+import FraudDetectionPanel from '../../components/FraudDetectionPanel';
 import ScreenshotViewerModal from '../../components/Modals/ScreenshotViewerModal';
 import { PieChart, Pie, BarChart as ReBarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import api from '../../services/api';
@@ -90,7 +91,7 @@ const AdminDashboard: React.FC = () => {
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
     const [filterReferred, setFilterReferred] = useState(false);
-    const [activeTab, setActiveTab] = useState<'candidates' | 'questions' | 'hr' | 'slots' | 'email-scanner'>('candidates');
+    const [activeTab, setActiveTab] = useState<'candidates' | 'questions' | 'hr' | 'slots' | 'email-scanner' | 'fraud-detection'>('candidates');
     const [questions, setQuestions] = useState<Question[]>([]);
     const [hrs, setHrs] = useState<User[]>([]);
     const [interviewers, setInterviewers] = useState<User[]>([]);
@@ -126,6 +127,54 @@ const AdminDashboard: React.FC = () => {
     const [emailLogsTotal, setEmailLogsTotal] = useState(0);
     const [emailLogsPage, setEmailLogsPage] = useState(1);
     const [scanLoading, setScanLoading] = useState(false);
+
+    // Fraud Detection state
+    const [fraudAlerts, setFraudAlerts] = useState<any[]>([]);
+    const [fraudStats, setFraudStats] = useState<any>({ total: 0, pending: 0, byType: {}, bySeverity: {} });
+    const [fraudTotal, setFraudTotal] = useState(0);
+    const [fraudPage, setFraudPage] = useState(1);
+
+    const fetchFraudAlerts = async (page = fraudPage) => {
+        try {
+            const res = await api.get(`${API_ENDPOINTS.FRAUD.ALERTS}?page=${page}&limit=20`);
+            setFraudAlerts(res.data.alerts || []);
+            setFraudTotal(res.data.total || 0);
+        } catch (err) {
+            console.error('Failed to fetch fraud alerts:', err);
+        }
+    };
+
+    const fetchFraudStats = async () => {
+        try {
+            const res = await api.get(API_ENDPOINTS.FRAUD.STATS);
+            setFraudStats(res.data);
+        } catch (err) {
+            console.error('Failed to fetch fraud stats:', err);
+        }
+    };
+
+    const handleUpdateFraudAlert = async (id: string, status: string, reviewNotes?: string) => {
+        try {
+            await api.patch(API_ENDPOINTS.FRAUD.ALERT_BY_ID(id), { status, reviewNotes });
+            showToast.success(status === 'confirmed_fraud' ? 'Fraud confirmed - candidate blocked' : `Alert ${status.replace('_', ' ')}`);
+            fetchFraudAlerts();
+            fetchFraudStats();
+        } catch (err: any) {
+            showToast.error(err.response?.data?.error || 'Failed to update alert');
+        }
+    };
+
+    const handleDeleteFraudAlert = async (id: string) => {
+        if (!window.confirm('Delete this fraud alert?')) return;
+        try {
+            await api.delete(API_ENDPOINTS.FRAUD.ALERT_BY_ID(id));
+            showToast.success('Alert deleted');
+            fetchFraudAlerts();
+            fetchFraudStats();
+        } catch (err: any) {
+            showToast.error(err.response?.data?.error || 'Failed to delete alert');
+        }
+    };
 
     const fetchEmailScannerStatus = async () => {
         try {
@@ -230,6 +279,20 @@ const AdminDashboard: React.FC = () => {
             return () => clearInterval(interval);
         }
     }, [activeTab]);
+
+    // Fetch fraud data when tab activates
+    useEffect(() => {
+        if (activeTab === 'fraud-detection') {
+            fetchFraudAlerts(1);
+            fetchFraudStats();
+            setFraudPage(1);
+        }
+    }, [activeTab]);
+
+    // Also fetch fraud stats on mount for badge count
+    useEffect(() => {
+        fetchFraudStats();
+    }, []);
 
     const CHART_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899', '#14B8A6', '#F97316', '#6B7280'];
 
@@ -519,6 +582,43 @@ const AdminDashboard: React.FC = () => {
                     >
                         <Inbox size={20} /> Email Scanner
                     </button>
+
+                    <button
+                        onClick={() => { setActiveTab('fraud-detection'); setSidebarOpen(false); }}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.75rem',
+                            padding: '0.75rem 1rem',
+                            borderRadius: '0.5rem',
+                            border: 'none',
+                            background: activeTab === 'fraud-detection' ? 'rgba(220, 38, 38, 0.1)' : 'transparent',
+                            color: activeTab === 'fraud-detection' ? '#DC2626' : 'var(--text-secondary)',
+                            fontWeight: activeTab === 'fraud-detection' ? '600' : '500',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            width: '100%',
+                            transition: 'all 0.2s',
+                            position: 'relative'
+                        }}
+                    >
+                        <AlertTriangle size={20} /> Fraud Detection
+                        {fraudStats.pending > 0 && (
+                            <span style={{
+                                marginLeft: 'auto',
+                                background: '#DC2626',
+                                color: 'white',
+                                fontSize: '0.7rem',
+                                fontWeight: '700',
+                                padding: '0.1rem 0.4rem',
+                                borderRadius: '9999px',
+                                minWidth: '1.2rem',
+                                textAlign: 'center'
+                            }}>
+                                {fraudStats.pending}
+                            </span>
+                        )}
+                    </button>
                 </nav>
 
                 <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
@@ -558,13 +658,15 @@ const AdminDashboard: React.FC = () => {
                                 {activeTab === 'candidates' ? 'Candidates Oversight' :
                                     activeTab === 'questions' ? 'Questions Bank' :
                                         activeTab === 'hr' ? 'Team Management' :
-                                            activeTab === 'email-scanner' ? 'Email Resume Scanner' : 'Interview Scheduling'}
+                                            activeTab === 'email-scanner' ? 'Email Resume Scanner' :
+                                                activeTab === 'fraud-detection' ? 'Fraud Detection' : 'Interview Scheduling'}
                             </h1>
                             <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
                                 {activeTab === 'candidates' ? 'Track and manage candidate progress and referrals.' :
                                     activeTab === 'questions' ? 'Manage your library of technical and conceptual questions.' :
                                         activeTab === 'hr' ? 'Add or remove HR team members and manage access.' :
-                                            activeTab === 'email-scanner' ? 'Auto-detect resumes from email and create candidate entries.' : 'Coordinate and schedule technical interaction slots.'}
+                                            activeTab === 'email-scanner' ? 'Auto-detect resumes from email and create candidate entries.' :
+                                                activeTab === 'fraud-detection' ? 'Monitor duplicate applications, face matches, and proxy interview attempts.' : 'Coordinate and schedule technical interaction slots.'}
                             </p>
                         </div>
                     </div>
@@ -1142,6 +1244,17 @@ const AdminDashboard: React.FC = () => {
                                 )}
                             </div>
                         </div>
+                    ) : activeTab === 'fraud-detection' ? (
+                        <FraudDetectionPanel
+                            alerts={fraudAlerts}
+                            stats={fraudStats}
+                            totalAlerts={fraudTotal}
+                            page={fraudPage}
+                            onPageChange={(p) => { setFraudPage(p); fetchFraudAlerts(p); }}
+                            onRefresh={() => { fetchFraudAlerts(fraudPage); fetchFraudStats(); }}
+                            onUpdateAlert={handleUpdateFraudAlert}
+                            onDeleteAlert={handleDeleteFraudAlert}
+                        />
                     ) : null}
                 </div>
             </div>

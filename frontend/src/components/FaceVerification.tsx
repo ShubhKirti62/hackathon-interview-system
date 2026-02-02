@@ -1,24 +1,30 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Video, Monitor } from 'lucide-react';
+import { Video, Monitor, Shield, AlertTriangle } from 'lucide-react';
+import * as faceapi from 'face-api.js';
 import api from '../services/api';
 import { API_ENDPOINTS } from '../services/endpoints';
 import { useFaceVerification } from '../context/FaceVerificationContext';
 
 interface FaceVerificationProps {
     candidateId: string;
-    // status callbacks can be added if needed
+    interviewId?: string;
 }
 
-const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
+const PROXY_CHECK_INTERVAL = 90000; // 90 seconds
+
+const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId, interviewId }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const screenStreamRef = useRef<MediaStream | null>(null);
     const cameraStreamRef = useRef<MediaStream | null>(null);
+    const proxyIntervalRef = useRef<number | null>(null);
+    const modelsLoadedRef = useRef(false);
     const { setScreenSharing } = useFaceVerification();
-    
+
     // Status states
     const [cameraStatus, setCameraStatus] = useState<'loading' | 'active' | 'error'>('loading');
     const [screenStatus, setScreenStatus] = useState<'idle' | 'active' | 'error'>('idle');
     const [message, setMessage] = useState('Initializing Proctoring...');
+    const [proxyStatus, setProxyStatus] = useState<'idle' | 'ok' | 'warning' | 'critical'>('idle');
 
     // Drag logic
     const panelRef = useRef<HTMLDivElement>(null);
@@ -61,6 +67,61 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
         ? { left: pos.x, top: pos.y, bottom: 'auto', right: 'auto' }
         : {};
 
+    // Load face-api models for proxy checking
+    const loadFaceModels = async () => {
+        if (modelsLoadedRef.current) return true;
+        try {
+            const MODEL_URL = '/models';
+            await Promise.all([
+                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+            ]);
+            modelsLoadedRef.current = true;
+            return true;
+        } catch (err) {
+            console.error('Failed to load face-api models for proxy check:', err);
+            return false;
+        }
+    };
+
+    // Perform a proxy check by extracting descriptor from video and sending to backend
+    const performProxyCheck = async () => {
+        try {
+            if (!videoRef.current || !modelsLoadedRef.current) return;
+            if (videoRef.current.readyState < 2 || videoRef.current.videoWidth === 0) return;
+
+            const detection = await faceapi
+                .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
+                .withFaceLandmarks()
+                .withFaceDescriptor();
+
+            if (!detection) {
+                // No face detected - skip this check
+                return;
+            }
+
+            const descriptor = Array.from(detection.descriptor);
+
+            const res = await api.post(API_ENDPOINTS.FACE.PROXY_CHECK, {
+                candidateId,
+                descriptor,
+                interviewId,
+            });
+
+            const { status } = res.data;
+            if (status === 'ok') {
+                setProxyStatus('ok');
+            } else if (status === 'face_inconsistency') {
+                setProxyStatus('warning');
+            } else if (status === 'proxy_detected') {
+                setProxyStatus('critical');
+            }
+        } catch (err) {
+            console.error('Proxy check error:', err);
+        }
+    };
+
     // 1. Start Camera (Mandatory)
     useEffect(() => {
         const startCamera = async () => {
@@ -68,9 +129,9 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
                 });
-                
+
                 cameraStreamRef.current = stream;
-                
+
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
                     videoRef.current.onloadedmetadata = () => {
@@ -78,6 +139,14 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
                     };
                 }
                 setCameraStatus('active');
+
+                // Load face-api models and start proxy check interval
+                const modelsOk = await loadFaceModels();
+                if (modelsOk) {
+                    // Delay first check to let video stabilize
+                    setTimeout(() => performProxyCheck(), 10000);
+                    proxyIntervalRef.current = window.setInterval(performProxyCheck, PROXY_CHECK_INTERVAL);
+                }
             } catch (err) {
                 console.error('Camera error', err);
                 setCameraStatus('error');
@@ -86,10 +155,14 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
         };
 
         startCamera();
-        
+
         return () => {
             if (cameraStreamRef.current) {
                 cameraStreamRef.current.getTracks().forEach(track => track.stop());
+            }
+            if (proxyIntervalRef.current) {
+                clearInterval(proxyIntervalRef.current);
+                proxyIntervalRef.current = null;
             }
         };
     }, []);
@@ -106,19 +179,19 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
     const startScreenShare = async () => {
         try {
             const stream = await navigator.mediaDevices.getDisplayMedia({
-                video: { 
+                video: {
                     displaySurface: 'monitor'
                 },
                 audio: false
             });
-            
+
             screenStreamRef.current = stream;
             setScreenStatus('active');
             setMessage('Monitoring Active: Camera & Screen');
-            
+
             // Update global screen sharing status
             setScreenSharing(true);
-            
+
             // Handle user stopping share
             stream.getVideoTracks()[0].onended = () => {
                 setScreenStatus('idle');
@@ -140,13 +213,10 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
     const captureScreenshot = async (type: 'screen' | 'video' = 'screen') => {
         try {
             let stream = type === 'screen' ? screenStreamRef.current : cameraStreamRef.current;
-            
-            // Fallback: Use camera if screen not available (or vice versa? User said "Screen recording should be random")
-            // Strict mode: If type is screen and no stream, skip or error.
+
             if (type === 'screen' && (!stream || !stream.active)) return;
             if (type === 'video' && (!videoRef.current)) return;
 
-            // Capture logic
             const videoTrack = stream?.getVideoTracks()[0];
             if (!videoTrack) return;
 
@@ -154,14 +224,9 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
             const { width, height } = videoTrack.getSettings();
             captureCanvas.width = width || 1920;
             captureCanvas.height = height || 1080;
-            
+
             const ctx = captureCanvas.getContext('2d');
             if (ctx) {
-                // For screen, we need to grab the frame from a video element or ImageCapture
-                // Since MediaStreamTrackProcessor is complex, easiest way is to use a temp video element
-                // BUT for Camera, we have videoRef. For Screen, we should probably pipe it to a hidden video or use ImageCapture.
-                // Simplified: use videoRef for camera. For screen, creating a temp video element is standard pattern.
-                
                 if (type === 'video' && videoRef.current) {
                     ctx.drawImage(videoRef.current, 0, 0);
                 } else if (type === 'screen' && stream) {
@@ -170,14 +235,12 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
                     tempVideo.muted = true;
                     await tempVideo.play();
                     ctx.drawImage(tempVideo, 0, 0);
-                    // Cleanup temp video
                     tempVideo.pause();
                     tempVideo.srcObject = null;
                 }
 
                 const image = captureCanvas.toDataURL('image/png');
 
-                // Send to backend
                 await api.post(API_ENDPOINTS.FACE.SCREENSHOT, {
                     candidateId,
                     image,
@@ -191,15 +254,12 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
     };
 
     const scheduleNextScreenshot = () => {
-        // Fixed 1 minute interval
-        const delay = 60000; 
+        const delay = 60000;
 
         setTimeout(async () => {
-            // Check if active
             if (screenStreamRef.current?.active) {
-                // Ensure we capture valid evidence
                 await captureScreenshot('screen');
-                scheduleNextScreenshot(); 
+                scheduleNextScreenshot();
             }
         }, delay);
     };
@@ -213,6 +273,37 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
             }
         };
     }, []);
+
+    // Proxy status indicator
+    const getProxyIndicator = () => {
+        if (proxyStatus === 'idle') return null;
+
+        const colors: Record<string, { bg: string; border: string; icon: React.ReactNode }> = {
+            ok: { bg: '#10B981', border: '#059669', icon: <Shield size={10} /> },
+            warning: { bg: '#F59E0B', border: '#D97706', icon: <AlertTriangle size={10} /> },
+            critical: { bg: '#EF4444', border: '#DC2626', icon: <AlertTriangle size={10} /> },
+        };
+
+        const c = colors[proxyStatus];
+        if (!c) return null;
+
+        return (
+            <div style={{
+                position: 'absolute', top: '4px', right: '4px',
+                width: '20px', height: '20px', borderRadius: '50%',
+                backgroundColor: c.bg, border: `2px solid ${c.border}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'white', zIndex: 10,
+                animation: proxyStatus === 'critical' ? 'pulse 1s infinite' : undefined
+            }} title={
+                proxyStatus === 'ok' ? 'Identity verified' :
+                proxyStatus === 'warning' ? 'Face inconsistency detected' :
+                'Proxy detected!'
+            }>
+                {c.icon}
+            </div>
+        );
+    };
 
     // Render Setup State if Screen not shared or Camera not active
     if (screenStatus !== 'active' || cameraStatus !== 'active') {
@@ -229,20 +320,20 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
                 <div style={{ fontSize: '0.8rem', marginBottom: '1rem' }}>
                     Screen sharing and Camera are mandatory for this test.
                 </div>
-                
+
                 {/* Camera Preview Small */}
                 <div style={{ width: '100px', height: '75px', margin: '0 auto 1rem', background: '#000', borderRadius: '4px', overflow: 'hidden', border: cameraStatus === 'error' ? '2px solid var(--error)' : 'none' }}>
                     <video ref={videoRef} autoPlay muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 </div>
-                
+
                 {cameraStatus === 'error' && (
                      <div style={{ color: 'var(--error)', fontSize: '0.75rem', marginBottom: '1rem' }}>
                          Camera access denied or failed. Please check permissions.
                      </div>
                 )}
 
-                <button 
-                    className="btn btn-primary" 
+                <button
+                    className="btn btn-primary"
                     onClick={startScreenShare}
                     style={{ fontSize: '0.9rem', width: '100%' }}
                 >
@@ -259,26 +350,28 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
             width: '240px', background: 'var(--bg-secondary)',
             borderRadius: '0.5rem', overflow: 'hidden',
             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-            border: '1px solid var(--success)',
+            border: proxyStatus === 'critical' ? '2px solid #EF4444' : proxyStatus === 'warning' ? '1px solid #F59E0B' : '1px solid var(--success)',
             zIndex: 1000, ...posStyle
         }}>
             <div {...dragProps} style={{
-                padding: '0.5rem', background: 'var(--success)',
+                padding: '0.5rem',
+                background: proxyStatus === 'critical' ? '#EF4444' : proxyStatus === 'warning' ? '#F59E0B' : 'var(--success)',
                 color: 'white',
                 display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', fontWeight: 'bold',
                 cursor: 'grab', userSelect: 'none'
             }}>
-                <Video size={16} /> 
-                Proctoring Active
+                <Video size={16} />
+                {proxyStatus === 'critical' ? 'Identity Alert!' : proxyStatus === 'warning' ? 'Verification Warning' : 'Proctoring Active'}
             </div>
-            
+
             <div style={{ position: 'relative', width: '100%', aspectRatio: '4/3', background: 'black' }}>
-                <video 
-                    ref={videoRef} 
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                    playsInline 
-                    muted 
+                <video
+                    ref={videoRef}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    playsInline
+                    muted
                 />
+                {getProxyIndicator()}
             </div>
 
             <div style={{ padding: '0.5rem', fontSize: '0.75rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
@@ -289,5 +382,3 @@ const FaceVerification: React.FC<FaceVerificationProps> = ({ candidateId }) => {
 };
 
 export default FaceVerification;
-
-
