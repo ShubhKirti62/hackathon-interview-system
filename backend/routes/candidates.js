@@ -29,22 +29,13 @@ function nameSimilarity(a, b) {
     return (2 * intersection) / (a.length - 1 + b.length - 1);
 }
 
-// Configure Multer for resume uploads
-// Configure Multer for resume uploads (Disk Storage for persistence)
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'uploads/resumes');
-    },
-    filename: function (req, file, cb) {
-        cb(null, Date.now() + '-' + file.originalname);
-    }
-});
-
-// Configure Multer for memory storage (for direct parsing without saving)
-const memoryStorage = multer.memoryStorage();
-const uploadMemory = multer({ storage: memoryStorage });
-
+// Configure Multer for memory storage (standard for GridFS uploads)
+const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
+const uploadMemory = upload; // For consistency with previous names
+
+const { uploadFile, getBucket } = require('../utils/gridfs');
+const { ObjectId } = require('mongodb');
 
 const { parseResume } = require('../utils/resumeParser');
 
@@ -96,7 +87,11 @@ router.post('/', upload.single('resume'), auth, async (req, res) => {
         let finalResumeUrl = existingResumePath || '';
 
         if (req.file) {
-            finalResumeUrl = req.file.path;
+            finalResumeUrl = await uploadFile(req.file.buffer, req.file.originalname, req.file.mimetype);
+        } else if (existingResumePath && existingResumePath.includes('uploads/resumes')) {
+            // Migration handling: if it was a local file, we might want to keep the link for now
+            // or we just let it be. For new ones, it will be GridFS.
+            finalResumeUrl = existingResumePath;
         }
 
         // Validate required fields explicitly for debugging
@@ -113,7 +108,7 @@ router.post('/', upload.single('resume'), auth, async (req, res) => {
             resumeText: resumeText || '',
             experienceLevel,
             domain,
-            internalReferred: internalReferred === 'true',
+            internalReferred: internalReferred === 'true' || internalReferred === true,
             handledBy: req.user.id, // Set to current admin user
             handledAt: new Date()
         });
@@ -212,23 +207,67 @@ router.get('/:id', auth, async (req, res) => {
     }
 });
 
+// Get Resume from GridFS
+router.get('/resume/:id', async (req, res) => {
+    try {
+        const bucket = getBucket();
+        if (!bucket) return res.status(500).json({ error: 'Database bucket not initialized' });
+
+        const fileId = new ObjectId(req.params.id);
+        const files = await bucket.find({ _id: fileId }).toArray();
+
+        if (!files || files.length === 0) {
+            return res.status(404).json({ error: 'Resume file not found' });
+        }
+
+        const file = files[0];
+        res.set('Content-Type', file.contentType || 'application/pdf');
+        res.set('Content-Disposition', `inline; filename="${file.filename}"`);
+
+        const downloadStream = bucket.openDownloadStream(fileId);
+        downloadStream.pipe(res);
+    } catch (error) {
+        console.error('Error fetching resume from GridFS:', error);
+        res.status(500).json({ error: 'Failed to retrieve resume' });
+    }
+});
+
 // Update Candidate Status (Shortlist/Reject)
 router.patch('/:id/status', auth, async (req, res) => {
     try {
         const { status, remarks } = req.body;
-        if (!['Shortlisted', 'Rejected', 'Pending', 'Interviewed'].includes(status)) {
-            return res.status(400).json({ error: 'Invalid status' });
+        if (!status) return res.status(400).json({ error: 'Status is required' });
+
+        // Normalize status: "Profile Submitted" -> "profile_submitted"
+        const normalizedStatus = status.toLowerCase().replace(/\s+/g, '_');
+
+        // Allowed statuses from Candidate model enum
+        const allowedStatuses = [
+            'profile_submitted',
+            'interview_1st_round_pending',
+            '1st_round_completed',
+            '2nd_round_qualified',
+            'rejected',
+            'blocked',
+            'slot_booked',
+            'interviewed',
+            'round_2_completed',
+            'offer_letter_sent'
+        ];
+
+        if (!allowedStatuses.includes(normalizedStatus)) {
+            return res.status(400).json({ error: `Invalid status: ${status}. Must be one of: ${allowedStatuses.join(', ')}` });
         }
 
         const candidate = await Candidate.findByIdAndUpdate(
             req.params.id,
             {
-                status,
+                status: normalizedStatus,
                 remarks,
                 handledBy: req.user.id,
                 handledAt: new Date()
             },
-            { new: true }
+            { new: true, runValidators: true }
         ).populate('handledBy', 'name email role');
 
         if (!candidate) return res.status(404).json({ error: 'Candidate not found' });

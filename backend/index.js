@@ -45,17 +45,8 @@ app.get('/', (req, res) => {
     res.send('API is running...');
 });
 
-// Make uploads folder static to serve resume files
+// Make uploads folder static to serve any other static files if needed
 app.use('/uploads', express.static('uploads'));
-
-// Ensure uploads directory exists
-const fs = require('fs');
-const path = require('path');
-const uploadDir = path.join(__dirname, 'uploads', 'resumes');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-    console.log('Created uploads/resumes directory');
-}
 
 // Cleanup MCQ questions, HR users, and candidate handledBy references on server startup
 const Question = require('./models/Question');
@@ -70,7 +61,7 @@ async function cleanupMCQs() {
             const deleteResult = await Question.deleteMany({ type: 'MCQ' });
             console.log(`Deleted ${deleteResult.deletedCount} MCQ questions`);
         }
-        
+
         const descriptiveCount = await Question.countDocuments({ type: 'Descriptive' });
         console.log(`Remaining descriptive questions: ${descriptiveCount}`);
     } catch (error) {
@@ -114,7 +105,7 @@ async function cleanupCandidateHandledBy() {
         if (hrUsers.length > 0) {
             const hrUserIds = hrUsers.map(hr => hr._id);
             const candidatesHandledByHR = await Candidate.find({ handledBy: { $in: hrUserIds } });
-            
+
             if (candidatesHandledByHR.length > 0) {
                 await Candidate.updateMany(
                     { handledBy: { $in: hrUserIds } },
@@ -135,7 +126,7 @@ mongoose.connect(MONGO_URI)
         cleanupMCQs(); // Run cleanup after connecting
         cleanupHR(); // Run HR cleanup after connecting
         cleanupCandidateHandledBy(); // Run candidate handledBy cleanup after connecting
-        
+
         app.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
         });

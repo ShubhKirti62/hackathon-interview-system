@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Star, Mail, Phone, File, ExternalLink, Upload } from 'lucide-react';
+import { X, Star, Mail, Phone, File, ExternalLink, Upload, Video, Calendar, Copy } from 'lucide-react';
 import api from '../../../services/api';
 import { API_ENDPOINTS } from '../../../services/endpoints';
 import { showToast } from '../../../utils/toast';
@@ -13,14 +13,14 @@ export const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () =>
     const [activeTab, setActiveTab] = useState<'info' | 'resume' | 'status'>('info');
 
     const getNextPendingItem = (status: string) => {
-        switch (status) {
-            case 'Profile Submitted': return 'Send Invitation Mail';
-            case 'Interview 1st Round Pending': return 'Waiting for Interview Results';
-            case '1st Round Completed': return 'Result: Send 2nd Round Invitiation (Qualified) or Reject';
-            case '2nd Round Qualified': return 'Final Offer / Decision';
-            case 'Rejected': return 'None (Archived)';
-            default: return 'Unknown';
-        }
+        const s = status?.toLowerCase().replace(/_/g, ' ') || '';
+        if (s.includes('profile submitted')) return 'Send Invitation Mail';
+        if (s.includes('interview 1st round pending')) return 'Waiting for Interview Results';
+        if (s.includes('1st round completed')) return 'Result: Send 2nd Round Invitiation (Qualified) or Reject';
+        if (s.includes('2nd round qualified')) return 'Final Offer / Decision';
+        if (s.includes('rejected')) return 'None (Archived)';
+        if (s.includes('slot booked')) return 'Interview in Progress';
+        return 'Process Completed';
     };
 
     const handleStatusUpdate = async (newStatus: string) => {
@@ -47,8 +47,14 @@ export const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () =>
     const getResumeUrl = (path: string) => {
         if (!path) return '';
         if (path.startsWith('http')) return path;
-        const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000';
-        return `${baseUrl}/${path.replace(/\\/g, '/')}`;
+
+        // Use VITE_API_URL (which is http://localhost:5000/api) and remove /api
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+
+        // Ensure path doesn't have leading slash if baseUrl has trailing, though replace removes it
+        const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+        return `${baseUrl}/${cleanPath.replace(/\\/g, '/')}`;
     };
 
     return (
@@ -93,7 +99,9 @@ export const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () =>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
                                     <div><div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Domain</div><div style={{ fontWeight: '500' }}>{candidate.domain}</div></div>
                                     <div><div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Experience</div><div style={{ fontWeight: '500' }}>{candidate.experienceLevel}</div></div>
+                                    <div><div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Status</div><div style={{ fontWeight: '500' }}>{formatCandidateStatus(candidate.status)}</div></div>
                                 </div>
+
                                 <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Decision Remarks</h3>
                                 <textarea className="input" placeholder="Enter reason for approval or rejection..." value={remarks} onChange={(e) => setRemarks(e.target.value)} rows={4} disabled={candidate.status === '2nd_round_qualified' || candidate.status === 'rejected'} style={{ resize: 'none' }} />
                             </div>
@@ -104,6 +112,52 @@ export const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () =>
                                         <div style={{ padding: '1.5rem', backgroundColor: 'rgba(59, 130, 246, 0.05)', borderRadius: '1rem', border: '1px solid var(--primary)', textAlign: 'center', marginBottom: '1rem' }}>
                                             <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Overall AI Score</div>
                                             <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--primary)' }}>{candidate.overallScore}/5.0</div>
+                                        </div>
+                                    </>
+                                )}
+                                {candidate.interviewLink && (
+                                    <>
+                                        <h3 style={{ fontSize: '1rem', marginTop: '1.5rem', marginBottom: '1rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Scheduled Interview</h3>
+                                        <div className="card" style={{ padding: '1rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', marginBottom: '1.5rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                                                <div style={{ padding: '0.5rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: '0.5rem', color: 'var(--primary)' }}>
+                                                    <Calendar size={18} />
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Date & Time</div>
+                                                    <div style={{ fontSize: '0.9rem', fontWeight: '600' }}>
+                                                        {new Date(candidate.interviewDate!).toLocaleDateString()} at {candidate.interviewTime}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                <div style={{ padding: '0.5rem', backgroundColor: 'rgba(34, 197, 94, 0.1)', borderRadius: '0.5rem', color: 'var(--success)' }}>
+                                                    <Video size={18} />
+                                                </div>
+                                                <div style={{ flex: 1, overflow: 'hidden' }}>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Meeting Link</div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <a
+                                                            href={candidate.interviewLink}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            style={{ fontSize: '0.85rem', color: 'var(--primary)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', maxWidth: '180px' }}
+                                                        >
+                                                            {candidate.interviewLink}
+                                                        </a>
+                                                        <button
+                                                            onClick={() => {
+                                                                navigator.clipboard.writeText(candidate.interviewLink!);
+                                                                showToast.success('Link copied to clipboard');
+                                                            }}
+                                                            style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '0.25rem' }}
+                                                            title="Copy Link"
+                                                        >
+                                                            <Copy size={14} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </>
                                 )}
@@ -159,22 +213,22 @@ export const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () =>
                     }}>
                         {error && <div style={{ color: 'var(--error)', flex: 1, alignSelf: 'center' }}>{error}</div>}
 
-                        {candidate.status === 'Profile Submitted' && (
+                        {(candidate.status === 'Profile Submitted' || candidate.status === 'profile_submitted') && (
                             <button onClick={onInvite} className="btn" style={{ background: 'var(--primary)', border: 'none', color: 'white' }} disabled={loading}>
                                 {loading ? 'Processing...' : 'Send Invitation Mail'}
                             </button>
                         )}
 
-                        {candidate.status === 'Interview 1st Round Pending' && (
+                        {(candidate.status === 'Interview 1st Round Pending' || candidate.status === 'interview_1st_round_pending') && (
                             <div style={{ fontStyle: 'italic', color: 'var(--text-secondary)' }}>Waiting for interview results...</div>
                         )}
 
-                        {candidate.status === '1st Round Completed' && (
+                        {(candidate.status === '1st Round Completed' || candidate.status === '1st_round_completed') && (
                             <>
-                                <button onClick={() => handleStatusUpdate('2nd Round Qualified')} className="btn" style={{ background: 'var(--success)', border: 'none', color: 'white' }} disabled={loading}>
+                                <button onClick={() => handleStatusUpdate('2nd_round_qualified')} className="btn" style={{ background: 'var(--success)', border: 'none', color: 'white' }} disabled={loading}>
                                     {loading ? 'Processing...' : 'Send 2nd Round Invite'}
                                 </button>
-                                <button onClick={() => handleStatusUpdate('Rejected')} className="btn" style={{ background: 'var(--error)', border: 'none', color: 'white' }} disabled={loading}>
+                                <button onClick={() => handleStatusUpdate('rejected')} className="btn" style={{ background: 'var(--error)', border: 'none', color: 'white' }} disabled={loading}>
                                     {loading ? 'Processing...' : 'Reject'}
                                 </button>
                             </>
@@ -182,13 +236,13 @@ export const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () =>
 
                         {/* Pending fallbacks */}
                         {(candidate.status === 'Pending' || candidate.status === 'Shortlisted') && (
-                            <button onClick={() => handleStatusUpdate('Profile Submitted')} className="btn" style={{ background: 'var(--primary)', border: 'none', color: 'white' }} disabled={loading}>
+                            <button onClick={() => handleStatusUpdate('profile_submitted')} className="btn" style={{ background: 'var(--primary)', border: 'none', color: 'white' }} disabled={loading}>
                                 {loading ? 'Processing...' : 'Move to Profile Submitted'}
                             </button>
                         )}
 
-                        {(candidate.status === '2nd Round Qualified' || candidate.status === 'Rejected') && (
-                            <div style={{ color: candidate.status === '2nd Round Qualified' ? 'var(--success)' : 'var(--error)', fontWeight: 'bold' }}>Decision: {candidate.status}</div>
+                        {(candidate.status === '2nd_round_qualified' || candidate.status === '2nd Round Qualified' || candidate.status === 'Rejected' || candidate.status === 'rejected') && (
+                            <div style={{ color: (candidate.status === '2nd_round_qualified' || candidate.status === '2nd Round Qualified') ? 'var(--success)' : 'var(--error)', fontWeight: 'bold' }}>Decision: {candidate.status}</div>
                         )}
                     </div>
                 )}

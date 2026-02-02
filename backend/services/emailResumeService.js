@@ -4,6 +4,7 @@ const fs = require('fs');
 const { parseResume } = require('../utils/resumeParser');
 const Candidate = require('../models/Candidate');
 const EmailResumeLog = require('../models/EmailResumeLog');
+const { uploadFile } = require('../utils/gridfs');
 
 const SCAN_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -140,14 +141,8 @@ async function scanInbox() {
                             continue;
                         }
 
-                        // Save resume file
-                        const uploadsDir = path.join(__dirname, '..', 'uploads', 'resumes');
-                        if (!fs.existsSync(uploadsDir)) {
-                            fs.mkdirSync(uploadsDir, { recursive: true });
-                        }
-                        const safeFilename = `${Date.now()}-${attachment.filename.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-                        const filePath = path.join(uploadsDir, safeFilename);
-                        fs.writeFileSync(filePath, buffer);
+                        // Save resume file to GridFS
+                        const resumeUrl = await uploadFile(buffer, attachment.filename, mimetype);
 
                         // Create candidate
                         const candidate = await Candidate.create({
@@ -156,7 +151,7 @@ async function scanInbox() {
                             phone: parsed.phone || '',
                             domain: parsed.domain || 'Full Stack',
                             experienceLevel: parsed.experienceLevel || 'Fresher/Intern',
-                            resumeUrl: `/uploads/resumes/${safeFilename}`,
+                            resumeUrl: resumeUrl,
                             resumeText: parsed.resumeText || '',
                             status: 'profile_submitted'
                         });

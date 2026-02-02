@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Send, CheckCircle, FileText } from 'lucide-react';
+import { X, Send, CheckCircle } from 'lucide-react';
 import api from '../../../services/api';
 import { API_ENDPOINTS } from '../../../services/endpoints';
+import { APP_ROUTES } from '../../../routes';
 import { showToast } from '../../../utils/toast';
 import { validateTimeRange, restrictDateTimeInput, getRestrictedTimeMessage, validateTimeString, restrictTimeInput, validateDateForWorkingHours, restrictDateInput, getRestrictedDateMessage } from '../../../utils/timeValidation';
 import type { Candidate, User } from '../../../pages/admin/types';
@@ -154,7 +155,7 @@ export const SendInviteModal: React.FC<{
 
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [time, setTime] = useState('10:00');
-    const [link, setLink] = useState('https://meet.google.com/xyz-abc-def');
+    const [link, setLink] = useState(window.location.origin + APP_ROUTES.INTERVIEW.MEETING.replace(':id', candidate._id));
     const [message, setMessage] = useState('');
 
     const handleSend = async (e: React.FormEvent) => {
@@ -185,11 +186,29 @@ export const SendInviteModal: React.FC<{
 
     if (success) {
         return (
-            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
-                <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '1rem', textAlign: 'center' }}>
-                    <div style={{ color: 'var(--success)', fontSize: '3rem', marginBottom: '1rem' }}><CheckCircle /></div>
-                    <h3>Invitation Sent!</h3>
-                    <p>Candidate has been notified and status updated.</p>
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, backdropFilter: 'blur(4px)' }}>
+                <div className="card" style={{
+                    padding: '3rem',
+                    borderRadius: '1.5rem',
+                    textAlign: 'center',
+                    maxWidth: '400px',
+                    width: '90%',
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1)'
+                }}>
+                    <div style={{
+                        color: 'var(--success)',
+                        marginBottom: '1.5rem',
+                        display: 'flex',
+                        justifyContent: 'center'
+                    }}>
+                        <CheckCircle size={64} strokeWidth={1.5} />
+                    </div>
+                    <h3 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', marginBottom: '0.75rem' }}>Invitation Sent!</h3>
+                    <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6', margin: 0 }}>
+                        The candidate has been notified via email and their status has been updated.
+                    </p>
                 </div>
             </div>
         );
@@ -231,7 +250,7 @@ export const SendInviteModal: React.FC<{
 
                     <div>
                         <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Meeting Link</label>
-                        <input type="url" className="input" placeholder="https://meet.google.com/..." required value={link} onChange={e => setLink(e.target.value)} />
+                        <input type="url" className="input" placeholder="http://your-domain.com/interview/meeting/..." required value={link} onChange={e => setLink(e.target.value)} />
                     </div>
 
                     <div>

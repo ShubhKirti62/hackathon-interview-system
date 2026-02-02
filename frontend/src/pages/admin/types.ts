@@ -18,6 +18,9 @@ export interface Candidate {
     overallScore?: number;
     blocked?: boolean;
     createdBy?: string;
+    interviewLink?: string;
+    interviewDate?: string;
+    interviewTime?: string;
 }
 
 export interface Setting {

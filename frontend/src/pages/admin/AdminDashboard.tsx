@@ -233,13 +233,28 @@ const AdminDashboard: React.FC = () => {
         if (activeTab === 'email-scanner') {
             fetchEmailScannerStatus();
             fetchEmailLogs(1);
+
             const interval = setInterval(() => {
-                fetchEmailScannerStatus();
-                fetchEmailLogs();
-            }, 10000);
+                // If it's already scanning, we want frequent updates
+                // If auto-scan is running, we wait for results
+                // If nothing is happening, we don't need to poll aggressively
+                const isScanning = emailScanner.status.isScanning;
+                const isRunning = emailScanner.status.isRunning;
+
+                if (isScanning) {
+                    // Fast polling (5s) ONLY while a scan is actively processing emails
+                    fetchEmailScannerStatus();
+                    fetchEmailLogs();
+                } else if (isRunning) {
+                    // Slow polling (1 min) just to check for new auto-scan results
+                    fetchEmailScannerStatus();
+                    fetchEmailLogs();
+                }
+            }, emailScanner.status.isScanning ? 5000 : 60000);
+
             return () => clearInterval(interval);
         }
-    }, [activeTab]);
+    }, [activeTab, emailScanner.status.isScanning, emailScanner.status.isRunning]);
 
     useEffect(() => {
         if (activeTab === 'fraud-detection') {
@@ -461,7 +476,7 @@ const AdminDashboard: React.FC = () => {
                 showToast.success('Auto-scan stopped');
             } else {
                 await api.post(API_ENDPOINTS.EMAIL_RESUME.START);
-                showToast.success('Auto-scan started');
+                showToast.success('Auto-scan started. Scanning every 5 minutes.');
             }
             fetchEmailScannerStatus();
         } catch (err) {

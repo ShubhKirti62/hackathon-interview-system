@@ -21,17 +21,20 @@ router.post('/send', async (req, res) => {
 
         // Send Email
         await sendInterviewInvite(
-            candidate.email, 
-            candidate.name, 
-            interviewDate, 
-            interviewTime, 
-            meetingLink, 
+            candidate.email,
+            candidate.name,
+            interviewDate,
+            interviewTime,
+            meetingLink,
             message
         );
 
-        // Update Candidate Status
-        candidate.status = 'Interview 1st Round Pending';
-        // Optionally save the invite details if you had a field for it
+        // Update Candidate Status and Save Interview Details
+        candidate.status = 'interview_1st_round_pending';
+        candidate.interviewLink = meetingLink;
+        candidate.interviewDate = new Date(interviewDate);
+        candidate.interviewTime = interviewTime;
+
         await candidate.save();
 
         res.json({ msg: 'Invitation sent successfully and status updated' });

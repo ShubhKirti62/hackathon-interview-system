@@ -14,26 +14,26 @@ const CandidateSchema = new mongoose.Schema({
     domain: { type: String, required: true }, // e.g., 'Frontend', 'Backend'
     role: { type: String }, // specific role e.g., 'frontend_dev', 'sales' (business_analyst, marketing)
     internalReferred: { type: Boolean, default: false },
-    
+
     // Scoring Factors
     noticePeriod: { type: Number, default: 30 }, // Days
     communicationScore: { type: Number, default: 0 }, // 0-10 derived from interview
-    
-    status: { 
-        type: String, 
+
+    status: {
+        type: String,
         enum: [
-            'profile_submitted', 
-            'interview_1st_round_pending', 
-            '1st_round_completed', 
-            '2nd_round_qualified', 
+            'profile_submitted',
+            'interview_1st_round_pending',
+            '1st_round_completed',
+            '2nd_round_qualified',
             'rejected',
             'blocked',
             'slot_booked',
             'interviewed',
             'round_2_completed',
             'offer_letter_sent'
-        ], 
-        default: 'profile_submitted' 
+        ],
+        default: 'profile_submitted'
     },
 
     // Face Verification Data
@@ -58,7 +58,12 @@ const CandidateSchema = new mongoose.Schema({
     remarks: { type: String },
     blocked: { type: Boolean, default: false },
     blockedReason: { type: String },
-    blockedAt: { type: Date }
+    blockedAt: { type: Date },
+
+    // Interview Scheduling
+    interviewLink: { type: String },
+    interviewDate: { type: Date },
+    interviewTime: { type: String }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Candidate', CandidateSchema);
