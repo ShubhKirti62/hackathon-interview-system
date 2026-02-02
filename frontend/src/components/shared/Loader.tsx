@@ -25,73 +25,133 @@ const Loader: React.FC = () => {
         return () => clearInterval(interval);
     }, [isLoading]);
 
+    const [mounted, setMounted] = React.useState(false);
+
+    React.useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    if (!mounted) return null;
     if (!isLoading && !showSkeleton) return null;
 
-    if (showSkeleton) {
-        // We can add specific skeleton loaders here if needed later
-        // For now, fall back to default loader or return null if you want a skeleton specifically
-        // But since we haven't implemented skeletons yet, we'll just show the spinner
-        // return <div className="skeleton-overlay">Loading skeleton...</div>; 
-    }
-
     return (
-        <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(255, 255, 255, 0.8)', // Lighter backdrop
-            zIndex: 9999,
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            backdropFilter: 'blur(5px)'
-        }}>
-            <div style={{
-                background: 'white',
-                padding: '2.5rem',
-                borderRadius: '1.5rem',
-                boxShadow: '0 20px 50px rgba(0,0,0,0.1)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '1.5rem',
-                minWidth: '300px'
-            }}>
-                <div style={{ position: 'relative' }}>
-                    <div className="absolute inset-0 bg-blue-100 rounded-full animate-ping opacity-75"></div>
-                    <Loader2 className="animate-spin text-blue-600 relative z-10" size={56} />
+        <div className="loader-overlay">
+            <div className="loader-card glass">
+                <div className="loader-icon-wrapper">
+                    <div className="loader-ping"></div>
+                    <Loader2 className="loader-spin" size={48} />
                 </div>
 
-                <div style={{ textAlign: 'center' }}>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1e293b', marginBottom: '0.5rem' }}>
+                <div className="loader-content">
+                    <h3 className="loader-title">
                         Processing
                     </h3>
-                    <p key={messageIndex} className="animate-fade-in" style={{ color: '#64748b', fontSize: '0.95rem', minHeight: '1.5em' }}>
+                    <p key={messageIndex} className="loader-message animate-fade-in">
                         {loadingMessages[messageIndex]}
                     </p>
                 </div>
             </div>
             <style>{`
-                .animate-spin {
-                    animation: spin 1s linear infinite;
+                .loader-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background-color: rgba(255, 255, 255, 0.4);
+                    z-index: 9999;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    backdrop-filter: blur(12px);
+                    -webkit-backdrop-filter: blur(12px);
+                    transition: all 0.3s ease;
                 }
-                .animate-ping {
-                    animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+
+                [data-theme='dark'] .loader-overlay {
+                    background-color: rgba(15, 23, 42, 0.6);
                 }
+
+                .loader-card {
+                    background: var(--bg-card);
+                    padding: 3rem;
+                    border-radius: 1.5rem;
+                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 1.5rem;
+                    min-width: 320px;
+                    border: 1px solid var(--border-color);
+                    position: relative;
+                    overflow: hidden;
+                }
+                
+                /* Glass effect boost */
+                .loader-card.glass {
+                    background: rgba(255, 255, 255, 0.9);
+                    backdrop-filter: blur(10px);
+                }
+                [data-theme='dark'] .loader-card.glass {
+                    background: rgba(30, 41, 59, 0.9);
+                }
+
+                .loader-icon-wrapper {
+                    position: relative;
+                    padding: 0.5rem;
+                }
+
+                .loader-ping {
+                    position: absolute;
+                    inset: 0;
+                    border-radius: 50%;
+                    background-color: var(--primary);
+                    opacity: 0.2;
+                    animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+                }
+
+                .loader-spin {
+                    color: var(--primary);
+                    position: relative;
+                    z-index: 10;
+                    animation: spin 1.5s linear infinite;
+                }
+
+                .loader-content {
+                    text-align: center;
+                }
+
+                .loader-title {
+                    font-size: 1.25rem;
+                    font-weight: 700;
+                    color: var(--text-primary);
+                    margin: 0 0 0.5rem 0;
+                    letter-spacing: -0.025em;
+                }
+
+                .loader-message {
+                    color: var(--text-secondary);
+                    font-size: 0.95rem;
+                    min-height: 1.5em;
+                    font-weight: 500;
+                }
+
                 .animate-fade-in {
                     animation: fadeIn 0.5s ease-in-out;
                 }
+
                 @keyframes spin {
                     from { transform: rotate(0deg); }
                     to { transform: rotate(360deg); }
                 }
+
                 @keyframes ping {
-                    75%, 100% { transform: scale(2); opacity: 0; }
+                    0% { transform: scale(0.8); opacity: 0.3; }
+                    75%, 100% { transform: scale(2.5); opacity: 0; }
                 }
+
                 @keyframes fadeIn {
-                    from { opacity: 0; transform: translateY(5px); }
+                    from { opacity: 0; transform: translateY(4px); }
                     to { opacity: 1; transform: translateY(0); }
                 }
             `}</style>

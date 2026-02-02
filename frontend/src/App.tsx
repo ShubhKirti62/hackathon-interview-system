@@ -37,7 +37,7 @@ const RedirectIfAuthenticated = ({ children }: { children: React.ReactElement })
   if (loading) return children;
 
   if (isAuthenticated && user) {
-    if (user.role === 'admin' || user.role === 'hr' || user.role === 'interviewer') {
+    if (user.role === 'admin' || user.role === 'interviewer') {
       return <Navigate to={APP_ROUTES.ADMIN.DASHBOARD} replace />;
     }
     // All other authenticated users (candidate) go to candidate home

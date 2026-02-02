@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Plus, Users, BarChart, FileText, CheckCircle, X, Camera, ChevronLeft, ChevronRight, Shield, Star, Filter, Phone, Mail, File, ExternalLink, Settings, Clock, PieChart as PieChartIcon, TrendingUp, Send, Image as ImageIcon, Menu, Inbox, Play, Square, RefreshCw, AlertCircle, Trash2, Calendar, AlertTriangle } from 'lucide-react';
+import { Upload, Plus, Users, BarChart, FileText, CheckCircle, X, Shield, Star, Filter, Phone, Mail, File, ExternalLink, Settings, PieChart as PieChartIcon, Send, Image as ImageIcon, Menu, Inbox, Play, Square, RefreshCw, AlertCircle, Trash2, Calendar, AlertTriangle } from 'lucide-react';
 import FraudDetectionPanel from '../../components/FraudDetectionPanel';
 import ScreenshotViewerModal from '../../components/Modals/ScreenshotViewerModal';
 import { PieChart, Pie, BarChart as ReBarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
@@ -66,7 +66,7 @@ interface User {
 }
 
 const AdminDashboard: React.FC = () => {
-    const { user } = useAuth();
+    const { } = useAuth();
     const navigate = useNavigate();
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [stats, setStats] = useState<Stats>({
@@ -91,12 +91,12 @@ const AdminDashboard: React.FC = () => {
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
     const [filterReferred, setFilterReferred] = useState(false);
-    const [activeTab, setActiveTab] = useState<'candidates' | 'questions' | 'hr' | 'slots' | 'email-scanner' | 'fraud-detection'>('candidates');
+    const [activeTab, setActiveTab] = useState<'candidates' | 'questions' | 'slots' | 'email-scanner' | 'fraud-detection'>('candidates');
     const [questions, setQuestions] = useState<Question[]>([]);
-    const [hrs, setHrs] = useState<User[]>([]);
+
     const [interviewers, setInterviewers] = useState<User[]>([]);
     const [slots, setSlots] = useState<any[]>([]);
-    const [showAddUserModal, setShowAddUserModal] = useState(false);
+
     const [showSlotModal, setShowSlotModal] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [selectedSlot, setSelectedSlot] = useState<any>(null);
@@ -104,7 +104,7 @@ const AdminDashboard: React.FC = () => {
     const [showScreenshotModal, setShowScreenshotModal] = useState(false);
     const [showInterviewModal, setShowInterviewModal] = useState(false);
     const [selectedInterview, setSelectedInterview] = useState<any>(null);
-    const [viewingScreenshotsCandidate, setViewingScreenshotsCandidate] = useState<{id: string, name: string} | null>(null);
+    const [viewingScreenshotsCandidate, setViewingScreenshotsCandidate] = useState<{ id: string, name: string } | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     // Email Scanner state
@@ -339,7 +339,7 @@ const AdminDashboard: React.FC = () => {
             ]);
 
             const candidatesRes = coreRequests[0].status === 'fulfilled' ? coreRequests[0].value : { data: [] };
-            const sessionsRes = coreRequests[1].status === 'fulfilled' ? coreRequests[1].value : { data: [] };
+
             const questionsRes = coreRequests[2].status === 'fulfilled' ? coreRequests[2].value : { data: [] };
 
             setCandidates(candidatesRes.data || []);
@@ -388,7 +388,7 @@ const AdminDashboard: React.FC = () => {
                     }
                 }
                 console.log('Processed HRs:', hrList);
-                setHrs(hrList);
+
             } catch (e) {
                 console.error('Error fetching HR list:', e);
             }
@@ -409,38 +409,29 @@ const AdminDashboard: React.FC = () => {
         }
     };
 
-    const handleRemoveUser = async (userId: string) => {
-        if (!window.confirm('Are you sure you want to remove access for this team member?')) return;
-        try {
-            await api.delete(`${API_ENDPOINTS.AUTH.USERS}/${userId}`);
-            showToast.success('Team member access removed successfully!');
-            fetchDashboardData();
-        } catch (err: any) {
-            showToast.error(err.response?.data?.msg || 'Failed to remove user access');
-        }
-    };
+
 
     const handleViewInterview = async (candidateId: string) => {
         try {
             // Get interviews for this candidate
             const interviewsRes = await api.get(`${API_ENDPOINTS.INTERVIEWS.BY_ID}?candidateId=${candidateId}`);
             const interviews = interviewsRes.data;
-            
+
             if (interviews.length === 0) {
                 showToast.info('No interviews found for this candidate');
                 return;
             }
-            
+
             // Get the most recent completed interview
             const latestInterview = interviews
                 .filter((i: any) => i.status === 'Completed')
                 .sort((a: any, b: any) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())[0];
-                
+
             if (!latestInterview) {
                 showToast.info('No completed interviews found for this candidate');
                 return;
             }
-            
+
             // Get detailed interview data
             const interviewDetailsRes = await api.get(API_ENDPOINTS.INTERVIEWS.GET_DETAILS(latestInterview._id));
             setSelectedInterview(interviewDetailsRes.data);
@@ -541,26 +532,7 @@ const AdminDashboard: React.FC = () => {
                         <FileText size={20} /> Questions Library
                     </button>
 
-                    <button
-                        onClick={() => { setActiveTab('hr'); setSidebarOpen(false); }}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem',
-                            padding: '0.75rem 1rem',
-                            borderRadius: '0.5rem',
-                            border: 'none',
-                            background: activeTab === 'hr' ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-                            color: activeTab === 'hr' ? 'var(--primary)' : 'var(--text-secondary)',
-                            fontWeight: activeTab === 'hr' ? '600' : '500',
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            width: '100%',
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        <Users size={20} /> Team Management
-                    </button>
+
 
                     <button
                         onClick={() => { setActiveTab('email-scanner'); setSidebarOpen(false); }}
@@ -657,16 +629,16 @@ const AdminDashboard: React.FC = () => {
                             <h1 style={{ fontSize: '1.75rem', fontWeight: 'bold', color: 'var(--text-primary)', margin: 0 }}>
                                 {activeTab === 'candidates' ? 'Candidates Oversight' :
                                     activeTab === 'questions' ? 'Questions Bank' :
-                                        activeTab === 'hr' ? 'Team Management' :
-                                            activeTab === 'email-scanner' ? 'Email Resume Scanner' :
-                                                activeTab === 'fraud-detection' ? 'Fraud Detection' : 'Interview Scheduling'}
+
+                                        activeTab === 'email-scanner' ? 'Email Resume Scanner' :
+                                            activeTab === 'fraud-detection' ? 'Fraud Detection' : 'Interview Scheduling'}
                             </h1>
                             <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
                                 {activeTab === 'candidates' ? 'Track and manage candidate progress and referrals.' :
                                     activeTab === 'questions' ? 'Manage your library of technical and conceptual questions.' :
-                                        activeTab === 'hr' ? 'Add or remove HR team members and manage access.' :
-                                            activeTab === 'email-scanner' ? 'Auto-detect resumes from email and create candidate entries.' :
-                                                activeTab === 'fraud-detection' ? 'Monitor duplicate applications, face matches, and proxy interview attempts.' : 'Coordinate and schedule technical interaction slots.'}
+
+                                        activeTab === 'email-scanner' ? 'Auto-detect resumes from email and create candidate entries.' :
+                                            activeTab === 'fraud-detection' ? 'Monitor duplicate applications, face matches, and proxy interview attempts.' : 'Coordinate and schedule technical interaction slots.'}
                             </p>
                         </div>
                     </div>
@@ -700,14 +672,7 @@ const AdminDashboard: React.FC = () => {
                                     <Plus size={18} /> Add Question
                                 </button>
                             </>
-                        ) : (activeTab === 'hr') ? (
-                            <button
-                                className="btn btn-primary"
-                                style={{ gap: '0.5rem' }}
-                                onClick={() => setShowAddUserModal(true)}
-                            >
-                                <Plus size={18} /> Add Team Member
-                            </button>
+
                         ) : (activeTab === 'slots') ? (
                             <button
                                 className="btn btn-primary"
@@ -823,7 +788,7 @@ const AdminDashboard: React.FC = () => {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem' }}>
                     {activeTab === 'candidates' ? (
-                        <div className="card" style={{overflowX: 'auto'}}>
+                        <div className="card" style={{ overflowX: 'auto' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                                 <h2 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', margin: 0 }}>Recent Candidates</h2>
                                 <button
@@ -950,57 +915,7 @@ const AdminDashboard: React.FC = () => {
                                 </div>
                             )}
                         </div>
-                    ) : activeTab === 'hr' ? (
-                        <div className="card">
-                            <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Team Management</h2>
-                            {(hrs.length + interviewers.length) === 0 ? (
-                                <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>No team members found.</p>
-                            ) : (
-                                <div className="admin-table-container" style={{ overflowX: 'auto' }}>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-primary)' }}>
-                                        <thead>
-                                            <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
-                                                <th style={{ padding: '0.75rem' }}>Name</th>
-                                                <th style={{ padding: '0.75rem' }}>Email</th>
-                                                <th style={{ padding: '0.75rem' }}>Role</th>
-                                                <th style={{ padding: '0.75rem' }}>Joined</th>
-                                                <th style={{ padding: '0.75rem' }}>Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {[...hrs, ...interviewers].map((member) => (
-                                                <tr key={member._id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                                                    <td style={{ padding: '0.75rem' }}>{member.name}</td>
-                                                    <td style={{ padding: '0.75rem' }}>{member.email}</td>
-                                                    <td style={{ padding: '0.75rem' }}>
-                                                        <span style={{
-                                                            fontSize: '0.75rem',
-                                                            padding: '0.2rem 0.5rem',
-                                                            borderRadius: '4px',
-                                                            backgroundColor: member.role === 'admin' ? 'var(--primary)' : member.role === 'hr' ? 'var(--success)' : 'var(--warning)',
-                                                            color: 'white',
-                                                            textTransform: 'uppercase',
-                                                            fontWeight: 'bold'
-                                                        }}>
-                                                            {member.role}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ padding: '0.75rem' }}>{new Date(member.createdAt).toLocaleDateString()}</td>
-                                                    <td style={{ padding: '0.75rem' }}>
-                                                        <button
-                                                            onClick={() => handleRemoveUser(member._id)}
-                                                            style={{ color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
-                                                        >
-                                                            Remove Access
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </div>
+
                     ) : activeTab === 'slots' ? (
                         <div className="card">
                             <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Round 2 Slots</h2>
@@ -1082,7 +997,7 @@ const AdminDashboard: React.FC = () => {
                             )}
                         </div>
                     ) : activeTab === 'email-scanner' ? (
-                        <div>
+                        <div style={{ overflowX: 'auto' }}>
                             {/* Connected Email Info */}
                             <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', backgroundColor: 'rgba(59, 130, 246, 0.08)', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
                                 <Mail size={16} style={{ color: '#3B82F6' }} />
@@ -1261,9 +1176,9 @@ const AdminDashboard: React.FC = () => {
 
             {showAddModal && <AddCandidateModal onClose={() => setShowAddModal(false)} onSuccess={fetchDashboardData} />}
             {showEditModal && editingCandidate && (
-                <EditCandidateModal 
-                    onClose={() => setShowEditModal(false)} 
-                    onSuccess={fetchDashboardData} 
+                <EditCandidateModal
+                    onClose={() => setShowEditModal(false)}
+                    onSuccess={fetchDashboardData}
                     candidate={editingCandidate}
                 />
             )}
@@ -1281,12 +1196,7 @@ const AdminDashboard: React.FC = () => {
                     onSuccess={fetchDashboardData}
                 />
             )}
-            {showAddUserModal && (
-                <AddUserModal
-                    onClose={() => setShowAddUserModal(false)}
-                    onSuccess={fetchDashboardData}
-                />
-            )}
+
             {showSlotModal && (
                 <AddSlotModal
                     onClose={() => setShowSlotModal(false)}
@@ -1413,7 +1323,7 @@ const TableRow: React.FC<{ candidate: Candidate, isAdmin: boolean, onView: () =>
                         Edit
                     </button>
                     {onViewScreenshots && (candidate.status === 'interviewed' || candidate.status === 'slot_booked' || candidate.status === 'rejected' || candidate.status === '2nd_round_qualified' || candidate.status === 'round_2_completed') && (
-                         <button
+                        <button
                             onClick={onViewScreenshots}
                             style={{ color: 'var(--text-secondary)', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                             title="View Screenshots"
@@ -1453,7 +1363,7 @@ const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () => void, 
             case 'Profile Submitted': return 'Send Invitation Mail';
             case 'Interview 1st Round Pending': return 'Waiting for Interview Results';
             case '1st Round Completed': return 'Result: Send 2nd Round Invitiation (Qualified) or Reject';
-            case '2nd Round Qualified': return 'Final Offer / Decision'; 
+            case '2nd Round Qualified': return 'Final Offer / Decision';
             case 'Rejected': return 'None (Archived)';
             default: return 'Unknown';
         }
@@ -1556,7 +1466,7 @@ const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () => void, 
                     ) : (
                         <div style={{ padding: '1.5rem' }}>
                             <h3 style={{ fontSize: '1rem', marginBottom: '1.5rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Current Status</h3>
-                            <div style={{ 
+                            <div style={{
                                 display: 'inline-block',
                                 padding: '0.75rem 1.5rem',
                                 borderRadius: '2rem',
@@ -1570,7 +1480,7 @@ const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () => void, 
                             </div>
 
                             <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Next Pending Item</h3>
-                            <div style={{ 
+                            <div style={{
                                 padding: '1.5rem',
                                 backgroundColor: 'var(--bg-secondary)',
                                 borderRadius: '0.75rem',
@@ -1594,7 +1504,7 @@ const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () => void, 
                         zIndex: 10
                     }}>
                         {error && <div style={{ color: 'var(--error)', flex: 1, alignSelf: 'center' }}>{error}</div>}
-                        
+
                         {candidate.status === 'Profile Submitted' && (
                             <button onClick={onInvite} className="btn" style={{ background: 'var(--primary)', border: 'none', color: 'white' }} disabled={loading}>
                                 {loading ? 'Processing...' : 'Send Invitation Mail'}
@@ -1618,11 +1528,11 @@ const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () => void, 
 
                         {/* Pending fallbacks */}
                         {(candidate.status === 'Pending' || candidate.status === 'Shortlisted') && (
-                             <button onClick={() => handleStatusUpdate('Profile Submitted')} className="btn" style={{ background: 'var(--primary)', border: 'none', color: 'white' }} disabled={loading}>
+                            <button onClick={() => handleStatusUpdate('Profile Submitted')} className="btn" style={{ background: 'var(--primary)', border: 'none', color: 'white' }} disabled={loading}>
                                 {loading ? 'Processing...' : 'Move to Profile Submitted'}
                             </button>
                         )}
-                        
+
                         {(candidate.status === '2nd Round Qualified' || candidate.status === 'Rejected') && (
                             <div style={{ color: candidate.status === '2nd Round Qualified' ? 'var(--success)' : 'var(--error)', fontWeight: 'bold' }}>Decision: {candidate.status}</div>
                         )}
@@ -1650,27 +1560,27 @@ const AddCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void }
 
     const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         let value = e.target.value;
-        
+
         // Always ensure it starts with +91
         if (!value.startsWith('+91')) {
             value = '+91' + value.replace(/^\+91/, '');
         }
-        
+
         // Add space after +91 for better readability
         if (value.length === 3 && !value.includes(' ')) {
             value = '+91 ';
         }
-        
+
         // Remove any non-digit characters after +91 
         const afterCountryCode = value.substring(4); // Skip "+91 "
         const digitsOnly = afterCountryCode.replace(/\D/g, '');
-        
+
         // Limit to maximum 10 digits after +91
         const limitedDigits = digitsOnly.substring(0, 10);
         const formattedValue = '+91 ' + limitedDigits;
-        
+
         setFormData({ ...formData, phone: formattedValue });
-        
+
         // Validate phone number
         if (limitedDigits.length > 0) {
             if (limitedDigits.length < 10) {
@@ -1695,7 +1605,7 @@ const AddCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void }
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
                 setFormData(prev => ({ ...prev, ...res.data }));
-            } catch (err: any) { 
+            } catch (err: any) {
                 setError(err.response?.data?.error || 'Failed to parse resume');
             }
             finally { setParsing(false); }
@@ -1704,13 +1614,13 @@ const AddCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         // Validate phone number
         if (!validateIndianPhone(formData.phone)) {
             setPhoneError('Please enter a valid 10-digit Indian mobile number');
             return;
         }
-        
+
         setLoading(true);
         const fd = new FormData();
         Object.entries(formData).forEach(([k, v]) => fd.append(k, v.toString()));
@@ -1756,7 +1666,7 @@ const AddCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void }
                             <input type="file" accept=".pdf,.docx,.doc" onChange={handleResumeUpload} style={{ display: 'none' }} />
                         </label>
                         {parsing && <div style={{ marginTop: '0.5rem', color: 'var(--primary)', fontWeight: '500' }}>Analyzing resume...</div>}
-                        
+
                         {resumeFile && !parsing && (
                             <div style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: '0.5rem', border: '1px solid var(--primary)' }}>
                                 <div style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--primary)', marginBottom: '0.25rem' }}>
@@ -1775,12 +1685,12 @@ const AddCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void }
                             <div><label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Email Address</label><input className="input" type="email" placeholder="john@example.com" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} /></div>
                             <div>
                                 <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Phone Number</label>
-                                <input 
-                                    className="input" 
-                                    placeholder="+91 98765 43210" 
-                                    value={formData.phone} 
+                                <input
+                                    className="input"
+                                    placeholder="+91 98765 43210"
+                                    value={formData.phone}
                                     onChange={handlePhoneChange}
-                                    style={{ 
+                                    style={{
                                         borderColor: phoneError ? 'var(--error)' : undefined,
                                         backgroundColor: phoneError ? 'rgba(239, 68, 68, 0.05)' : undefined
                                     }}
@@ -1846,7 +1756,7 @@ const AddCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void }
                     backgroundColor: 'var(--bg-secondary)',
                     borderTop: '1px solid var(--border-color)'
                 }}>
-                    <button type="button" onClick={onClose} className="btn" style={{ flex: 1, backgroundColor: 'var(--text-primary)' , color:"var(--bg-primary)"}}>Cancel</button>
+                    <button type="button" onClick={onClose} className="btn" style={{ flex: 1, backgroundColor: 'var(--text-primary)', color: "var(--bg-primary)" }}>Cancel</button>
                     <button type="submit" form="add-candidate-form" className="btn btn-primary" style={{ flex: 1 }} disabled={loading}>{loading ? 'Adding...' : 'Add Candidate'}</button>
                 </div>
             </div>
@@ -1866,13 +1776,13 @@ const EditCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void,
         return '+91 ' + digitsOnly.substring(0, 10);
     };
 
-    const [formData, setFormData] = useState({ 
-        name: candidate.name, 
-        email: candidate.email, 
-        phone: formatPhone(candidate.phone), 
-        domain: candidate.domain, 
-        experienceLevel: candidate.experienceLevel, 
-        internalReferred: candidate.internalReferred 
+    const [formData, setFormData] = useState({
+        name: candidate.name,
+        email: candidate.email,
+        phone: formatPhone(candidate.phone),
+        domain: candidate.domain,
+        experienceLevel: candidate.experienceLevel,
+        internalReferred: candidate.internalReferred
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -1885,22 +1795,22 @@ const EditCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void,
 
     const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         let value = e.target.value;
-        
+
         if (!value.startsWith('+91')) {
             value = '+91' + value.replace(/^\+91/, '');
         }
-        
+
         if (value.length === 3 && !value.includes(' ')) {
             value = '+91 ';
         }
-        
+
         const afterCountryCode = value.substring(4);
         const digitsOnly = afterCountryCode.replace(/\D/g, '');
         const limitedDigits = digitsOnly.substring(0, 10);
         const formattedValue = '+91 ' + limitedDigits;
-        
+
         setFormData({ ...formData, phone: formattedValue });
-        
+
         if (limitedDigits.length > 0) {
             if (limitedDigits.length < 10) {
                 setPhoneError('Please enter a complete 10-digit Indian mobile number');
@@ -1914,12 +1824,12 @@ const EditCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void,
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         if (!validateIndianPhone(formData.phone)) {
             setPhoneError('Please enter a valid 10-digit Indian mobile number');
             return;
         }
-        
+
         setLoading(true);
         try {
             await api.patch(`${API_ENDPOINTS.CANDIDATES.BASE}/${candidate._id}`, formData);
@@ -1950,19 +1860,19 @@ const EditCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void,
 
                 <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
                     {error && <div style={{ color: 'var(--error)', marginBottom: '1rem' }}>{error}</div>}
-                    
+
                     <form id="edit-candidate-form" onSubmit={handleSubmit}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                             <div><label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Full Name</label><input className="input" placeholder="e.g. John Doe" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} /></div>
                             <div><label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Email Address</label><input className="input" type="email" placeholder="john@example.com" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} /></div>
                             <div>
                                 <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Phone Number</label>
-                                <input 
-                                    className="input" 
-                                    placeholder="+91 98765 43210" 
-                                    value={formData.phone} 
+                                <input
+                                    className="input"
+                                    placeholder="+91 98765 43210"
+                                    value={formData.phone}
                                     onChange={handlePhoneChange}
-                                    style={{ 
+                                    style={{
                                         borderColor: phoneError ? 'var(--error)' : undefined,
                                         backgroundColor: phoneError ? 'rgba(239, 68, 68, 0.05)' : undefined
                                     }}
@@ -2019,7 +1929,7 @@ const EditCandidateModal: React.FC<{ onClose: () => void, onSuccess: () => void,
                     backgroundColor: 'var(--bg-secondary)',
                     borderTop: '1px solid var(--border-color)'
                 }}>
-                    <button type="button" onClick={onClose} className="btn" style={{ flex: 1, backgroundColor: 'var(--text-primary)' , color:"var(--bg-primary)"}}>Cancel</button>
+                    <button type="button" onClick={onClose} className="btn" style={{ flex: 1, backgroundColor: 'var(--text-primary)', color: "var(--bg-primary)" }}>Cancel</button>
                     <button type="submit" form="edit-candidate-form" className="btn btn-primary" style={{ flex: 1 }} disabled={loading}>{loading ? 'Updating...' : 'Update Candidate'}</button>
                 </div>
             </div>
@@ -2110,13 +2020,13 @@ const AddQuestionModal: React.FC<{ onClose: () => void, onSuccess: () => void, e
                         {/* Keyword field - Required for AI evaluation */}
                         <div style={{ marginBottom: '1.5rem' }}>
                             <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>
-                                Mandatory Keywords / Concepts <span style={{fontSize: '0.7em', color: 'var(--primary)'}}>(AI Grading)</span>
+                                Mandatory Keywords / Concepts <span style={{ fontSize: '0.7em', color: 'var(--primary)' }}>(AI Grading)</span>
                             </label>
-                            <input 
-                                className="input" 
-                                placeholder="e.g. Virtual DOM, State, Props (comma separated)" 
-                                value={formData.keywords} 
-                                onChange={e => setFormData({ ...formData, keywords: e.target.value })} 
+                            <input
+                                className="input"
+                                placeholder="e.g. Virtual DOM, State, Props (comma separated)"
+                                value={formData.keywords}
+                                onChange={e => setFormData({ ...formData, keywords: e.target.value })}
                             />
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
                                 The AI will check for these specific terms when evaluating answers.
@@ -2180,75 +2090,23 @@ const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     );
 };
 
-const AddUserModal: React.FC<{ onClose: () => void, onSuccess: () => void }> = ({ onClose, onSuccess }) => {
-    const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'hr' });
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        try { 
-            await api.post(API_ENDPOINTS.AUTH.REGISTER, formData); 
-            showToast.success('Team member added successfully!');
-            onSuccess(); 
-            onClose(); 
-        } catch (err) { 
-            showToast.error('Failed to create user'); 
-        }
-    };
-    return (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
-            <div className="card" style={{ width: '100%', maxWidth: '400px', maxHeight: '90vh', padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '1.5rem',
-                    backgroundColor: 'var(--bg-card)',
-                    borderBottom: '1px solid var(--border-color)',
-                    zIndex: 10
-                }}>
-                    <h2 style={{ margin: 0 }}>Add Team Member</h2>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                        <X size={24} />
-                    </button>
-                </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
-                    <form id="add-user-form" onSubmit={handleSubmit}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                            <div><label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Full Name</label><input className="input" placeholder="Name" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} /></div>
-                            <div><label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Email Address</label><input className="input" type="email" placeholder="Email" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} /></div>
-                            <div><label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Password</label><input className="input" type="password" placeholder="Password" required value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} /></div>
-                            <div>
-                                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>System Role</label>
-                                <select className="input" value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })}>
-                                    <option value="hr">HR Manager</option>
-                                    <option value="interviewer">Technical Interviewer</option>
-                                </select>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}>
-                    <button type="submit" form="add-user-form" className="btn btn-primary" style={{ width: '100%' }}>Create Account</button>
-                </div>
-            </div>
-        </div>
-    );
-};
+
 
 const AddSlotModal: React.FC<{ onClose: () => void, onSuccess: () => void, interviewers: User[], candidates: Candidate[] }> = ({ onClose, onSuccess, interviewers, candidates }) => {
     const [formData, setFormData] = useState({ interviewerId: '', candidateId: '', startTime: '', endTime: '' });
-    
+
     // Get first round completed candidates
     const firstRoundCompletedCandidates = candidates.filter(c => c.status === '1st_round_completed');
-    
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        try { 
-            await api.post(API_ENDPOINTS.SLOTS.BASE, formData); 
+        try {
+            await api.post(API_ENDPOINTS.SLOTS.BASE, formData);
             showToast.success('Interview slot created successfully!');
-            onSuccess(); 
-            onClose(); 
-        } catch (err) { 
-            showToast.error('Failed to create slot'); 
+            onSuccess();
+            onClose();
+        } catch (err) {
+            showToast.error('Failed to create slot');
         }
     };
     return (
@@ -2323,13 +2181,13 @@ const FeedbackModal: React.FC<{ slot: any, onClose: () => void, onSuccess: () =>
     const [formData, setFormData] = useState({ score: 0, remarks: '' });
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        try { 
-            await api.post(API_ENDPOINTS.SLOTS.FEEDBACK(slot._id), { ...formData, type }); 
+        try {
+            await api.post(API_ENDPOINTS.SLOTS.FEEDBACK(slot._id), { ...formData, type });
             showToast.success('Feedback submitted successfully!');
-            onSuccess(); 
-            onClose(); 
-        } catch (err) { 
-            showToast.error('Failed to submit feedback'); 
+            onSuccess();
+            onClose();
+        } catch (err) {
+            showToast.error('Failed to submit feedback');
         }
     };
     return (
@@ -2376,13 +2234,13 @@ const BulkUploadModal: React.FC<{ onClose: () => void, onSuccess: () => void }> 
     const handleUpload = async () => {
         if (!file) return;
         const fd = new FormData(); fd.append('file', file);
-        try { 
-            await api.post(API_ENDPOINTS.QUESTIONS.BULK_UPLOAD, fd); 
+        try {
+            await api.post(API_ENDPOINTS.QUESTIONS.BULK_UPLOAD, fd);
             showToast.success('Questions uploaded successfully!');
-            onSuccess(); 
-            onClose(); 
-        } catch (err) { 
-            showToast.error('Upload failed'); 
+            onSuccess();
+            onClose();
+        } catch (err) {
+            showToast.error('Upload failed');
         }
     };
     return (
@@ -2423,113 +2281,113 @@ const BulkUploadModal: React.FC<{ onClose: () => void, onSuccess: () => void }> 
     );
 };
 
-const SendInviteModal: React.FC<{ 
-     candidate: Candidate; 
-     onClose: () => void; 
-     onSuccess: () => void;
- }> = ({ candidate, onClose, onSuccess }) => {
-     const [loading, setLoading] = useState(false);
-     const [error, setError] = useState('');
-     const [success, setSuccess] = useState(false);
-     
-     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-     const [time, setTime] = useState('10:00');
-     const [link, setLink] = useState('https://meet.google.com/xyz-abc-def');
-     const [message, setMessage] = useState('');
- 
-     const handleSend = async (e: React.FormEvent) => {
-         e.preventDefault();
-         setLoading(true);
-         setError('');
-         
-         try {
+const SendInviteModal: React.FC<{
+    candidate: Candidate;
+    onClose: () => void;
+    onSuccess: () => void;
+}> = ({ candidate, onClose, onSuccess }) => {
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState(false);
+
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [time, setTime] = useState('10:00');
+    const [link, setLink] = useState('https://meet.google.com/xyz-abc-def');
+    const [message, setMessage] = useState('');
+
+    const handleSend = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+
+        try {
             await api.post(API_ENDPOINTS.INVITES.SEND, {
-                 candidateId: candidate._id,
-                 interviewDate: date,
-                 interviewTime: time,
-                 meetingLink: link,
-                 message: message
-             });
-             setSuccess(true);
-             showToast.success('Interview invitation sent successfully!');
-             setTimeout(() => {
-                 onSuccess();
-                 onClose();
-             }, 2000);
-         } catch (err: any) {
-             setError(err.response?.data?.msg || 'Failed to send invitation');
-         } finally {
-             setLoading(false);
-         }
-     };
- 
-     if (success) {
-         return (
-             <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
-                 <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '1rem', textAlign: 'center' }}>
-                     <div style={{ color: 'var(--success)', fontSize: '3rem', marginBottom: '1rem' }}><CheckCircle /></div>
-                     <h3>Invitation Sent!</h3>
-                     <p>Candidate has been notified and status updated.</p>
-                 </div>
-             </div>
-         );
-     }
- 
-     return (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '2rem' }}>
-             <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '0', overflow: 'hidden', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-card)' }}>
-                 <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                     <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Send Interview Invitation</h2>
-                     <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={24} /></button>
-                 </div>
-                 
-                 <form onSubmit={handleSend} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                     {error && <div style={{ color: 'var(--error)', fontSize: '0.9rem' }}>{error}</div>}
-                     
-                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                         <div>
-                             <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Date</label>
-                             <input type="date" className="input" required value={date} onChange={e => {
+                candidateId: candidate._id,
+                interviewDate: date,
+                interviewTime: time,
+                meetingLink: link,
+                message: message
+            });
+            setSuccess(true);
+            showToast.success('Interview invitation sent successfully!');
+            setTimeout(() => {
+                onSuccess();
+                onClose();
+            }, 2000);
+        } catch (err: any) {
+            setError(err.response?.data?.msg || 'Failed to send invitation');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (success) {
+        return (
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
+                <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '1rem', textAlign: 'center' }}>
+                    <div style={{ color: 'var(--success)', fontSize: '3rem', marginBottom: '1rem' }}><CheckCircle /></div>
+                    <h3>Invitation Sent!</h3>
+                    <p>Candidate has been notified and status updated.</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '2rem' }}>
+            <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '0', overflow: 'hidden', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-card)' }}>
+                <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Send Interview Invitation</h2>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={24} /></button>
+                </div>
+
+                <form onSubmit={handleSend} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {error && <div style={{ color: 'var(--error)', fontSize: '0.9rem' }}>{error}</div>}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Date</label>
+                            <input type="date" className="input" required value={date} onChange={e => {
                                 const restrictedDate = restrictDateInput(e.target.value);
                                 if (!validateDateForWorkingHours(e.target.value)) {
                                     showToast.error(getRestrictedDateMessage());
                                 }
                                 setDate(restrictedDate);
                             }} />
-                         </div>
-                         <div>
-                             <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Time</label>
-                             <input type="time" className="input" required value={time} min="10:00" max="19:00" onChange={e => {
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Time</label>
+                            <input type="time" className="input" required value={time} min="10:00" max="19:00" onChange={e => {
                                 const restrictedTime = restrictTimeInput(e.target.value);
                                 if (!validateTimeString(e.target.value)) {
                                     showToast.error(getRestrictedTimeMessage());
                                 }
                                 setTime(restrictedTime);
                             }} />
-                         </div>
-                     </div>
- 
-                     <div>
-                         <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Meeting Link</label>
-                         <input type="url" className="input" placeholder="https://meet.google.com/..." required value={link} onChange={e => setLink(e.target.value)} />
-                     </div>
- 
-                     <div>
-                         <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Additional Message (Optional)</label>
-                         <textarea className="input" rows={4} placeholder="Any specific instructions..." value={message} onChange={e => setMessage(e.target.value)} style={{ resize: 'none' }} />
-                     </div>
- 
-                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-                         <button type="button" onClick={onClose} className="btn" style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>Cancel</button>
-                         <button type="submit" className="btn btn-primary" disabled={loading}>
-                             {loading ? 'Sending...' : 'Send Invitation'} <Send size={16} style={{ marginLeft: '0.5rem' }} />
-                         </button>
-                     </div>
-                 </form>
-             </div>
-         </div>
-     );
- };
+                        </div>
+                    </div>
+
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Meeting Link</label>
+                        <input type="url" className="input" placeholder="https://meet.google.com/..." required value={link} onChange={e => setLink(e.target.value)} />
+                    </div>
+
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Additional Message (Optional)</label>
+                        <textarea className="input" rows={4} placeholder="Any specific instructions..." value={message} onChange={e => setMessage(e.target.value)} style={{ resize: 'none' }} />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+                        <button type="button" onClick={onClose} className="btn" style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>Cancel</button>
+                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                            {loading ? 'Sending...' : 'Send Invitation'} <Send size={16} style={{ marginLeft: '0.5rem' }} />
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
 
 const InterviewDetailsModal: React.FC<{ interview: any, onClose: () => void }> = ({ interview, onClose }) => {
     if (!interview) return null;
@@ -2584,25 +2442,25 @@ const InterviewDetailsModal: React.FC<{ interview: any, onClose: () => void }> =
                                             <h4 style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-primary)' }}>Question {index + 1}</h4>
                                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                                                 {response.questionId?.difficulty && (
-                                                    <span style={{ 
-                                                        fontSize: '0.75rem', 
-                                                        padding: '0.2rem 0.5rem', 
-                                                        borderRadius: '4px', 
-                                                        backgroundColor: response.questionId.difficulty === 'Easy' ? 'rgba(34, 197, 94, 0.1)' : 
-                                                                         response.questionId.difficulty === 'Medium' ? 'rgba(251, 146, 60, 0.1)' : 
-                                                                         'rgba(239, 68, 68, 0.1)',
-                                                        color: response.questionId.difficulty === 'Easy' ? 'var(--success)' : 
-                                                               response.questionId.difficulty === 'Medium' ? 'var(--warning)' : 
-                                                               'var(--error)'
+                                                    <span style={{
+                                                        fontSize: '0.75rem',
+                                                        padding: '0.2rem 0.5rem',
+                                                        borderRadius: '4px',
+                                                        backgroundColor: response.questionId.difficulty === 'Easy' ? 'rgba(34, 197, 94, 0.1)' :
+                                                            response.questionId.difficulty === 'Medium' ? 'rgba(251, 146, 60, 0.1)' :
+                                                                'rgba(239, 68, 68, 0.1)',
+                                                        color: response.questionId.difficulty === 'Easy' ? 'var(--success)' :
+                                                            response.questionId.difficulty === 'Medium' ? 'var(--warning)' :
+                                                                'var(--error)'
                                                     }}>
                                                         {response.questionId.difficulty}
                                                     </span>
                                                 )}
                                                 {response.score !== undefined && (
-                                                    <span style={{ 
-                                                        fontSize: '0.75rem', 
-                                                        padding: '0.2rem 0.5rem', 
-                                                        borderRadius: '4px', 
+                                                    <span style={{
+                                                        fontSize: '0.75rem',
+                                                        padding: '0.2rem 0.5rem',
+                                                        borderRadius: '4px',
                                                         backgroundColor: 'rgba(59, 130, 246, 0.1)',
                                                         color: 'var(--primary)',
                                                         fontWeight: 'bold'
@@ -2619,11 +2477,11 @@ const InterviewDetailsModal: React.FC<{ interview: any, onClose: () => void }> =
                                             <div style={{ marginTop: '0.5rem' }}>
                                                 <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Keywords: </span>
                                                 {response.questionId.keywords.map((keyword: string, i: number) => (
-                                                    <span key={i} style={{ 
-                                                        fontSize: '0.75rem', 
-                                                        padding: '0.1rem 0.3rem', 
-                                                        backgroundColor: 'rgba(59, 130, 246, 0.1)', 
-                                                        color: 'var(--primary)', 
+                                                    <span key={i} style={{
+                                                        fontSize: '0.75rem',
+                                                        padding: '0.1rem 0.3rem',
+                                                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                                        color: 'var(--primary)',
                                                         borderRadius: '3px',
                                                         marginRight: '0.25rem'
                                                     }}>
@@ -2636,9 +2494,9 @@ const InterviewDetailsModal: React.FC<{ interview: any, onClose: () => void }> =
 
                                     <div style={{ marginBottom: '1rem' }}>
                                         <h5 style={{ margin: '0 0 0.5rem 0', fontSize: '0.875rem', color: 'var(--text-primary)' }}>Candidate's Answer:</h5>
-                                        <div style={{ 
-                                            padding: '0.75rem', 
-                                            backgroundColor: 'var(--bg-secondary)', 
+                                        <div style={{
+                                            padding: '0.75rem',
+                                            backgroundColor: 'var(--bg-secondary)',
                                             borderRadius: '0.25rem',
                                             fontSize: '0.875rem',
                                             lineHeight: '1.5',
@@ -2656,9 +2514,9 @@ const InterviewDetailsModal: React.FC<{ interview: any, onClose: () => void }> =
                                     {response.aiFeedback && (
                                         <div>
                                             <h5 style={{ margin: '0 0 0.5rem 0', fontSize: '0.875rem', color: 'var(--text-primary)' }}>AI Feedback:</h5>
-                                            <div style={{ 
-                                                padding: '0.75rem', 
-                                                backgroundColor: 'rgba(34, 197, 94, 0.1)', 
+                                            <div style={{
+                                                padding: '0.75rem',
+                                                backgroundColor: 'rgba(34, 197, 94, 0.1)',
                                                 borderRadius: '0.25rem',
                                                 fontSize: '0.875rem',
                                                 lineHeight: '1.5',

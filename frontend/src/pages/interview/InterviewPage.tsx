@@ -51,7 +51,7 @@ const InterviewPage: React.FC = () => {
     });
 
     // Anti-fraud: Tab switching detection
-    const handleViolation = useCallback(async (violation: any, totalViolations: number) => {
+    const handleViolation = useCallback(async (violation: any) => {
         if (!id) return;
         try {
             const response = await api.post(API_ENDPOINTS.INTERVIEWS.VIOLATION(id), {
@@ -92,9 +92,7 @@ const InterviewPage: React.FC = () => {
     }, [id, currentQIndex]);
 
     const {
-        violations,
         violationCount,
-        isPageVisible,
         warningMessage,
         clearWarning
     } = useTabDetection({
@@ -259,7 +257,7 @@ const InterviewPage: React.FC = () => {
     }, [id, !!interview, isOffline, currentQIndex, transcript]);
 
     const toggleRecording = () => {
- 
+
 
         if (!recognitionRef.current) {
             showToast.error('Speech Recognition is not supported in this browser.');
@@ -295,7 +293,7 @@ const InterviewPage: React.FC = () => {
         // Check if there's any answer (voice or manual)
         const hasVoiceAnswer = transcript && transcript.trim() !== '';
         const hasManualAnswer = manualQuestion && manualQuestion.trim() !== '';
-        
+
         if (!hasVoiceAnswer && !hasManualAnswer) {
             showToast.error('Please provide an answer before proceeding');
             return;
@@ -374,7 +372,7 @@ const InterviewPage: React.FC = () => {
     const currentQuestion = interview?.questions[currentQIndex];
 
     return (
-        <div className="container" style={{ padding: '2rem 1rem', width: '100%'}}>
+        <div className="container" style={{ padding: '2rem 1rem', width: '100%' }}>
 
 
             {isOffline && (
@@ -470,7 +468,7 @@ const InterviewPage: React.FC = () => {
                         <Clock size={20} />
                         {formatTime(timeLeft || 0)}
                     </div>
-    
+
                     {/* Microphone Button */}
                     <button
                         onClick={toggleRecording}
@@ -527,12 +525,12 @@ const InterviewPage: React.FC = () => {
 
                 <div style={{ width: '100%', display: 'flex', gap: '1rem' }}>
                     {/* Live Transcription */}
-                    <div className="card" style={{ 
-                        flex: 1, 
-                        padding: '1.5rem', 
-                        minHeight: '150px', 
-                        backgroundColor: 'var(--bg-secondary)', 
-                        marginBottom: '1.5rem' 
+                    <div className="card" style={{
+                        flex: 1,
+                        padding: '1.5rem',
+                        minHeight: '150px',
+                        backgroundColor: 'var(--bg-secondary)',
+                        marginBottom: '1.5rem'
                     }}>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 'bold', textTransform: 'uppercase' }}>
                             Live Transcription
@@ -543,11 +541,11 @@ const InterviewPage: React.FC = () => {
                     </div>
 
                     {/* Manual Input */}
-                    <div className="card" style={{ 
-                        flex: 1, 
-                        padding: '1.5rem', 
-                        minHeight: '150px', 
-                        backgroundColor: 'var(--bg-secondary)', 
+                    <div className="card" style={{
+                        flex: 1,
+                        padding: '1.5rem',
+                        minHeight: '150px',
+                        backgroundColor: 'var(--bg-secondary)',
                         marginBottom: '1.5rem',
                         border: '2px solid var(--primary)'
                     }}>
@@ -560,8 +558,8 @@ const InterviewPage: React.FC = () => {
                             onChange={(e) => setManualQuestion(e.target.value)}
                             placeholder="Type your answer here manually..."
                             rows={4}
-                            style={{ 
-                                width: '100%', 
+                            style={{
+                                width: '100%',
                                 resize: 'vertical',
                                 minHeight: '80px'
                             }}
