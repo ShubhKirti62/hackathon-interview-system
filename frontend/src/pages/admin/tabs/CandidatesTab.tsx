@@ -1,9 +1,12 @@
-import React from 'react';
-import { Users, BarChart as BarChartIcon, PieChart as PieChartIcon, Star, Filter, Trash2, Shield, Video, Upload } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Users, BarChart as BarChartIcon, PieChart as PieChartIcon, Star, Filter, Trash2, Image, Video, Upload } from 'lucide-react';
 import { PieChart, Pie, Tooltip, Legend, BarChart as ReBarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import type { Candidate, Stats } from '../types';
 import { formatCandidateStatus, getStatusColor, getStatusBackgroundColor } from '../../../utils/statusFormatter';
 import StatCard from '../components/StatCard';
+import ScreenshotViewerModal from '../../../components/Modals/ScreenshotViewerModal';
+import api from '../../../services/api';
+import { API_ENDPOINTS } from '../../../services/endpoints';
 
 interface CandidatesTabProps {
     candidates: Candidate[];
@@ -31,6 +34,30 @@ const TableRow: React.FC<{
     onViewScreenshots: () => void,
     onViewInterview: (candidateId: string) => void
 }> = ({ candidate, onView, onDelete, onEdit, onViewScreenshots, onViewInterview }) => {
+    const [hasScreenshots, setHasScreenshots] = useState(false);
+    const [checkingScreenshots, setCheckingScreenshots] = useState(false);
+
+    // Check if candidate has screenshots
+    useEffect(() => {
+        const checkScreenshots = async () => {
+            if (!candidate._id) return;
+            
+            setCheckingScreenshots(true);
+            try {
+                const response = await api.get(API_ENDPOINTS.FACE.SCREENSHOTS(candidate._id));
+                const screenshots = response.data.screenshots || [];
+                setHasScreenshots(screenshots.length > 0);
+            } catch (error) {
+                console.error('Failed to check screenshots:', error);
+                setHasScreenshots(false);
+            } finally {
+                setCheckingScreenshots(false);
+            }
+        };
+
+        checkScreenshots();
+    }, [candidate._id]);
+
     let statusColor = getStatusColor(candidate.status);
     let statusBg = getStatusBackgroundColor(candidate.status);
     let displayStatus = formatCandidateStatus(candidate.status);
@@ -95,13 +122,16 @@ const TableRow: React.FC<{
                             Edit
                         </button>
                     )}
-                    <button
-                        onClick={onViewScreenshots}
-                        style={{ color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}
-                        title="View Screenshots"
-                    >
-                        <Shield size={16} />
-                    </button>
+                    {/* Only show screenshot button if screenshots exist */}
+                    {!checkingScreenshots && hasScreenshots && (
+                        <button
+                            onClick={onViewScreenshots}
+                            style={{ color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}
+                            title="View Screenshots"
+                        >
+                            <Image size={16} />
+                        </button>
+                    )}
                     {candidate.status === 'Interviewed' && (
                         <button
                             onClick={() => onViewInterview(candidate._id)}
@@ -137,6 +167,18 @@ const CandidatesTab: React.FC<CandidatesTabProps> = ({
     onViewInterview,
     chartData
 }) => {
+    const [showScreenshotModal, setShowScreenshotModal] = useState(false);
+    const [selectedCandidate, setSelectedCandidate] = useState<{ id: string; name: string } | null>(null);
+
+    const handleViewScreenshots = (id: string, name: string) => {
+        setSelectedCandidate({ id, name });
+        setShowScreenshotModal(true);
+    };
+
+    const handleCloseScreenshotModal = () => {
+        setShowScreenshotModal(false);
+        setSelectedCandidate(null);
+    };
     return (
         <>
             <div className="admin-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
@@ -263,7 +305,7 @@ const CandidatesTab: React.FC<CandidatesTabProps> = ({
                                             onView={() => onView(candidate)}
                                             onDelete={() => onDelete(candidate._id)}
                                             onEdit={() => onEdit(candidate)}
-                                            onViewScreenshots={() => onViewScreenshots(candidate._id, candidate.name)}
+                                            onViewScreenshots={() => handleViewScreenshots(candidate._id, candidate.name)}
                                             onViewInterview={onViewInterview}
                                         />
                                     ))}
@@ -272,6 +314,15 @@ const CandidatesTab: React.FC<CandidatesTabProps> = ({
                     )}
                 </div>
             </div>
+
+            {/* Screenshot Modal */}
+            {showScreenshotModal && selectedCandidate && (
+                <ScreenshotViewerModal
+                    candidateId={selectedCandidate.id}
+                    candidateName={selectedCandidate.name}
+                    onClose={handleCloseScreenshotModal}
+                />
+            )}
         </>
     );
 };

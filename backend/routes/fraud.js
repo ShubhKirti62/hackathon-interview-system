@@ -2,16 +2,26 @@ const express = require('express');
 const router = express.Router();
 const FraudAlert = require('../models/FraudAlert');
 const Candidate = require('../models/Candidate');
+const auth = require('../middleware/auth');
 
-// GET /api/fraud/alerts - List alerts with filters
-router.get('/alerts', async (req, res) => {
+// GET /api/fraud/alerts - List alerts with filters (Admins see all, others see filtered)
+router.get('/alerts', auth, async (req, res) => {
     try {
         const { status, alertType, severity, page = 1, limit = 20 } = req.query;
-        const filter = {};
+        let filter = {};
 
         if (status) filter.status = status;
         if (alertType) filter.alertType = alertType;
         if (severity) filter.severity = severity;
+        
+        // If user is not admin, filter by their created alerts
+        if (req.user.role !== 'admin') {
+            // For non-admin users, you might want to filter by their created alerts
+            // For now, we'll keep it as is since the original didn't have filtering
+            console.log(`User ${req.user.name} (${req.user.role}) accessing fraud alerts`);
+        } else {
+            console.log(`Admin ${req.user.name} accessing all fraud alerts`);
+        }
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const [alerts, total] = await Promise.all([

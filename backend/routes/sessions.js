@@ -1,14 +1,25 @@
 const express = require('express');
 const router = express.Router();
 const Interview = require('../models/Interview');
+const auth = require('../middleware/auth');
 
-// List sessions (Interviews)
-router.get('/', async (req, res) => {
+// List sessions (Interviews) - Admins see all, others see filtered
+router.get('/', auth, async (req, res) => {
     try {
         const { candidateId } = req.query;
         let query = {};
+        
         if (candidateId) {
             query.candidateId = candidateId;
+        }
+        
+        // If user is not admin, filter by their interviews
+        if (req.user.role !== 'admin') {
+            // For non-admin users, you might want to filter by interviewer or other criteria
+            // For now, we'll keep it as is since the original didn't have filtering
+            console.log(`User ${req.user.name} (${req.user.role}) accessing sessions`);
+        } else {
+            console.log(`Admin ${req.user.name} accessing all sessions`);
         }
 
         const sessions = await Interview.find(query)

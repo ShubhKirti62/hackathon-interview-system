@@ -190,17 +190,30 @@ router.get('/me', auth, async (req, res) => {
     }
 });
 
-// Get All Candidates (Filtered by Creator)
+// Get All Candidates (Filtered by Creator, but Admins see all)
 router.get('/', auth, async (req, res) => {
     try {
-        const candidates = await Candidate.find({
-            $or: [
-                { createdBy: req.user.id },
-                { handledBy: req.user.id }
-            ]
-        })
+        let query = {};
+        
+        // If user is admin, show all candidates
+        if (req.user.role === 'admin') {
+            // No filtering - admins can see all candidates
+            console.log(`Admin ${req.user.name} accessing all candidates`);
+        } else {
+            // Non-admin users only see candidates they created or handle
+            query = {
+                $or: [
+                    { createdBy: req.user.id },
+                    { handledBy: req.user.id }
+                ]
+            };
+            console.log(`User ${req.user.name} (${req.user.role}) accessing filtered candidates`);
+        }
+        
+        const candidates = await Candidate.find(query)
             .populate('handledBy', 'name email role')
             .sort({ internalReferred: -1, createdAt: -1 });
+            
         res.json(candidates);
     } catch (error) {
         res.status(500).json({ error: error.message });

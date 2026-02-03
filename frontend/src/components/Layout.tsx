@@ -20,7 +20,7 @@ const Layout: React.FC = () => {
                     left: 0,
                     right: 0,
                     height: '64px',
-                    zIndex: 100,
+                    zIndex: 1000,
                     borderBottom: '1px solid var(--border-color)',
                     backgroundColor: 'var(--bg-primary)',
                     display: 'flex',

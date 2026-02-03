@@ -227,6 +227,7 @@ const AdminDashboard: React.FC = () => {
     useEffect(() => {
         fetchDashboardData();
         fetchFraudStats();
+        document.body.style.overflowY = 'hidden';
     }, []);
 
     useEffect(() => {
@@ -514,7 +515,7 @@ const AdminDashboard: React.FC = () => {
             top: 0,
             left: 0,
             right: 0,
-            zIndex: 100
+            zIndex: 1000
         }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <button
@@ -637,7 +638,7 @@ const AdminDashboard: React.FC = () => {
             <div style={{ display: 'flex', flex: 1, paddingTop: '64px' }}>
                 {renderSidebar()}
 
-                <main style={{ flex: 1, padding: '2rem', overflowY: 'auto', width: '100%' }}>
+                <main style={{ flex: 1, padding: '2rem', overflowY: 'auto', width: '100%', height: '90vh' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', maxWidth: '1400px', margin: '0 auto 2rem auto' }}>
                         <div>
                             <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', margin: 0, color: 'var(--text-primary)' }}>

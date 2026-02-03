@@ -32,7 +32,13 @@ const ScreenshotViewerModal: React.FC<ScreenshotViewerModalProps> = ({ candidate
         setLoading(true);
         try {
             const res = await api.get(API_ENDPOINTS.FACE.SCREENSHOTS(candidateId));
-            setScreenshots(res.data.screenshots || []);
+            const screenshotsList = res.data.screenshots || [];
+            setScreenshots(screenshotsList);
+            
+            // Auto-select first screenshot if available
+            if (screenshotsList.length > 0) {
+                fetchScreenshotImage(screenshotsList[0]._id);
+            }
         } catch (err) {
             console.error('Failed to fetch screenshots', err);
             showToast.error('Failed to load screenshots list');
