@@ -1,0 +1,27 @@
+const http = require('http');
+
+const options = {
+  hostname: 'localhost',
+  port: 5001,
+  path: '/api/room/test-room-123/users',
+  method: 'GET'
+};
+
+const req = http.request(options, (res) => {
+  console.log(`STATUS: ${res.statusCode}`);
+  console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
+  
+  res.on('data', (chunk) => {
+    console.log(`BODY: ${chunk}`);
+  });
+  
+  res.on('end', () => {
+    console.log('No more data in response.');
+  });
+});
+
+req.on('error', (e) => {
+  console.error(`problem with request: ${e.message}`);
+});
+
+req.end();

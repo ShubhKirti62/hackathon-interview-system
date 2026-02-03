@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Backend Connection Test</title>
+</head>
+<body>
+    <h1>Backend Connection Test</h1>
+    <div id="status">Testing...</div>
+    <div id="result"></div>
+    
+    <script>
+        // Test basic backend connection
+        fetch('http://localhost:5001/api/test')
+        .then(response => {
+            console.log('Test response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Test response data:', data);
+            document.getElementById('status').innerHTML = '✅ Backend is accessible!';
+            document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            
+            // Test signaling endpoint
+            return fetch('http://localhost:5001/api/signaling/test-room', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    type: 'join-room',
+                    data: { 
+                        roomId: 'test-room', 
+                        userName: 'Test User', 
+                        role: 'tester', 
+                        userId: 'test123' 
+                    }
+                })
+            });
+        })
+        .then(response => {
+            console.log('Signaling response status:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('Signaling response:', data);
+            document.getElementById('result').innerHTML += '<h3>Signaling Test:</h3><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        })
+        .catch(error => {
+            console.error('Test failed:', error);
+            document.getElementById('status').innerHTML = '❌ Backend not accessible';
+            document.getElementById('result').innerHTML = 'Error: ' + error.message;
+        });
+    </script>
+</body>
+</html>

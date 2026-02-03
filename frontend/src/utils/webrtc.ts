@@ -1,3 +1,5 @@
+import { signalingService, type SignalingMessage } from './signaling';
+
 export interface WebRTCConfig {
   iceServers: RTCIceServer[];
 }
@@ -31,6 +33,7 @@ export class VideoCallManager {
         // Send ICE candidate to remote peer
         this.sendSignalingMessage({
           type: 'ice-candidate',
+          data: event.candidate,
           candidate: event.candidate
         });
       }
@@ -216,11 +219,12 @@ export class VideoCallManager {
     this.onConnectionStateChangeCallback = callback;
   }
 
-  private sendSignalingMessage(message: any): void {
-    // This would be implemented with your signaling server
-    console.log('Sending signaling message:', message);
-    // For now, we'll use a simple event-based approach
-    window.dispatchEvent(new CustomEvent('signaling-message', { detail: message }));
+  private sendSignalingMessage(message: SignalingMessage, targetUserId?: string): void {
+    try {
+      signalingService.sendSignalingMessage(message, targetUserId);
+    } catch (error) {
+      console.error('Failed to send signaling message:', error);
+    }
   }
 
   disconnect(): void {

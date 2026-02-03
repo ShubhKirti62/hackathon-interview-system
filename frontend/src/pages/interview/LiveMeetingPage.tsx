@@ -2,13 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Video, VideoOff, Mic, MicOff, ScreenShare, PhoneOff,
-    Settings, MessageSquare, Users, Brain, CheckCircle
+    Settings, MessageSquare, Users, Brain, CheckCircle, X
 } from 'lucide-react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { APP_ROUTES } from '../../routes';
 import { showToast } from '../../utils/toast';
 import { VideoCallManager } from '../../utils/webrtc';
+import { signalingService, type RoomUser, type ChatMessage, type SignalingMessage } from '../../utils/signaling';
 import EnhancedSlider from '../../components/Slider/EnhancedSlider';
 
 const LiveMeetingPage: React.FC = () => {
@@ -22,6 +23,12 @@ const LiveMeetingPage: React.FC = () => {
     const [showFeedback, setShowFeedback] = useState(false);
     const [meetingDuration, setMeetingDuration] = useState(0);
     const [slotData, setSlotData] = useState<any>(null);
+    const [showParticipants, setShowParticipants] = useState(false);
+    const [roomUsers, setRoomUsers] = useState<RoomUser[]>([]);
+    const [isConnected, setIsConnected] = useState(false);
+    const [showChat, setShowChat] = useState(false);
+    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+    const [newMessage, setNewMessage] = useState('');
 
     const [videoCallManager] = useState(() => new VideoCallManager());
 
@@ -57,14 +64,69 @@ const LiveMeetingPage: React.FC = () => {
 
         // Initialize video call manager
         initializeVideoCall();
+        initializeSignaling();
 
         // Cleanup on unmount
         return () => {
             if (videoCallManager) {
                 videoCallManager.disconnect();
             }
+            signalingService.disconnect();
         };
     }, [id]);
+
+    const initializeSignaling = () => {
+        try {
+            const connectPromise = signalingService.connect();
+            
+            connectPromise.then(() => {
+                setIsConnected(true);
+                if (id && user) {
+                    signalingService.joinRoom(id, user.name || user.email, user.role);
+                }
+            }).catch((error) => {
+                console.error('Failed to connect to signaling server:', error);
+                setIsConnected(false);
+                showToast.error('Failed to connect to meeting server');
+                return;
+            });
+            
+            signalingService.onRoomUsers((users: RoomUser[]) => {
+                setRoomUsers(users);
+            });
+            
+            signalingService.onUserJoined((user: RoomUser) => {
+                setRoomUsers(prev => [...prev, user]);
+                showToast.success(`${user.userName} joined the meeting`);
+            });
+            
+            signalingService.onUserLeft((userId: string) => {
+                setRoomUsers(prev => prev.filter(u => u.id !== userId));
+                showToast.info('A user left the meeting');
+            });
+            
+            signalingService.onSignalingMessage(async (message: SignalingMessage, fromUserId: string) => {
+                if (message.type === 'offer') {
+                    const answer = await videoCallManager.createAnswer(message.data);
+                    signalingService.sendSignalingMessage({
+                        type: 'answer',
+                        data: answer
+                    }, fromUserId);
+                } else if (message.type === 'answer') {
+                    await videoCallManager.handleAnswer(message.data);
+                } else if (message.type === 'ice-candidate') {
+                    await videoCallManager.handleIceCandidate(message.candidate!);
+                }
+            });
+            
+            signalingService.onChatMessage((message: ChatMessage) => {
+                setChatMessages(prev => [...prev, message]);
+            });
+        } catch (error) {
+            console.error('Failed to initialize signaling:', error);
+            showToast.error('Failed to connect to meeting server');
+        }
+    };
 
     const initializeVideoCall = async () => {
         try {
@@ -74,7 +136,6 @@ const LiveMeetingPage: React.FC = () => {
             
             // Setup connection state callback
             videoCallManager.onConnectionStateChange((state) => {
-                // setConnectionState(state); // Removed state
                 if (state === 'connected') {
                     showToast.success('Connected to interview room');
                 } else if (state === 'failed' || state === 'disconnected') {
@@ -84,6 +145,22 @@ const LiveMeetingPage: React.FC = () => {
             
             // Initialize local stream
             await videoCallManager.initializeLocalStream(true, true);
+            
+            // Create and send offer if first user
+            if (roomUsers.length <= 1) {
+                setTimeout(async () => {
+                    try {
+                        const offer = await videoCallManager.createOffer();
+                        await signalingService.sendSignalingMessage({
+                            type: 'offer',
+                            data: offer
+                        });
+                        console.log('Offer sent to other users');
+                    } catch (error) {
+                        console.error('Failed to create/send offer:', error);
+                    }
+                }, 2000); // Wait 2 seconds for other users to join
+            }
             
             // Start meeting timer
             const timer = setInterval(() => {
@@ -155,6 +232,29 @@ const LiveMeetingPage: React.FC = () => {
         } catch (err) {
             showToast.error('Failed to submit feedback');
         }
+    };
+
+    const sendMessage = () => {
+        if (!newMessage.trim() || !user) return;
+        
+        try {
+            signalingService.sendChatMessage(
+                newMessage.trim(),
+                user.name || user.email
+            );
+            setNewMessage('');
+        } catch (error) {
+            console.error('Failed to send message:', error);
+            showToast.error('Failed to send message');
+        }
+    };
+
+    const formatMessageTime = (timestamp: string) => {
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit'
+        });
     };
 
     const formatTime = (seconds: number) => {
@@ -260,17 +360,251 @@ const LiveMeetingPage: React.FC = () => {
                 </div>
 
                 <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button className="btn" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white' }}>
+                    <button 
+                        onClick={() => setShowParticipants(!showParticipants)}
+                        className="btn" 
+                        style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', position: 'relative' }}
+                    >
                         <Users size={18} />
+                        {roomUsers.length > 1 && (
+                            <span style={{
+                                position: 'absolute',
+                                top: '-4px',
+                                right: '-4px',
+                                background: '#ef4444',
+                                color: 'white',
+                                borderRadius: '50%',
+                                width: '16px',
+                                height: '16px',
+                                fontSize: '10px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                {roomUsers.length}
+                            </span>
+                        )}
                     </button>
-                    <button className="btn" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white' }}>
+                    <button 
+                        onClick={() => setShowChat(!showChat)}
+                        className="btn" 
+                        style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', position: 'relative' }}
+                    >
                         <MessageSquare size={18} />
+                        {chatMessages.length > 0 && (
+                            <span style={{
+                                position: 'absolute',
+                                top: '-4px',
+                                right: '-4px',
+                                background: '#10b981',
+                                color: 'white',
+                                borderRadius: '50%',
+                                width: '16px',
+                                height: '16px',
+                                fontSize: '10px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                {chatMessages.length}
+                            </span>
+                        )}
                     </button>
                     <button className="btn" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white' }}>
                         <Settings size={18} />
                     </button>
                 </div>
             </div>
+
+            {/* Participants Panel */}
+            {showParticipants && (
+                <div style={{
+                    position: 'absolute',
+                    top: '80px',
+                    right: '2rem',
+                    width: '280px',
+                    background: 'rgba(15, 23, 42, 0.95)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '0.75rem',
+                    padding: '1rem',
+                    zIndex: 20,
+                    boxShadow: '0 20px 40px rgba(0,0,0,0.4)'
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                        <h3 style={{ margin: 0, color: 'white', fontSize: '1rem' }}>Participants ({roomUsers.length})</h3>
+                        <button 
+                            onClick={() => setShowParticipants(false)}
+                            style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {roomUsers.map((user) => (
+                            <div key={user.id} style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.75rem',
+                                padding: '0.5rem',
+                                background: 'rgba(255,255,255,0.05)',
+                                borderRadius: '0.5rem',
+                                color: 'white'
+                            }}>
+                                <div style={{
+                                    width: '8px',
+                                    height: '8px',
+                                    borderRadius: '50%',
+                                    backgroundColor: user.id === signalingService.getSocketId() ? '#10b981' : '#6b7280'
+                                }} />
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: '0.875rem', fontWeight: '500' }}>
+                                        {user.userName}
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                                        {user.role} {user.id === signalingService.getSocketId() && '(You)'}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Chat Panel */}
+            {showChat && (
+                <div style={{
+                    position: 'absolute',
+                    top: '80px',
+                    right: '2rem',
+                    width: '320px',
+                    height: '400px',
+                    background: 'rgba(15, 23, 42, 0.95)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '0.75rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    zIndex: 20,
+                    boxShadow: '0 20px 40px rgba(0,0,0,0.4)'
+                }}>
+                    <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        padding: '1rem',
+                        borderBottom: '1px solid rgba(255,255,255,0.1)'
+                    }}>
+                        <h3 style={{ margin: 0, color: 'white', fontSize: '1rem' }}>Chat</h3>
+                        <button 
+                            onClick={() => setShowChat(false)}
+                            style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
+                    
+                    <div style={{
+                        flex: 1,
+                        overflowY: 'auto',
+                        padding: '1rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.75rem'
+                    }}>
+                        {chatMessages.length === 0 ? (
+                            <div style={{
+                                textAlign: 'center',
+                                color: '#9ca3af',
+                                fontSize: '0.875rem',
+                                fontStyle: 'italic'
+                            }}>
+                                No messages yet. Start a conversation!
+                            </div>
+                        ) : (
+                            chatMessages.map((msg) => (
+                                <div key={msg.id} style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '0.25rem'
+                                }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem'
+                                    }}>
+                                        <span style={{
+                                            fontSize: '0.75rem',
+                                            fontWeight: '600',
+                                            color: msg.userId === signalingService.getSocketId() ? '#10b981' : '#60a5fa'
+                                        }}>
+                                            {msg.userName}
+                                        </span>
+                                        <span style={{
+                                            fontSize: '0.7rem',
+                                            color: '#6b7280'
+                                        }}>
+                                            {formatMessageTime(msg.timestamp)}
+                                        </span>
+                                    </div>
+                                    <div style={{
+                                        fontSize: '0.875rem',
+                                        color: 'white',
+                                        wordWrap: 'break-word',
+                                        backgroundColor: msg.userId === signalingService.getSocketId() ? 'rgba(16, 185, 129, 0.1)' : 'rgba(96, 165, 250, 0.1)',
+                                        padding: '0.5rem 0.75rem',
+                                        borderRadius: '0.5rem',
+                                        borderLeft: `3px solid ${msg.userId === signalingService.getSocketId() ? '#10b981' : '#60a5fa'}`
+                                    }}>
+                                        {msg.message}
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                    
+                    <div style={{
+                        padding: '1rem',
+                        borderTop: '1px solid rgba(255,255,255,0.1)',
+                        display: 'flex',
+                        gap: '0.5rem'
+                    }}>
+                        <input
+                            type="text"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                            placeholder="Type a message..."
+                            style={{
+                                flex: 1,
+                                background: 'rgba(255,255,255,0.1)',
+                                border: '1px solid rgba(255,255,255,0.2)',
+                                borderRadius: '0.5rem',
+                                padding: '0.5rem 0.75rem',
+                                color: 'white',
+                                fontSize: '0.875rem',
+                                outline: 'none'
+                            }}
+                        />
+                        <button
+                            onClick={sendMessage}
+                            disabled={!newMessage.trim()}
+                            style={{
+                                background: newMessage.trim() ? '#10b981' : 'rgba(255,255,255,0.1)',
+                                border: 'none',
+                                color: 'white',
+                                borderRadius: '0.5rem',
+                                padding: '0.5rem 1rem',
+                                fontSize: '0.875rem',
+                                cursor: newMessage.trim() ? 'pointer' : 'not-allowed',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            Send
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Video Grid */}
             <div style={{ flex: 1, padding: '5rem 2rem 8rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>

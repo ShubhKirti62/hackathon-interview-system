@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HTTP Signaling Test</title>
+</head>
+<body>
+    <h1>HTTP Signaling Test</h1>
+    <div id="status">Testing...</div>
+    <div id="users"></div>
+    <div id="messages"></div>
+    
+    <script>
+        // Test HTTP signaling
+        const baseUrl = 'http://localhost:5001';
+        const roomId = 'test-room-123';
+        const userId = Math.random().toString(36).substr(2, 9);
+        
+        document.getElementById('status').innerHTML = 'Testing HTTP signaling...';
+        
+        // Test join room
+        fetch(`${baseUrl}/api/signaling/${roomId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                type: 'join-room',
+                data: { 
+                    roomId, 
+                    userName: 'Test User ' + userId, 
+                    role: 'tester', 
+                    userId 
+                }
+            })
+        })
+        .then(response => {
+            console.log('Join room response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(result => {
+            console.log('Join room result:', result);
+            document.getElementById('status').innerHTML = '✅ Successfully joined room!';
+            
+            // Test getting room users
+            return fetch(`${baseUrl}/api/room/${roomId}/users`);
+        })
+        .then(response => {
+            console.log('Get users response status:', response.status);
+            return response.json();
+        })
+        .then(users => {
+            console.log('Room users:', users);
+            document.getElementById('users').innerHTML = '<h3>Users in room:</h3><pre>' + JSON.stringify(users, null, 2) + '</pre>';
+        })
+        .catch(error => {
+            console.error('Test failed:', error);
+            document.getElementById('status').innerHTML = '❌ Test failed: ' + error.message;
+            document.getElementById('messages').innerHTML = 'Error: ' + error.message;
+        });
+    </script>
+</body>
+</html>
