@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Star, Mail, Phone, File, ExternalLink, Upload, Video, Calendar, Copy } from 'lucide-react';
 import api from '../../../services/api';
 import { API_ENDPOINTS } from '../../../services/endpoints';
@@ -10,7 +10,29 @@ export const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () =>
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [remarks, setRemarks] = useState(candidate.remarks || '');
-    const [activeTab, setActiveTab] = useState<'info' | 'resume' | 'status'>('info');
+    const [activeTab, setActiveTab] = useState<'info' | 'resume' | 'interviews' | 'status'>('info');
+    const [interviews, setInterviews] = useState<any[]>([]);
+    const [loadingInterviews, setLoadingInterviews] = useState(false);
+
+    // Fetch interviews for this candidate
+    useEffect(() => {
+        const fetchInterviews = async () => {
+            if (activeTab === 'interviews') {
+                setLoadingInterviews(true);
+                try {
+                    const response = await api.get(`${API_ENDPOINTS.INTERVIEWS.BY_CANDIDATE}?candidateId=${candidate._id}`);
+                    setInterviews(response.data);
+                } catch (error) {
+                    console.error('Failed to fetch interviews:', error);
+                    showToast.error('Failed to fetch interviews');
+                } finally {
+                    setLoadingInterviews(false);
+                }
+            }
+        };
+
+        fetchInterviews();
+    }, [activeTab, candidate._id]);
 
     const getNextPendingItem = (status: string) => {
         const s = status?.toLowerCase().replace(/_/g, ' ') || '';
@@ -85,6 +107,7 @@ export const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () =>
                 <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)', zIndex: 10 }}>
                     <button onClick={() => setActiveTab('info')} style={{ padding: '1rem 2rem', border: 'none', background: activeTab === 'info' ? 'var(--bg-card)' : 'transparent', color: activeTab === 'info' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: '600', borderRight: '1px solid var(--border-color)', cursor: 'pointer' }}>Detailed Info</button>
                     <button onClick={() => setActiveTab('resume')} style={{ padding: '1rem 2rem', border: 'none', background: activeTab === 'resume' ? 'var(--bg-card)' : 'transparent', color: activeTab === 'resume' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: '600', borderRight: '1px solid var(--border-color)', cursor: 'pointer' }}>Resume Content</button>
+                    <button onClick={() => setActiveTab('interviews')} style={{ padding: '1rem 2rem', border: 'none', background: activeTab === 'interviews' ? 'var(--bg-card)' : 'transparent', color: activeTab === 'interviews' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: '600', borderRight: '1px solid var(--border-color)', cursor: 'pointer' }}>Interviews Info</button>
                     <button onClick={() => setActiveTab('status')} style={{ padding: '1rem 2rem', border: 'none', background: activeTab === 'status' ? 'var(--bg-card)' : 'transparent', color: activeTab === 'status' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: '600', borderRight: '1px solid var(--border-color)', cursor: 'pointer' }}>Status</button>
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', backgroundColor: 'var(--bg-card)' }}>
@@ -170,6 +193,212 @@ export const ViewCandidateModal: React.FC<{ candidate: Candidate, onClose: () =>
                     ) : activeTab === 'resume' ? (
                         <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '1.5rem', borderRadius: '0.5rem' }}>
                             <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '0.9rem' }}>{candidate.resumeText || 'No text content available.'}</pre>
+                        </div>
+                    ) : activeTab === 'interviews' ? (
+                        <div>
+                            {loadingInterviews ? (
+                                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                                    Loading interviews...
+                                </div>
+                            ) : interviews.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                                    <Video size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
+                                    <div>No interviews found for this candidate</div>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                    {interviews.map((interview, interviewIndex) => (
+                                        <div key={interview._id} style={{
+                                            border: '1px solid var(--border-color)',
+                                            borderRadius: '0.75rem',
+                                            backgroundColor: 'var(--bg-card)',
+                                            overflow: 'hidden'
+                                        }}>
+                                            {/* Interview Header */}
+                                            <div style={{
+                                                padding: '1.5rem',
+                                                backgroundColor: 'var(--bg-secondary)',
+                                                borderBottom: '1px solid var(--border-color)'
+                                            }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                                    <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>
+                                                        Interview #{interviewIndex + 1}
+                                                    </h3>
+                                                    <span style={{
+                                                        padding: '0.5rem 1rem',
+                                                        borderRadius: '1rem',
+                                                        fontSize: '0.875rem',
+                                                        fontWeight: '600',
+                                                        backgroundColor: interview.status === 'Completed' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(234, 179, 8, 0.1)',
+                                                        color: interview.status === 'Completed' ? '#22c55e' : '#eab308'
+                                                    }}>
+                                                        {interview.status}
+                                                    </span>
+                                                </div>
+                                                
+                                                {/* Interview Summary */}
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                                                    <div>
+                                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Domain</div>
+                                                        <div style={{ fontWeight: '500' }}>{interview.domain || 'N/A'}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Round</div>
+                                                        <div style={{ fontWeight: '500' }}>{interview.round || 'N/A'}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Experience Level</div>
+                                                        <div style={{ fontWeight: '500' }}>{interview.experienceLevel || 'N/A'}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Overall Score</div>
+                                                        <div style={{ fontWeight: '500' }}>{interview.feedback?.technical || 'N/A'}/10</div>
+                                                    </div>
+                                                </div>
+                                                
+                                                {interview.startedAt && (
+                                                    <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                                                        <div style={{ marginBottom: '0.25rem' }}>Started: {new Date(interview.startedAt).toLocaleString()}</div>
+                                                        {interview.completedAt && (
+                                                            <div>Completed: {new Date(interview.completedAt).toLocaleString()}</div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                
+                                                {interview.aiOverallSummary && (
+                                                    <div style={{ marginTop: '1rem' }}>
+                                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>AI Summary:</div>
+                                                        <p style={{ margin: 0, fontSize: '0.875rem', lineHeight: '1.5', color: 'var(--text-primary)' }}>
+                                                            {interview.aiOverallSummary}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Questions & Answers */}
+                                            <div style={{ padding: '1.5rem' }}>
+                                                <h4 style={{ margin: '0 0 1.5rem 0', fontSize: '1rem', color: 'var(--text-primary)' }}>
+                                                    Questions & Answers
+                                                </h4>
+                                                {interview.responses && interview.responses.length > 0 ? (
+                                                    interview.responses.map((response: any, responseIndex: number) => (
+                                                        <div key={response._id || responseIndex} style={{
+                                                            marginBottom: '1.5rem',
+                                                            padding: '1rem',
+                                                            border: '1px solid var(--border-color)',
+                                                            borderRadius: '0.5rem',
+                                                            backgroundColor: 'var(--bg-secondary)'
+                                                        }}>
+                                                            {/* Question Header */}
+                                                            <div style={{ marginBottom: '1rem' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                                                                    <h5 style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                                                                        Question {responseIndex + 1}
+                                                                    </h5>
+                                                                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                                                        {response.questionId?.difficulty && (
+                                                                            <span style={{
+                                                                                fontSize: '0.75rem',
+                                                                                padding: '0.2rem 0.5rem',
+                                                                                borderRadius: '4px',
+                                                                                backgroundColor: response.questionId.difficulty === 'Easy' ? 'rgba(34, 197, 94, 0.1)' :
+                                                                                    response.questionId.difficulty === 'Medium' ? 'rgba(251, 146, 60, 0.1)' :
+                                                                                        'rgba(239, 68, 68, 0.1)',
+                                                                                color: response.questionId.difficulty === 'Easy' ? 'var(--success)' :
+                                                                                    response.questionId.difficulty === 'Medium' ? 'var(--warning)' :
+                                                                                        'var(--error)'
+                                                                            }}>
+                                                                                {response.questionId.difficulty}
+                                                                            </span>
+                                                                        )}
+                                                                        {response.score !== undefined && (
+                                                                            <span style={{
+                                                                                fontSize: '0.75rem',
+                                                                                padding: '0.2rem 0.5rem',
+                                                                                borderRadius: '4px',
+                                                                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                                                                color: 'var(--primary)',
+                                                                                fontWeight: 'bold'
+                                                                            }}>
+                                                                                Score: {response.score}/10
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
+                                                                    {response.questionId?.text || 'Question not available'}
+                                                                </p>
+                                                                {response.questionId?.keywords && response.questionId.keywords.length > 0 && (
+                                                                    <div style={{ marginTop: '0.5rem' }}>
+                                                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Keywords: </span>
+                                                                        {response.questionId.keywords.map((keyword: string, i: number) => (
+                                                                            <span key={i} style={{
+                                                                                fontSize: '0.75rem',
+                                                                                padding: '0.1rem 0.3rem',
+                                                                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                                                                color: 'var(--primary)',
+                                                                                borderRadius: '3px',
+                                                                                marginRight: '0.25rem'
+                                                                            }}>
+                                                                                {keyword}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Candidate's Answer */}
+                                                            <div style={{ marginBottom: '1rem' }}>
+                                                                <h6 style={{ margin: '0 0 0.5rem 0', fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                                                                    Candidate's Answer:
+                                                                </h6>
+                                                                <div style={{
+                                                                    padding: '0.75rem',
+                                                                    backgroundColor: 'var(--bg-card)',
+                                                                    borderRadius: '0.25rem',
+                                                                    fontSize: '0.875rem',
+                                                                    lineHeight: '1.5',
+                                                                    color: 'var(--text-primary)'
+                                                                }}>
+                                                                    {response.userResponseText || 'No text response available'}
+                                                                </div>
+                                                                {response.timeTakenSeconds && (
+                                                                    <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                                                        Time taken: {Math.floor(response.timeTakenSeconds / 60)}m {response.timeTakenSeconds % 60}s
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            {/* AI Feedback */}
+                                                            {response.aiFeedback && (
+                                                                <div>
+                                                                    <h6 style={{ margin: '0 0 0.5rem 0', fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                                                                        AI Feedback:
+                                                                    </h6>
+                                                                    <div style={{
+                                                                        padding: '0.75rem',
+                                                                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                                                                        borderRadius: '0.25rem',
+                                                                        fontSize: '0.875rem',
+                                                                        lineHeight: '1.5',
+                                                                        color: 'var(--text-primary)'
+                                                                    }}>
+                                                                        {response.aiFeedback}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                                                        No responses available for this interview.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div style={{ padding: '1.5rem' }}>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, BarChart as BarChartIcon, PieChart as PieChartIcon, Star, Filter, Trash2, Image, Video, Upload } from 'lucide-react';
+import { Users, BarChart as BarChartIcon, PieChart as PieChartIcon, Star, Filter, Trash2, Image, Upload } from 'lucide-react';
 import { PieChart, Pie, Tooltip, Legend, BarChart as ReBarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import type { Candidate, Stats } from '../types';
 import { formatCandidateStatus, getStatusColor, getStatusBackgroundColor } from '../../../utils/statusFormatter';
@@ -18,7 +18,6 @@ interface CandidatesTabProps {
     onEdit: (candidate: Candidate) => void;
     onDelete: (id: string) => void;
     onViewScreenshots: (id: string, name: string) => void;
-    onViewInterview: (id: string) => void;
     chartData: {
         statusCounts: any[];
         domainCounts: any[];
@@ -31,9 +30,8 @@ const TableRow: React.FC<{
     onView: () => void,
     onDelete: () => void,
     onEdit: () => void,
-    onViewScreenshots: () => void,
-    onViewInterview: (candidateId: string) => void
-}> = ({ candidate, onView, onDelete, onEdit, onViewScreenshots, onViewInterview }) => {
+    onViewScreenshots: () => void
+}> = ({ candidate, onView, onDelete, onEdit, onViewScreenshots }) => {
     const [hasScreenshots, setHasScreenshots] = useState(false);
     const [checkingScreenshots, setCheckingScreenshots] = useState(false);
 
@@ -132,15 +130,6 @@ const TableRow: React.FC<{
                             <Image size={16} />
                         </button>
                     )}
-                    {candidate.status === 'Interviewed' && (
-                        <button
-                            onClick={() => onViewInterview(candidate._id)}
-                            style={{ color: 'var(--success)', background: 'none', border: 'none', cursor: 'pointer' }}
-                            title="View Interview Details"
-                        >
-                            <Video size={16} />
-                        </button>
-                    )}
                     <button
                         onClick={onDelete}
                         style={{ color: 'var(--error)', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer' }}
@@ -164,7 +153,6 @@ const CandidatesTab: React.FC<CandidatesTabProps> = ({
     onEdit,
     onDelete,
     onViewScreenshots,
-    onViewInterview,
     chartData
 }) => {
     const [showScreenshotModal, setShowScreenshotModal] = useState(false);
@@ -306,7 +294,6 @@ const CandidatesTab: React.FC<CandidatesTabProps> = ({
                                             onDelete={() => onDelete(candidate._id)}
                                             onEdit={() => onEdit(candidate)}
                                             onViewScreenshots={() => handleViewScreenshots(candidate._id, candidate.name)}
-                                            onViewInterview={onViewInterview}
                                         />
                                     ))}
                             </tbody>

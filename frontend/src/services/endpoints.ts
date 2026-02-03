@@ -33,6 +33,7 @@ export const API_ENDPOINTS = {
         SUBMIT_RESPONSE: (id: string) => `/interviews/${id}/response`,
         COMPLETE: (id: string) => `/interviews/${id}/complete`,
         BY_ID: (id: string) => `/interviews/${id}`,
+        BY_CANDIDATE: '/interviews',
         UPDATE_STATE: (id: string) => `/interviews/${id}/state`,
         GET_DETAILS: (id: string) => `/interviews/${id}`,
         VIOLATION: (id: string) => `/interviews/${id}/violation`,

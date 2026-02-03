@@ -451,3 +451,130 @@ export const InterviewDetailsModal: React.FC<{ interview: any, onClose: () => vo
         </div>
     );
 };
+
+export const EditSlotModal: React.FC<{ 
+    onClose: () => void, 
+    onSuccess: () => void, 
+    slot: any, 
+    interviewers: User[], 
+    candidates: Candidate[] 
+}> = ({ onClose, onSuccess, slot, interviewers, candidates }) => {
+    const [formData, setFormData] = useState({
+        interviewerId: slot.interviewerId?._id || slot.interviewerId,
+        candidateId: slot.candidateId?._id || slot.candidateId,
+        startTime: new Date(slot.startTime).toISOString().slice(0, 16),
+        endTime: new Date(slot.endTime).toISOString().slice(0, 16)
+    });
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        // Validation
+        if (!formData.interviewerId || !formData.startTime || !formData.endTime) {
+            showToast.error('Interviewer and time fields are mandatory');
+            return;
+        }
+
+        const start = new Date(formData.startTime);
+        const end = new Date(formData.endTime);
+        const now = new Date();
+
+        if (start < now) {
+            showToast.error('Start time must be in the future');
+            return;
+        }
+
+        if (end <= start) {
+            showToast.error('End time must be after start time');
+            return;
+        }
+
+        try {
+            await api.patch(`${API_ENDPOINTS.SLOTS.BASE}/${slot._id}`, formData);
+            showToast.success('Interview slot updated successfully!');
+            onSuccess();
+            onClose();
+        } catch (err) {
+            showToast.error('Failed to update slot');
+        }
+    };
+
+    return (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
+            <div className="card" style={{ width: '100%', maxWidth: '500px', padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-primary)' }}>Edit Interview Slot</h2>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>×</button>
+                </div>
+
+                <form onSubmit={handleSubmit} style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Interviewer *</label>
+                        <select
+                            className="input"
+                            value={formData.interviewerId}
+                            onChange={(e) => setFormData({ ...formData, interviewerId: e.target.value })}
+                            required
+                        >
+                            <option value="">Select Interviewer</option>
+                            {interviewers.map(interviewer => (
+                                <option key={interviewer._id} value={interviewer._id}>
+                                    {interviewer.name} ({interviewer.email})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Candidate</label>
+                        <select
+                            className="input"
+                            value={formData.candidateId}
+                            onChange={(e) => setFormData({ ...formData, candidateId: e.target.value })}
+                        >
+                            <option value="">Unbooked Slot</option>
+                            {candidates.map(candidate => (
+                                <option key={candidate._id} value={candidate._id}>
+                                    {candidate.name} ({candidate.email})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Start Time *</label>
+                        <input
+                            type="datetime-local"
+                            className="input"
+                            value={formData.startTime}
+                            onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                            min={new Date().toISOString().slice(0, 16)}
+                            required
+                        />
+                    </div>
+
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>End Time *</label>
+                        <input
+                            type="datetime-local"
+                            className="input"
+                            value={formData.endTime}
+                            onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                            min={formData.startTime}
+                            required
+                        />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                        <button type="button" onClick={onClose} className="btn" style={{ flex: 1 }}>
+                            Cancel
+                        </button>
+                        <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
+                            Update Slot
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};

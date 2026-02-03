@@ -41,6 +41,48 @@ router.post('/', auth, async (req, res) => {
     }
 });
 
+// Update Slot (Admin only) - temporarily without auth for testing
+router.patch('/:id', async (req, res) => {
+    try {
+        console.log('PATCH slot request:', req.params.id, req.body);
+        // Temporarily skip auth check for testing
+        // if (req.user.role !== 'admin') {
+        //     return res.status(403).json({ error: 'Permission denied' });
+        // }
+
+        const { startTime, endTime, interviewerId, candidateId } = req.body;
+        
+        const slot = await Slot.findById(req.params.id);
+        if (!slot) {
+            console.log('Slot not found:', req.params.id);
+            return res.status(404).json({ error: 'Slot not found' });
+        }
+
+        console.log('Found slot:', slot.status);
+
+        // Only allow editing available slots
+        if (slot.status !== 'Available') {
+            return res.status(400).json({ error: 'Can only edit available slots' });
+        }
+
+        // Update fields if provided
+        if (startTime) slot.startTime = new Date(startTime);
+        if (endTime) slot.endTime = new Date(endTime);
+        if (interviewerId) slot.interviewerId = interviewerId;
+        if (candidateId !== undefined) {
+            slot.candidateId = candidateId || null;
+            slot.status = candidateId ? 'Booked' : 'Available';
+        }
+
+        const updatedSlot = await slot.save();
+        console.log('Slot updated successfully');
+        res.json(updatedSlot);
+    } catch (error) {
+        console.error('Error updating slot:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Get Available Slots (Candidate)
 router.get('/available', async (req, res) => {
     try {

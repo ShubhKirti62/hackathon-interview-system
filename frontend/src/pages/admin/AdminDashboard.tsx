@@ -25,7 +25,7 @@ import FraudDetectionTab from './tabs/FraudDetectionTab';
 // Modals
 import { ViewCandidateModal, AddCandidateModal, EditCandidateModal } from '../../components/admin/modals/CandidateModals';
 import { AddQuestionModal, SettingsModal, BulkUploadModal } from '../../components/admin/modals/QuestionAndSettingsModals';
-import { AddSlotModal, FeedbackModal, SendInviteModal, InterviewDetailsModal } from '../../components/admin/modals/InterviewModals';
+import { AddSlotModal, FeedbackModal, SendInviteModal, InterviewDetailsModal, EditSlotModal } from '../../components/admin/modals/InterviewModals';
 import ScreenshotViewerModal from '../../components/Modals/ScreenshotViewerModal';
 import ConfirmationModal from '../../components/shared/ConfirmationModal';
 
@@ -69,6 +69,7 @@ const AdminDashboard: React.FC = () => {
         bulkQuestion: boolean;
         settings: boolean;
         addSlot: boolean;
+        editSlot: any | null;
         feedback: any | null;
         sendInvite: Candidate | null;
         interviewDetails: any | null;
@@ -81,6 +82,7 @@ const AdminDashboard: React.FC = () => {
         bulkQuestion: false,
         settings: false,
         addSlot: false,
+        editSlot: null,
         feedback: null,
         sendInvite: null,
         interviewDetails: null,
@@ -284,29 +286,6 @@ const AdminDashboard: React.FC = () => {
 
         return { statusCounts, domainCounts, trendData: [] };
     }, [candidates]);
-
-    // Handlers
-    const handleViewInterview = async (candidateId: string) => {
-        try {
-            const interviewsRes = await api.get(`${API_ENDPOINTS.INTERVIEWS.BY_ID}?candidateId=${candidateId}`);
-            const interviews = interviewsRes.data;
-            if (interviews.length === 0) {
-                showToast.info('No interviews found for this candidate');
-                return;
-            }
-            const latestInterview = interviews
-                .filter((i: any) => i.status === 'Completed')
-                .sort((a: any, b: any) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())[0];
-
-            if (!latestInterview) {
-                showToast.info('No completed interviews found');
-                return;
-            }
-            setModalState(s => ({ ...s, interviewDetails: latestInterview }));
-        } catch (err) {
-            showToast.error('Failed to fetch interview details');
-        }
-    };
 
     const confirmDeleteCandidate = (id: string) => {
         setConfirmConfig({
@@ -714,7 +693,6 @@ const AdminDashboard: React.FC = () => {
                                 onEdit={(c) => setModalState(s => ({ ...s, editCandidate: c }))}
                                 onDelete={confirmDeleteCandidate}
                                 onViewScreenshots={(id, name) => setModalState(s => ({ ...s, screenshotViewer: { id, name } }))}
-                                onViewInterview={handleViewInterview}
                                 chartData={chartData}
                             />
                         )}
@@ -732,6 +710,7 @@ const AdminDashboard: React.FC = () => {
                             <InterviewSlotsTab
                                 slots={slots}
                                 onFeedback={(slot) => setModalState(s => ({ ...s, feedback: slot }))}
+                                onEditSlot={(slot) => setModalState(s => ({ ...s, editSlot: slot }))}
                             />
                         )}
 
@@ -821,6 +800,16 @@ const AdminDashboard: React.FC = () => {
                     interviewers={interviewers}
                     candidates={candidates}
                     onClose={() => setModalState(s => ({ ...s, addSlot: false }))}
+                    onSuccess={fetchDashboardData}
+                />
+            )}
+
+            {modalState.editSlot && (
+                <EditSlotModal
+                    slot={modalState.editSlot}
+                    interviewers={interviewers}
+                    candidates={candidates}
+                    onClose={() => setModalState(s => ({ ...s, editSlot: null }))}
                     onSuccess={fetchDashboardData}
                 />
             )}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, CheckCircle, Users } from 'lucide-react';
+import { Calendar, CheckCircle, Users, Edit } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import StatCard from '../components/StatCard';
 import { APP_ROUTES } from '../../../routes';
@@ -7,9 +7,10 @@ import { APP_ROUTES } from '../../../routes';
 interface InterviewSlotsTabProps {
     slots: any[];
     onFeedback: (slot: any) => void;
+    onEditSlot?: (slot: any) => void;
 }
 
-const InterviewSlotsTab: React.FC<InterviewSlotsTabProps> = ({ slots, onFeedback }) => {
+const InterviewSlotsTab: React.FC<InterviewSlotsTabProps> = ({ slots, onFeedback, onEditSlot }) => {
     const navigate = useNavigate();
     const [now, setNow] = React.useState(new Date());
 
@@ -70,38 +71,64 @@ const InterviewSlotsTab: React.FC<InterviewSlotsTabProps> = ({ slots, onFeedback
                                             </span>
                                         </td>
                                         <td style={{ padding: '0.75rem' }}>
-                                            {slot.status === 'Booked' && (() => {
-                                                const startTime = new Date(slot.startTime).getTime();
-                                                const endTime = new Date(slot.endTime).getTime();
-                                                const isLive = now.getTime() >= (startTime - 5 * 60 * 1000) && now.getTime() <= endTime;
+                                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                                {/* Edit button - only for available slots */}
+                                                {slot.status === 'Available' && (
+                                                    <button
+                                                        onClick={() => onEditSlot && onEditSlot(slot)}
+                                                        style={{ 
+                                                            color: 'var(--text-secondary)', 
+                                                            background: 'none', 
+                                                            border: 'none', 
+                                                            cursor: 'pointer', 
+                                                            fontSize: '0.8rem',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '0.25rem'
+                                                        }}
+                                                        title="Edit Slot"
+                                                    >
+                                                        <Edit size={14} />
+                                                        Edit
+                                                    </button>
+                                                )}
+                                                
+                                                {/* Action buttons for booked slots */}
+                                                {slot.status === 'Booked' && (() => {
+                                                    const startTime = new Date(slot.startTime).getTime();
+                                                    const endTime = new Date(slot.endTime).getTime();
+                                                    const isTimeToJoin = now.getTime() >= startTime && now.getTime() <= endTime;
 
-                                                return (
-                                                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                                        <button
-                                                            onClick={() => navigate(APP_ROUTES.INTERVIEW.MEETING.replace(':id', slot._id))}
-                                                            style={{
-                                                                color: isLive ? 'white' : 'var(--success)',
-                                                                fontSize: '0.8rem',
-                                                                fontWeight: 'bold',
-                                                                backgroundColor: isLive ? 'var(--success)' : 'transparent',
-                                                                border: isLive ? 'none' : 'none',
-                                                                padding: isLive ? '0.4rem 0.8rem' : '0',
-                                                                borderRadius: '0.5rem',
-                                                                cursor: 'pointer',
-                                                                boxShadow: isLive ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none'
-                                                            }}
-                                                        >
-                                                            Join {isLive ? 'Live Interview' : 'Meeting'}
-                                                        </button>
-                                                        <button
-                                                            onClick={() => onFeedback(slot)}
-                                                            style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem' }}
-                                                        >
-                                                            Enter Feedback
-                                                        </button>
-                                                    </div>
-                                                );
-                                            })()}
+                                                    return (
+                                                        <>
+                                                            {isTimeToJoin && (
+                                                                <button
+                                                                    onClick={() => navigate(APP_ROUTES.INTERVIEW.MEETING.replace(':id', slot._id))}
+                                                                    style={{
+                                                                        color: 'white',
+                                                                        fontSize: '0.8rem',
+                                                                        fontWeight: 'bold',
+                                                                        backgroundColor: 'var(--success)',
+                                                                        border: 'none',
+                                                                        padding: '0.4rem 0.8rem',
+                                                                        borderRadius: '0.5rem',
+                                                                        cursor: 'pointer',
+                                                                        boxShadow: '0 0 10px rgba(16, 185, 129, 0.4)'
+                                                                    }}
+                                                                >
+                                                                    Join Live Interview
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                onClick={() => onFeedback(slot)}
+                                                                style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem' }}
+                                                            >
+                                                                Enter Feedback
+                                                            </button>
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
