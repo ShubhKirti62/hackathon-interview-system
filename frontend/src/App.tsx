@@ -8,6 +8,7 @@ import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import Loader from './components/shared/Loader';
 import RegisterPage from './pages/RegisterPage';
+import DemoPage from './pages/DemoPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import InterviewPage from './pages/interview/InterviewPage';
 import InterviewSetupPage from './pages/interview/InterviewSetupPage';
@@ -68,6 +69,8 @@ function App() {
                       <LoginPage />
                     </RedirectIfAuthenticated>
                   } />
+
+                  <Route path={APP_ROUTES.DEMO} element={<DemoPage />} />
 
                   <Route
                     path={APP_ROUTES.ADMIN.DASHBOARD}

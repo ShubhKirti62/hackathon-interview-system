@@ -6,7 +6,7 @@ const Candidate = require('../models/Candidate');
 const EmailResumeLog = require('../models/EmailResumeLog');
 const { uploadFile } = require('../utils/gridfs');
 
-const SCAN_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const SCAN_INTERVAL_MS = 1 * 60 * 1000; // 1 minute
 
 let autoScanTimer = null;
 let lastScanTime = null;
@@ -42,6 +42,111 @@ function getMimeType(filename) {
         case '.doc': return 'application/msword';
         default: return 'application/octet-stream';
     }
+}
+
+/**
+ * NLP Filter - Analyzes email subject and body to determine if it's a job application
+ * Returns { isJobApplication: boolean, confidence: number, matchedKeywords: string[] }
+ */
+function analyzeEmailContent(subject, bodyText) {
+    const text = `${subject || ''} ${bodyText || ''}`.toLowerCase();
+
+    // Keywords indicating job application / resume submission
+    const jobApplicationKeywords = [
+        // Direct application phrases
+        'job application', 'applying for', 'application for', 'apply for',
+        'job opening', 'job position', 'job opportunity', 'job posting',
+        'career opportunity', 'employment opportunity',
+        // Resume related
+        'resume', 'cv', 'curriculum vitae', 'attached resume', 'attached cv',
+        'my resume', 'my cv', 'find attached', 'please find attached',
+        'enclosed resume', 'enclosed cv', 'sending my resume',
+        // Position related
+        'position of', 'role of', 'opening for', 'vacancy',
+        'software developer', 'software engineer', 'developer position',
+        'engineer position', 'frontend', 'backend', 'full stack', 'fullstack',
+        'data scientist', 'data analyst', 'devops', 'intern', 'internship',
+        // Interest phrases
+        'interested in', 'expressing interest', 'keen interest',
+        'would like to apply', 'wish to apply', 'want to apply',
+        'seeking opportunity', 'seeking position', 'seeking employment',
+        'looking for opportunity', 'looking for job', 'job seeker',
+        // Candidate phrases
+        'candidature', 'candidate', 'applicant', 'application',
+        'consider me', 'consider my', 'hiring', 'recruitment',
+        // Experience mentions
+        'years of experience', 'experience in', 'worked as', 'working as',
+        'skills in', 'proficient in', 'expertise in'
+    ];
+
+    // Negative keywords - emails we should skip
+    const negativeKeywords = [
+        'unsubscribe', 'newsletter', 'promotion', 'discount', 'sale',
+        'invoice', 'receipt', 'payment', 'bill', 'order confirmation',
+        'shipping', 'delivery', 'tracking', 'password reset', 'verify your',
+        'account verification', 'otp', 'one time password', 'login alert',
+        'security alert', 'spam', 'advertisement', 'ad:', 'adv:',
+        'meeting invite', 'calendar', 'webinar', 'subscription'
+    ];
+
+    const matchedKeywords = [];
+    let score = 0;
+
+    // Check for job application keywords
+    for (const keyword of jobApplicationKeywords) {
+        if (text.includes(keyword)) {
+            matchedKeywords.push(keyword);
+            score += 1;
+        }
+    }
+
+    // Check for negative keywords (reduce score)
+    let negativeScore = 0;
+    for (const keyword of negativeKeywords) {
+        if (text.includes(keyword)) {
+            negativeScore += 2;
+        }
+    }
+
+    // Calculate confidence (0-100)
+    const rawScore = Math.max(0, score - negativeScore);
+    const confidence = Math.min(100, rawScore * 15);
+
+    // Consider it a job application if confidence >= 30 or at least 2 keywords matched
+    const isJobApplication = confidence >= 30 || matchedKeywords.length >= 2;
+
+    return {
+        isJobApplication,
+        confidence,
+        matchedKeywords
+    };
+}
+
+/**
+ * Extract text body part info from bodyStructure
+ */
+function findTextBodyPart(structure, partPrefix = '') {
+    if (!structure) return null;
+
+    if (structure.childNodes && structure.childNodes.length > 0) {
+        for (let i = 0; i < structure.childNodes.length; i++) {
+            const child = structure.childNodes[i];
+            const partNum = partPrefix ? `${partPrefix}.${i + 1}` : `${i + 1}`;
+            const result = findTextBodyPart(child, partNum);
+            if (result) return result;
+        }
+    } else {
+        // Leaf node - check if it's text/plain or text/html
+        const type = `${structure.type || ''}/${structure.subtype || ''}`.toLowerCase();
+        if (type === 'text/plain' || type === 'text/html') {
+            return {
+                part: partPrefix || '1',
+                type: type,
+                encoding: structure.encoding
+            };
+        }
+    }
+    return null;
 }
 
 async function scanInbox(adminId = null) {
@@ -85,7 +190,47 @@ async function scanInbox(adminId = null) {
                     continue;
                 }
 
-                for (const attachment of resumeAttachments) {
+                // NLP Filter: Fetch email body and analyze content
+                let emailBodyText = '';
+                try {
+                    const textBodyPart = findTextBodyPart(msg.bodyStructure);
+                    if (textBodyPart) {
+                        const { content } = await client.download(String(uid), textBodyPart.part, { uid: true });
+                        const bodyBuffer = await new Promise((resolve, reject) => {
+                            const chunks = [];
+                            content.on('data', (chunk) => chunks.push(chunk));
+                            content.on('end', () => resolve(Buffer.concat(chunks)));
+                            content.on('error', reject);
+                        });
+                        emailBodyText = bodyBuffer.toString('utf-8');
+                        // Strip HTML tags if it's HTML content
+                        if (textBodyPart.type === 'text/html') {
+                            emailBodyText = emailBodyText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+                        }
+                    }
+                } catch (bodyErr) {
+                    console.log(`[EmailScanner] Could not fetch body for uid ${uid}: ${bodyErr.message}`);
+                }
+
+                // Analyze email content using NLP filter
+                const nlpResult = analyzeEmailContent(subject, emailBodyText);
+                if (!nlpResult.isJobApplication) {
+                    console.log(`[EmailScanner] Skipping email "${subject}" - not a job application (confidence: ${nlpResult.confidence}%)`);
+                    results.push({
+                        messageId: rawMessageId,
+                        status: 'skipped',
+                        reason: 'NLP filter: not a job application',
+                        confidence: nlpResult.confidence
+                    });
+                    continue;
+                }
+
+                console.log(`[EmailScanner] Processing job application: "${subject}" (confidence: ${nlpResult.confidence}%, keywords: ${nlpResult.matchedKeywords.slice(0, 3).join(', ')})`)
+
+                // Pick only the first resume attachment (avoid processing multiple attachments from same email)
+                const attachmentsToProcess = [resumeAttachments[0]];
+
+                for (const attachment of attachmentsToProcess) {
                     const logMessageId = `${rawMessageId}-${attachment.filename}`;
 
                     // Check if this specific attachment was already processed successfully
