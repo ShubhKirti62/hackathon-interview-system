@@ -17,4 +17,5 @@ export const APP_ROUTES = {
     CANDIDATE: {
         DASHBOARD: '/candidate/home',
     },
+    DEMO: '/demo',
 };
