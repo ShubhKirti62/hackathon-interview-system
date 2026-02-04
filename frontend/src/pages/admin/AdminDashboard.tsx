@@ -92,7 +92,7 @@ const AdminDashboard: React.FC = () => {
     // Confirmation Modal State
     const [confirmConfig, setConfirmConfig] = useState<{
         isOpen: boolean;
-        type: 'clear_all_candidates' | 'delete_candidate' | 'delete_question' | 'clear_email_logs' | 'confirm_fraud' | 'delete_fraud_alert' | null;
+        type: 'clear_all_candidates' | 'delete_candidate' | 'delete_question' | 'clear_email_logs' | 'confirm_fraud' | 'delete_fraud_alert' | 'delete_slot' | 'clear_all_slots' | null;
         title: string;
         message: string;
         confirmLabel: string;
@@ -442,6 +442,51 @@ const AdminDashboard: React.FC = () => {
         }
     };
 
+    const confirmDeleteSlot = (id: string) => {
+        setConfirmConfig({
+            isOpen: true,
+            type: 'delete_slot',
+            title: 'Delete Interview Slot',
+            message: 'Are you sure you want to delete this interview slot? If a candidate was assigned, their status will be reverted.',
+            confirmLabel: 'Delete',
+            isDangerous: true,
+            data: { id }
+        });
+    };
+
+    const executeDeleteSlot = async (id: string) => {
+        try {
+            await api.delete(API_ENDPOINTS.SLOTS.BY_ID(id));
+            showToast.success('Slot deleted successfully');
+            closeConfirm();
+            fetchDashboardData();
+        } catch (err) {
+            showToast.error('Failed to delete slot');
+        }
+    };
+
+    const confirmDeleteAllSlots = () => {
+        setConfirmConfig({
+            isOpen: true,
+            type: 'clear_all_slots',
+            title: 'Clear All Interview Slots',
+            message: 'Are you sure you want to delete ALL interview slots? This action cannot be undone and will revert all assigned candidates\' statuses.',
+            confirmLabel: 'Yes, Delete All',
+            isDangerous: true
+        });
+    };
+
+    const executeDeleteAllSlots = async () => {
+        try {
+            await api.delete(API_ENDPOINTS.SLOTS.DELETE_ALL);
+            showToast.success('All slots deleted successfully');
+            closeConfirm();
+            fetchDashboardData();
+        } catch (err) {
+            showToast.error('Failed to delete slots');
+        }
+    };
+
     const handleViewCandidate = async () => {
         // Just switch to the candidates tab to show the table
         setActiveTab('candidates');
@@ -456,7 +501,7 @@ const AdminDashboard: React.FC = () => {
                 showToast.success('Auto-scan stopped');
             } else {
                 await api.post(API_ENDPOINTS.EMAIL_RESUME.START);
-                showToast.success('Auto-scan started. Scanning every 5 minutes.');
+                showToast.success('Auto-scan started. Scanning every 1 minute.');
             }
             fetchEmailScannerStatus();
         } catch (err) {
@@ -477,6 +522,8 @@ const AdminDashboard: React.FC = () => {
             case 'clear_email_logs': executeClearEmailLogs(); break;
             case 'confirm_fraud': executeUpdateFraudAlert(data.id, data.status, data.reviewNotes); break;
             case 'delete_fraud_alert': executeDeleteFraudAlert(data.id); break;
+            case 'delete_slot': executeDeleteSlot(data.id); break;
+            case 'clear_all_slots': executeDeleteAllSlots(); break;
             default: closeConfirm();
         }
     };
@@ -711,6 +758,8 @@ const AdminDashboard: React.FC = () => {
                                 slots={slots}
                                 onFeedback={(slot) => setModalState(s => ({ ...s, feedback: slot }))}
                                 onEditSlot={(slot) => setModalState(s => ({ ...s, editSlot: slot }))}
+                                onDeleteSlot={confirmDeleteSlot}
+                                onDeleteAllSlots={confirmDeleteAllSlots}
                             />
                         )}
 

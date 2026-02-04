@@ -9,6 +9,8 @@ import type { Candidate, User } from '../../../pages/admin/types';
 
 export const AddSlotModal: React.FC<{ onClose: () => void, onSuccess: () => void, interviewers: User[], candidates: Candidate[] }> = ({ onClose, onSuccess, interviewers, candidates }) => {
     const [formData, setFormData] = useState({ interviewerId: '', candidateId: '', startTime: '', endTime: '' });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [successData, setSuccessData] = useState<{ candidateName: string; email: string } | null>(null);
 
     // Get first round completed candidates - allow flexible status matching
     const firstRoundCompletedCandidates = candidates.filter(c => {
@@ -39,15 +41,68 @@ export const AddSlotModal: React.FC<{ onClose: () => void, onSuccess: () => void
             return;
         }
 
+        setIsSubmitting(true);
         try {
             await api.post(API_ENDPOINTS.SLOTS.BASE, formData);
-            showToast.success('Interview slot created successfully!');
+
+            // Get candidate details for success message
+            const selectedCandidate = firstRoundCompletedCandidates.find(c => c._id === formData.candidateId);
+            if (selectedCandidate) {
+                setSuccessData({
+                    candidateName: selectedCandidate.name,
+                    email: selectedCandidate.email
+                });
+            }
+
+            showToast.success('Interview slot created and invitation sent!');
             onSuccess();
-            onClose();
+
+            // Show success for 2 seconds then close
+            setTimeout(() => {
+                onClose();
+            }, 2500);
         } catch (err) {
             showToast.error('Failed to create slot');
+            setIsSubmitting(false);
         }
     };
+
+    // Success screen
+    if (successData) {
+        return (
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, backdropFilter: 'blur(4px)' }}>
+                <div className="card" style={{
+                    padding: '3rem',
+                    borderRadius: '1.5rem',
+                    textAlign: 'center',
+                    maxWidth: '450px',
+                    width: '90%',
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)'
+                }}>
+                    <div style={{
+                        color: 'var(--success)',
+                        marginBottom: '1.5rem',
+                        display: 'flex',
+                        justifyContent: 'center'
+                    }}>
+                        <CheckCircle size={64} strokeWidth={1.5} />
+                    </div>
+                    <h3 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', marginBottom: '0.75rem' }}>Round 2 Interview Scheduled!</h3>
+                    <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6', margin: 0 }}>
+                        Interview invitation with meeting link has been sent to:
+                    </p>
+                    <p style={{ color: 'var(--primary)', fontWeight: '600', margin: '0.5rem 0' }}>
+                        {successData.candidateName}
+                    </p>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                        ({successData.email})
+                    </p>
+                </div>
+            </div>
+        );
+    }
     return (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
             <div className="card" style={{ width: '100%', maxWidth: '500px', maxHeight: '90vh', padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -112,7 +167,9 @@ export const AddSlotModal: React.FC<{ onClose: () => void, onSuccess: () => void
                     </form>
                 </div>
                 <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}>
-                    <button type="submit" form="create-slot-form" className="btn btn-primary" style={{ width: '100%' }}>Create Interview Slot</button>
+                    <button type="submit" form="create-slot-form" className="btn btn-primary" style={{ width: '100%' }} disabled={isSubmitting}>
+                        {isSubmitting ? 'Creating & Sending Email...' : 'Create Slot & Send Invite'}
+                    </button>
                 </div>
             </div>
         </div>
