@@ -502,15 +502,15 @@ const LiveMeetingPage: React.FC = () => {
             <div style={{ flex: 1, padding: '5rem 2rem 8rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
                 {/* Local Video */}
                 <div style={{ position: 'relative', background: '#111827', borderRadius: '1.5rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
-                    <video ref={localVideoRef} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <video ref={localVideoRef} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
                     <div style={{ position: 'absolute', bottom: '1rem', left: '1rem', backgroundColor: 'rgba(0,0,0,0.6)', padding: '0.4rem 1rem', borderRadius: '0.5rem', color: 'white', fontSize: '0.875rem' }}>
-                        {user?.name} (You)
+                        {user?.role === 'candidate' ? 'Candidate (You)' : 'Interviewer (You)'}
                     </div>
                 </div>
 
                 {/* Remote Video (Placeholder for Peer) */}
                 <div style={{ position: 'relative', background: '#111827', borderRadius: '1.5rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <video ref={remoteVideoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: remoteVideoRef.current?.srcObject ? 'block' : 'none' }} />
+                    <video ref={remoteVideoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: remoteVideoRef.current?.srcObject ? 'block' : 'none', filter: isDemoPeer ? 'sepia(20%)' : 'none' }} />
                     {!remoteVideoRef.current?.srcObject && (
                         <div style={{ textAlign: 'center', color: '#4b5563' }}>
                             <Users size={64} style={{ marginBottom: '1rem' }} />
@@ -518,8 +518,9 @@ const LiveMeetingPage: React.FC = () => {
                         </div>
                     )}
                     <div style={{ position: 'absolute', bottom: '1rem', left: '1rem', backgroundColor: 'rgba(0,0,0,0.6)', padding: '0.4rem 1rem', borderRadius: '0.5rem', color: 'white', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        {user?.role === 'candidate' ? 'Interviewer' : (slotData?.candidateId?.name || 'Candidate')}
-                        {isDemoPeer && <span style={{ backgroundColor: 'var(--warning)', color: 'black', padding: '0 0.25rem', borderRadius: '0.25rem', fontSize: '0.75rem', fontWeight: 'bold' }}>DEMO</span>}
+                        {user?.role === 'candidate'
+                            ? (isDemoPeer ? 'Interviewer (Demo)' : 'Interviewer')
+                            : (isDemoPeer ? 'Candidate (Demo)' : (slotData?.candidateId?.name || 'Candidate'))}
                     </div>
                 </div>
             </div>
