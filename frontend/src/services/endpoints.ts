@@ -60,6 +60,8 @@ export const API_ENDPOINTS = {
         AVAILABLE: '/slots/available',
         BOOK: (id: string) => `/slots/book/${id}`,
         FEEDBACK: (id: string) => `/slots/feedback/${id}`,
+        BY_ID: (id: string) => `/slots/${id}`,
+        DELETE_ALL: '/slots',
     },
     FRAUD: {
         ALERTS: '/fraud/alerts',

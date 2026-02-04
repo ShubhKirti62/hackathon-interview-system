@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, CheckCircle, Users, Edit } from 'lucide-react';
+import { Calendar, CheckCircle, Users, Edit, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import StatCard from '../components/StatCard';
 import { APP_ROUTES } from '../../../routes';
@@ -8,9 +8,11 @@ interface InterviewSlotsTabProps {
     slots: any[];
     onFeedback: (slot: any) => void;
     onEditSlot?: (slot: any) => void;
+    onDeleteSlot?: (id: string) => void;
+    onDeleteAllSlots?: () => void;
 }
 
-const InterviewSlotsTab: React.FC<InterviewSlotsTabProps> = ({ slots, onFeedback, onEditSlot }) => {
+const InterviewSlotsTab: React.FC<InterviewSlotsTabProps> = ({ slots, onFeedback, onEditSlot, onDeleteSlot, onDeleteAllSlots }) => {
     const navigate = useNavigate();
     const [now, setNow] = React.useState(new Date());
 
@@ -31,6 +33,24 @@ const InterviewSlotsTab: React.FC<InterviewSlotsTabProps> = ({ slots, onFeedback
                 <div className="card" style={{ overflowX: 'auto' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                         <h2 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', margin: 0 }}>Upcoming Interviews</h2>
+                        {slots.length > 0 && onDeleteAllSlots && (
+                            <button
+                                onClick={onDeleteAllSlots}
+                                className="btn"
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                    color: 'var(--error)',
+                                    border: '1px solid var(--error)',
+                                    fontSize: '0.875rem',
+                                    padding: '0.5rem 1rem'
+                                }}
+                            >
+                                <Trash2 size={16} /> Clear All
+                            </button>
+                        )}
                     </div>
                     {slots.length === 0 ? (
                         <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>
@@ -71,16 +91,16 @@ const InterviewSlotsTab: React.FC<InterviewSlotsTabProps> = ({ slots, onFeedback
                                             </span>
                                         </td>
                                         <td style={{ padding: '0.75rem' }}>
-                                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                                                 {/* Edit button - only for available slots */}
                                                 {slot.status === 'Available' && (
                                                     <button
                                                         onClick={() => onEditSlot && onEditSlot(slot)}
-                                                        style={{ 
-                                                            color: 'var(--text-secondary)', 
-                                                            background: 'none', 
-                                                            border: 'none', 
-                                                            cursor: 'pointer', 
+                                                        style={{
+                                                            color: 'var(--text-secondary)',
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
                                                             fontSize: '0.8rem',
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -92,7 +112,7 @@ const InterviewSlotsTab: React.FC<InterviewSlotsTabProps> = ({ slots, onFeedback
                                                         Edit
                                                     </button>
                                                 )}
-                                                
+
                                                 {/* Action buttons for booked slots */}
                                                 {slot.status === 'Booked' && (() => {
                                                     const startTime = new Date(slot.startTime).getTime();
@@ -128,6 +148,27 @@ const InterviewSlotsTab: React.FC<InterviewSlotsTabProps> = ({ slots, onFeedback
                                                         </>
                                                     );
                                                 })()}
+
+                                                {/* Delete button - always visible */}
+                                                {onDeleteSlot && (
+                                                    <button
+                                                        onClick={() => onDeleteSlot(slot._id)}
+                                                        style={{
+                                                            color: 'var(--error)',
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.8rem',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '0.25rem'
+                                                        }}
+                                                        title="Delete Slot"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                        Delete
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

@@ -22,9 +22,10 @@ const LiveMeetingPage: React.FC = () => {
     const [showFeedback, setShowFeedback] = useState(false);
     const [meetingDuration, setMeetingDuration] = useState(0);
     const [slotData, setSlotData] = useState<any>(null);
-    const [isDemoPeer, setIsDemoPeer] = useState(false);
 
     const [videoCallManager] = useState(() => new VideoCallManager());
+    const [peerName, setPeerName] = useState<string | null>(null);
+    const [isConnecting, setIsConnecting] = useState(true);
 
     // Feedback States
     const [remarks, setRemarks] = useState('');
@@ -43,6 +44,14 @@ const LiveMeetingPage: React.FC = () => {
 
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
+    const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+
+    // Sync remote stream to video element
+    useEffect(() => {
+        if (remoteVideoRef.current && remoteStream) {
+            remoteVideoRef.current.srcObject = remoteStream;
+        }
+    }, [remoteStream]);
 
     // Auto-suggestion logic based on metrics
     useEffect(() => {
@@ -97,28 +106,45 @@ const LiveMeetingPage: React.FC = () => {
             videoCallManager.setLocalVideoRef(localVideoRef.current);
             videoCallManager.setRemoteVideoRef(remoteVideoRef.current);
 
+            // Listen for remote stream
+            videoCallManager.onRemoteStream((stream) => {
+                setRemoteStream(stream);
+                setIsConnecting(false);
+            });
+
             // Setup connection state callback
             videoCallManager.onConnectionStateChange((state) => {
-                // setConnectionState(state); // Removed state
                 if (state === 'connected') {
-                    showToast.success('Connected to interview room');
+                    showToast.success('Connected to peer');
+                    setIsConnecting(false);
                 } else if (state === 'failed' || state === 'disconnected') {
                     showToast.error('Connection lost');
                 }
             });
 
-            // Initialize local stream
-            const stream = await videoCallManager.initializeLocalStream(true, true);
+            // Handle user joined
+            videoCallManager.onUserJoined((joinedUser) => {
+                showToast.success(`${joinedUser.userName} joined the meeting`);
+                setPeerName(joinedUser.userName);
+            });
 
-            // DEMO MODE: Simulate remote peer connection if none exists
-            setTimeout(() => {
-                if (remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
-                    console.log('Starting Demo Simulation: Mirroring local stream as remote peer');
-                    remoteVideoRef.current.srcObject = stream;
-                    setIsDemoPeer(true);
-                    showToast.info('Demo Mode: Simulating Interviewer Connection');
-                }
-            }, 2500);
+            // Handle user left
+            videoCallManager.onUserLeft((leftUser) => {
+                showToast.info(`${leftUser.userName} left the meeting`);
+                setRemoteStream(null);
+                setPeerName(null);
+            });
+
+            // Initialize local stream first
+            await videoCallManager.initializeLocalStream(true, true);
+
+            // Connect to signaling server with room ID = slot ID
+            const roomId = id || 'default-room';
+            const userId = user?.id || 'anonymous';
+            const userName = user?.name || user?.email || 'Unknown User';
+            const role = user?.role || 'candidate';
+
+            videoCallManager.connectToSignalingServer(roomId, userId, userName, role);
 
             // Start meeting timer
             const timer = setInterval(() => {
@@ -510,17 +536,15 @@ const LiveMeetingPage: React.FC = () => {
 
                 {/* Remote Video (Placeholder for Peer) */}
                 <div style={{ position: 'relative', background: '#111827', borderRadius: '1.5rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <video ref={remoteVideoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: remoteVideoRef.current?.srcObject ? 'block' : 'none', filter: isDemoPeer ? 'sepia(20%)' : 'none' }} />
-                    {!remoteVideoRef.current?.srcObject && (
+                    <video ref={remoteVideoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: remoteStream ? 'block' : 'none' }} />
+                    {!remoteStream && (
                         <div style={{ textAlign: 'center', color: '#4b5563' }}>
                             <Users size={64} style={{ marginBottom: '1rem' }} />
-                            <div>Waiting for peer to join...</div>
+                            <div>{isConnecting ? 'Connecting...' : 'Waiting for peer to join...'}</div>
                         </div>
                     )}
                     <div style={{ position: 'absolute', bottom: '1rem', left: '1rem', backgroundColor: 'rgba(0,0,0,0.6)', padding: '0.4rem 1rem', borderRadius: '0.5rem', color: 'white', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        {user?.role === 'candidate'
-                            ? (isDemoPeer ? 'Interviewer (Demo)' : 'Interviewer')
-                            : (isDemoPeer ? 'Candidate (Demo)' : (slotData?.candidateId?.name || 'Candidate'))}
+                        {peerName || (user?.role === 'candidate' ? 'Interviewer' : (slotData?.candidateId?.name || 'Candidate'))}
                     </div>
                 </div>
             </div>

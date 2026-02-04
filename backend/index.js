@@ -2,6 +2,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const environment = process.env.NODE_ENV || 'development';
 if (environment === 'development') {
@@ -11,6 +13,14 @@ if (environment === 'development') {
 }
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: '*',
+        methods: ['GET', 'POST']
+    }
+});
+
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/hackathon_db';
 
@@ -47,6 +57,104 @@ app.get('/', (req, res) => {
 
 // Make uploads folder static to serve any other static files if needed
 app.use('/uploads', express.static('uploads'));
+
+// WebRTC Signaling Server
+const rooms = new Map(); // roomId -> Set of socket ids
+
+io.on('connection', (socket) => {
+    console.log('Socket connected:', socket.id);
+
+    // Join a meeting room
+    socket.on('join-room', ({ roomId, userId, userName, role }) => {
+        console.log(`User ${userName} (${role}) joining room ${roomId}`);
+
+        socket.join(roomId);
+        socket.roomId = roomId;
+        socket.userId = userId;
+        socket.userName = userName;
+        socket.userRole = role;
+
+        if (!rooms.has(roomId)) {
+            rooms.set(roomId, new Set());
+        }
+        rooms.get(roomId).add(socket.id);
+
+        // Notify others in the room
+        socket.to(roomId).emit('user-joined', {
+            socketId: socket.id,
+            userId,
+            userName,
+            role
+        });
+
+        // Send list of existing users to the new user
+        const existingUsers = [];
+        const roomSockets = io.sockets.adapter.rooms.get(roomId);
+        if (roomSockets) {
+            roomSockets.forEach(socketId => {
+                if (socketId !== socket.id) {
+                    const s = io.sockets.sockets.get(socketId);
+                    if (s) {
+                        existingUsers.push({
+                            socketId: s.id,
+                            userId: s.userId,
+                            userName: s.userName,
+                            role: s.userRole
+                        });
+                    }
+                }
+            });
+        }
+        socket.emit('existing-users', existingUsers);
+    });
+
+    // WebRTC signaling: offer
+    socket.on('offer', ({ to, offer }) => {
+        console.log(`Offer from ${socket.id} to ${to}`);
+        io.to(to).emit('offer', {
+            from: socket.id,
+            offer,
+            userName: socket.userName,
+            role: socket.userRole
+        });
+    });
+
+    // WebRTC signaling: answer
+    socket.on('answer', ({ to, answer }) => {
+        console.log(`Answer from ${socket.id} to ${to}`);
+        io.to(to).emit('answer', {
+            from: socket.id,
+            answer
+        });
+    });
+
+    // WebRTC signaling: ICE candidate
+    socket.on('ice-candidate', ({ to, candidate }) => {
+        io.to(to).emit('ice-candidate', {
+            from: socket.id,
+            candidate
+        });
+    });
+
+    // Handle disconnection
+    socket.on('disconnect', () => {
+        console.log('Socket disconnected:', socket.id);
+        if (socket.roomId) {
+            const room = rooms.get(socket.roomId);
+            if (room) {
+                room.delete(socket.id);
+                if (room.size === 0) {
+                    rooms.delete(socket.roomId);
+                }
+            }
+            socket.to(socket.roomId).emit('user-left', {
+                socketId: socket.id,
+                userId: socket.userId,
+                userName: socket.userName
+            });
+        }
+    });
+});
 
 // Cleanup MCQ questions, HR users, and candidate handledBy references on server startup
 const Question = require('./models/Question');
@@ -127,8 +235,9 @@ mongoose.connect(MONGO_URI)
         cleanupHR(); // Run HR cleanup after connecting
         cleanupCandidateHandledBy(); // Run candidate handledBy cleanup after connecting
 
-        app.listen(PORT, () => {
+        server.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
+            console.log(`WebSocket signaling server ready`);
         });
     })
     .catch((error) => {
