@@ -692,7 +692,6 @@ const AdminDashboard: React.FC = () => {
                                 onView={(c) => setModalState(s => ({ ...s, viewCandidate: c }))}
                                 onEdit={(c) => setModalState(s => ({ ...s, editCandidate: c }))}
                                 onDelete={confirmDeleteCandidate}
-                                onViewScreenshots={(id, name) => setModalState(s => ({ ...s, screenshotViewer: { id, name } }))}
                                 chartData={chartData}
                             />
                         )}

@@ -151,8 +151,6 @@ const CandidatesTab: React.FC<CandidatesTabProps> = ({
     onView,
     onEdit,
     onDelete,
-    onEdit,
-    onDelete,
     chartData
 }) => {
     const [showScreenshotModal, setShowScreenshotModal] = useState(false);
