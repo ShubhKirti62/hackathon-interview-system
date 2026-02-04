@@ -4,7 +4,7 @@ import api from '../../../services/api';
 import { API_ENDPOINTS } from '../../../services/endpoints';
 import { APP_ROUTES } from '../../../routes';
 import { showToast } from '../../../utils/toast';
-import { validateTimeRange, restrictDateTimeInput, getRestrictedTimeMessage, validateTimeString, restrictTimeInput, validateDateForWorkingHours, restrictDateInput, getRestrictedDateMessage } from '../../../utils/timeValidation';
+import { getRestrictedTimeMessage, validateTimeString, restrictTimeInput, validateDateForWorkingHours, restrictDateInput, getRestrictedDateMessage } from '../../../utils/timeValidation';
 import type { Candidate, User } from '../../../pages/admin/types';
 
 export const AddSlotModal: React.FC<{ onClose: () => void, onSuccess: () => void, interviewers: User[], candidates: Candidate[] }> = ({ onClose, onSuccess, interviewers, candidates }) => {

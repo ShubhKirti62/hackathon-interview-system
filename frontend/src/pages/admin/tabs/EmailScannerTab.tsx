@@ -1,6 +1,6 @@
 import React from 'react';
 import { Mail, Play, Square, CheckCircle, AlertCircle, X, Trash2 } from 'lucide-react';
-import StatCard from '../components/StatCard';
+
 
 interface EmailScannerTabProps {
     status: {

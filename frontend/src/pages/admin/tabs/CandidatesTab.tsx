@@ -17,7 +17,6 @@ interface CandidatesTabProps {
     onView: (candidate: Candidate) => void;
     onEdit: (candidate: Candidate) => void;
     onDelete: (id: string) => void;
-    onViewScreenshots: (id: string, name: string) => void;
     chartData: {
         statusCounts: any[];
         domainCounts: any[];
@@ -152,7 +151,8 @@ const CandidatesTab: React.FC<CandidatesTabProps> = ({
     onView,
     onEdit,
     onDelete,
-    onViewScreenshots,
+    onEdit,
+    onDelete,
     chartData
 }) => {
     const [showScreenshotModal, setShowScreenshotModal] = useState(false);
