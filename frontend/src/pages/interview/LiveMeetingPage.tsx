@@ -22,6 +22,7 @@ const LiveMeetingPage: React.FC = () => {
     const [showFeedback, setShowFeedback] = useState(false);
     const [meetingDuration, setMeetingDuration] = useState(0);
     const [slotData, setSlotData] = useState<any>(null);
+    const [isDemoPeer, setIsDemoPeer] = useState(false);
 
     const [videoCallManager] = useState(() => new VideoCallManager());
 
@@ -48,10 +49,10 @@ const LiveMeetingPage: React.FC = () => {
         const calculateSuggestion = () => {
             const metricValues = Object.values(metrics);
             const averageScore = metricValues.reduce((sum, val) => sum + val, 0) / metricValues.length;
-            
+
             // Consider overall score as well
             const combinedScore = (averageScore + score) / 2;
-            
+
             // Suggestion logic
             if (combinedScore >= 4.0) {
                 setSuggestedAction('approve');
@@ -95,7 +96,7 @@ const LiveMeetingPage: React.FC = () => {
             // Set video refs
             videoCallManager.setLocalVideoRef(localVideoRef.current);
             videoCallManager.setRemoteVideoRef(remoteVideoRef.current);
-            
+
             // Setup connection state callback
             videoCallManager.onConnectionStateChange((state) => {
                 // setConnectionState(state); // Removed state
@@ -105,15 +106,25 @@ const LiveMeetingPage: React.FC = () => {
                     showToast.error('Connection lost');
                 }
             });
-            
+
             // Initialize local stream
-            await videoCallManager.initializeLocalStream(true, true);
-            
+            const stream = await videoCallManager.initializeLocalStream(true, true);
+
+            // DEMO MODE: Simulate remote peer connection if none exists
+            setTimeout(() => {
+                if (remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
+                    console.log('Starting Demo Simulation: Mirroring local stream as remote peer');
+                    remoteVideoRef.current.srcObject = stream;
+                    setIsDemoPeer(true);
+                    showToast.info('Demo Mode: Simulating Interviewer Connection');
+                }
+            }, 2500);
+
             // Start meeting timer
             const timer = setInterval(() => {
                 setMeetingDuration(prev => prev + 1);
             }, 1000);
-            
+
             return () => clearInterval(timer);
         } catch (error) {
             console.error('Failed to initialize video call:', error);
@@ -168,7 +179,7 @@ const LiveMeetingPage: React.FC = () => {
     const submitFeedback = async () => {
         try {
             const role = user?.role === 'candidate' ? 'candidate' : 'interviewer';
-            
+
             // Submit feedback first
             await api.post(`/slots/feedback/${id}`, {
                 score,
@@ -176,7 +187,7 @@ const LiveMeetingPage: React.FC = () => {
                 metrics: role === 'interviewer' ? metrics : undefined,
                 type: role
             });
-            
+
             // Handle admin actions if not candidate
             if (user?.role !== 'candidate' && adminAction && slotData?.candidateId) {
                 switch (adminAction) {
@@ -224,8 +235,8 @@ const LiveMeetingPage: React.FC = () => {
 
     if (showFeedback) {
         return (
-            <div style={{  display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-primary)' }}>
-                <div className="card" style={{ width: '100%', height: '80vh',overflowY:'auto', marginTop: '20px', maxWidth: '600px', animation: 'slideUp 0.4s ease'}}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-primary)' }}>
+                <div className="card" style={{ width: '100%', height: '80vh', overflowY: 'auto', marginTop: '20px', maxWidth: '600px', animation: 'slideUp 0.4s ease' }}>
                     <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                         <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
                             <CheckCircle size={32} style={{ color: 'var(--success)' }} />
@@ -295,11 +306,11 @@ const LiveMeetingPage: React.FC = () => {
                         {user?.role !== 'candidate' ? (
                             <div>
                                 <label style={{ display: 'block', fontSize: '1rem', marginBottom: '0.5rem' }}>
-                                    Next Action 
+                                    Next Action
                                     {suggestedAction && (
-                                        <span style={{ 
-                                            marginLeft: '0.5rem', 
-                                            fontSize: '0.875rem', 
+                                        <span style={{
+                                            marginLeft: '0.5rem',
+                                            fontSize: '0.875rem',
                                             color: 'var(--text-secondary)',
                                             fontStyle: 'italic'
                                         }}>
@@ -313,8 +324,8 @@ const LiveMeetingPage: React.FC = () => {
                                         className={`btn ${adminAction === 'reschedule' ? 'btn-primary' : ''}`}
                                         style={{
                                             padding: '0.75rem',
-                                            border: adminAction === 'reschedule' ? '1px solid var(--primary)' : 
-                                                   suggestedAction === 'reschedule' ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                                            border: adminAction === 'reschedule' ? '1px solid var(--primary)' :
+                                                suggestedAction === 'reschedule' ? '2px solid var(--primary)' : '1px solid var(--border-color)',
                                             backgroundColor: adminAction === 'reschedule' ? 'var(--primary)' : 'var(--bg-card)',
                                             color: adminAction === 'reschedule' ? 'white' : 'var(--text-primary)',
                                             position: 'relative',
@@ -347,8 +358,8 @@ const LiveMeetingPage: React.FC = () => {
                                         className={`btn ${adminAction === 'approve' ? 'btn-primary' : ''}`}
                                         style={{
                                             padding: '0.75rem',
-                                            border: adminAction === 'approve' ? '1px solid var(--success)' : 
-                                                   suggestedAction === 'approve' ? '2px solid var(--success)' : '1px solid var(--border-color)',
+                                            border: adminAction === 'approve' ? '1px solid var(--success)' :
+                                                suggestedAction === 'approve' ? '2px solid var(--success)' : '1px solid var(--border-color)',
                                             backgroundColor: adminAction === 'approve' ? 'var(--success)' : 'var(--bg-card)',
                                             color: adminAction === 'approve' ? 'white' : 'var(--text-primary)',
                                             position: 'relative',
@@ -381,8 +392,8 @@ const LiveMeetingPage: React.FC = () => {
                                         className={`btn ${adminAction === 'reject' ? 'btn-primary' : ''}`}
                                         style={{
                                             padding: '0.75rem',
-                                            border: adminAction === 'reject' ? '1px solid var(--error)' : 
-                                                   suggestedAction === 'reject' ? '2px solid var(--error)' : '1px solid var(--border-color)',
+                                            border: adminAction === 'reject' ? '1px solid var(--error)' :
+                                                suggestedAction === 'reject' ? '2px solid var(--error)' : '1px solid var(--border-color)',
                                             backgroundColor: adminAction === 'reject' ? 'var(--error)' : 'var(--bg-card)',
                                             color: adminAction === 'reject' ? 'white' : 'var(--text-primary)',
                                             position: 'relative',
@@ -415,17 +426,17 @@ const LiveMeetingPage: React.FC = () => {
                                     <div style={{
                                         padding: '0.75rem',
                                         backgroundColor: suggestedAction === 'approve' ? 'rgba(34, 197, 94, 0.1)' :
-                                                         suggestedAction === 'reject' ? 'rgba(239, 68, 68, 0.1)' :
-                                                         'rgba(59, 130, 246, 0.1)',
+                                            suggestedAction === 'reject' ? 'rgba(239, 68, 68, 0.1)' :
+                                                'rgba(59, 130, 246, 0.1)',
                                         border: `1px solid ${suggestedAction === 'approve' ? 'var(--success)' :
-                                                         suggestedAction === 'reject' ? 'var(--error)' :
-                                                         'var(--primary)'}`,
+                                            suggestedAction === 'reject' ? 'var(--error)' :
+                                                'var(--primary)'}`,
                                         borderRadius: '0.5rem',
                                         fontSize: '0.875rem',
                                         color: 'var(--text-primary)',
                                         marginBottom: '1rem'
                                     }}>
-                                        <strong>AI Recommendation:</strong> Based on the performance metrics and overall score, 
+                                        <strong>AI Recommendation:</strong> Based on the performance metrics and overall score,
                                         the system suggests to <strong>{suggestedAction}</strong> this candidate.
                                         {adminAction !== suggestedAction && (
                                             <div style={{ marginTop: '0.5rem', fontStyle: 'italic' }}>
@@ -437,15 +448,15 @@ const LiveMeetingPage: React.FC = () => {
                             </div>
                         ) : null}
 
-                        <button 
-                            onClick={submitFeedback} 
-                            className="btn btn-primary" 
+                        <button
+                            onClick={submitFeedback}
+                            className="btn btn-primary"
                             style={{ width: '100%', padding: '1rem' }}
                             disabled={user?.role !== 'candidate' && !adminAction}
                         >
-                            {user?.role === 'candidate' 
-                                ? 'Submit Feedback & Close' 
-                                : adminAction 
+                            {user?.role === 'candidate'
+                                ? 'Submit Feedback & Close'
+                                : adminAction
                                     ? `Submit Feedback & ${adminAction === 'reschedule' ? 'Reschedule' : adminAction === 'approve' ? 'Approve' : 'Reject'} Candidate`
                                     : 'Please select an action above'
                             }
@@ -506,8 +517,9 @@ const LiveMeetingPage: React.FC = () => {
                             <div>Waiting for peer to join...</div>
                         </div>
                     )}
-                    <div style={{ position: 'absolute', bottom: '1rem', left: '1rem', backgroundColor: 'rgba(0,0,0,0.6)', padding: '0.4rem 1rem', borderRadius: '0.5rem', color: 'white', fontSize: '0.875rem' }}>
+                    <div style={{ position: 'absolute', bottom: '1rem', left: '1rem', backgroundColor: 'rgba(0,0,0,0.6)', padding: '0.4rem 1rem', borderRadius: '0.5rem', color: 'white', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         {user?.role === 'candidate' ? 'Interviewer' : (slotData?.candidateId?.name || 'Candidate')}
+                        {isDemoPeer && <span style={{ backgroundColor: 'var(--warning)', color: 'black', padding: '0 0.25rem', borderRadius: '0.25rem', fontSize: '0.75rem', fontWeight: 'bold' }}>DEMO</span>}
                     </div>
                 </div>
             </div>
