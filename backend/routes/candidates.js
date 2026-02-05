@@ -191,13 +191,15 @@ router.get('/me', auth, async (req, res) => {
 });
 
 // Get All Candidates (Filtered by Creator, but Admins see all)
+// Supports search and filtering by domain, experienceLevel, status, and search term
 router.get('/', auth, async (req, res) => {
     try {
+        const { domain, experienceLevel, status, search } = req.query;
         let query = {};
-        
+
         // If user is admin, show all candidates
         if (req.user.role === 'admin') {
-            // No filtering - admins can see all candidates
+            // No filtering by creator - admins can see all candidates
             console.log(`Admin ${req.user.name} accessing all candidates`);
         } else {
             // Non-admin users only see candidates they created or handle
@@ -209,11 +211,39 @@ router.get('/', auth, async (req, res) => {
             };
             console.log(`User ${req.user.name} (${req.user.role}) accessing filtered candidates`);
         }
-        
+
+        // TC_CAN_03: Apply domain filter
+        if (domain) {
+            query.domain = domain;
+        }
+
+        // TC_CAN_03: Apply experience level filter
+        if (experienceLevel) {
+            query.experienceLevel = experienceLevel;
+        }
+
+        // Apply status filter
+        if (status) {
+            query.status = status;
+        }
+
+        // Apply search filter (search by name or email)
+        if (search) {
+            const searchRegex = new RegExp(search, 'i');
+            query.$and = query.$and || [];
+            query.$and.push({
+                $or: [
+                    { name: searchRegex },
+                    { email: searchRegex },
+                    { phone: searchRegex }
+                ]
+            });
+        }
+
         const candidates = await Candidate.find(query)
             .populate('handledBy', 'name email role')
             .sort({ internalReferred: -1, createdAt: -1 });
-            
+
         res.json(candidates);
     } catch (error) {
         res.status(500).json({ error: error.message });

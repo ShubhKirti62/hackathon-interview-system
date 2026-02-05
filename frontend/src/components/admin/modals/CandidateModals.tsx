@@ -490,7 +490,8 @@ export const AddCandidateModal: React.FC<{ onClose: () => void, onSuccess: () =>
 
     const validateIndianPhone = (phone: string): boolean => {
         const digitsOnly = phone.replace(/\D/g, '');
-        return digitsOnly.length === 12 && digitsOnly.startsWith('91');
+        // Accept 10 digits (without country code) or 12 digits starting with 91
+        return digitsOnly.length === 10 || (digitsOnly.length === 12 && digitsOnly.startsWith('91'));
     };
 
     const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -708,7 +709,8 @@ export const EditCandidateModal: React.FC<{ onClose: () => void, onSuccess: () =
 
     const validateIndianPhone = (phone: string): boolean => {
         const digitsOnly = phone.replace(/\D/g, '');
-        return digitsOnly.length === 12 && digitsOnly.startsWith('91');
+        // Accept 10 digits (without country code) or 12 digits starting with 91
+        return digitsOnly.length === 10 || (digitsOnly.length === 12 && digitsOnly.startsWith('91'));
     };
 
     const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {

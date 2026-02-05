@@ -8,7 +8,7 @@ const CandidateSchema = new mongoose.Schema({
     resumeText: { type: String }, // Extracted text from resume
     experienceLevel: {
         type: String,
-        enum: ['Fresher/Intern', '1-2 years', '2-4 years', '4-6 years', '6-8 years', '8-10 years'],
+        enum: ['Fresher/Intern', '0-1 years', '1-2 years', '2-4 years', '4-6 years', '6-8 years', '8-10 years', '10+ years'],
         required: true
     },
     domain: { type: String, required: true }, // e.g., 'Frontend', 'Backend'
@@ -16,7 +16,7 @@ const CandidateSchema = new mongoose.Schema({
     internalReferred: { type: Boolean, default: false },
 
     // Scoring Factors
-    noticePeriod: { type: Number, default: 30 }, // Days
+    noticePeriod: { type: String, default: '' }, // e.g., "30 days", "Immediate", "2 months"
     communicationScore: { type: Number, default: 0 }, // 0-10 derived from interview
 
     status: {

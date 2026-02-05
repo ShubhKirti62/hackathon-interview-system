@@ -296,6 +296,7 @@ async function scanInbox(adminId = null) {
                             phone: parsed.phone || '',
                             domain: parsed.domain || 'Full Stack',
                             experienceLevel: parsed.experienceLevel || 'Fresher/Intern',
+                            noticePeriod: parsed.noticePeriod || '',
                             resumeUrl: resumeUrl,
                             resumeText: parsed.resumeText || '',
                             status: 'profile_submitted',

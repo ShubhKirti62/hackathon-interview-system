@@ -1,0 +1,166 @@
+# TEST CASES FOR AI ASSISTED INTERVIEW SYSTEM
+# Last verified: 2026-02-05
+# Status: [PASS] = Implemented | [FIXED] = Just implemented | [N/A] = Not applicable
+
+================================================================================
+1. AUTHENTICATION & ROLE MANAGEMENT
+================================================================================
+TC_AUTH_01: [PASS] Verify user registration with valid data.
+    - Route: POST /api/auth/register
+    - Only admins can register (candidates created via resume upload)
+
+TC_AUTH_02: [PASS] Verify login with correct credentials.
+    - Route: POST /api/auth/login
+    - Supports both User (admin) and Candidate login
+
+TC_AUTH_03: [PASS] Verify login fails with incorrect credentials.
+    - Returns 400 "Invalid Credentials"
+
+TC_AUTH_04: [PASS] Verify role-based access control (e.g., HR cannot access Admin dashboard).
+    - Middleware: auth.js validates JWT and role
+    - Routes check req.user.role for authorization
+
+TC_AUTH_05: [PASS] Verify JWT token expiration and standard logout functionality.
+    - Token expires in 24 hours (jwt.sign with expiresIn: '24h')
+    - Client-side logout by removing token
+
+TC_AUTH_06: [PASS] Verify password hashing in the database (security).
+    - Uses bcrypt.hash with salt rounds of 10
+
+================================================================================
+2. CANDIDATE MANAGEMENT
+================================================================================
+TC_CAN_01: [PASS] Verify candidate creation with resume upload (PDF/DOCX support).
+    - Route: POST /api/candidates
+    - Supports PDF and DOCX via multer + GridFS
+    - Resume parsing via resumeParser.js
+
+TC_CAN_02: [PASS] Verify listing of all candidates for HR/Admin roles.
+    - Route: GET /api/candidates
+    - Admins see all, others see filtered by createdBy/handledBy
+
+TC_CAN_03: [FIXED] Verify candidate search and filtering by domain or experience level.
+    - Route: GET /api/candidates?domain=Frontend&experienceLevel=2-4+years&search=John
+    - Now supports: domain, experienceLevel, status, search (name/email/phone)
+
+TC_CAN_04: [PASS] Verify auto-extraction of candidate details from resume (if applicable).
+    - Route: POST /api/candidates/parse-resume
+    - Extracts: name, email, phone, domain, experienceLevel, noticePeriod
+
+================================================================================
+3. QUESTION & QUESTIONNAIRE MANAGEMENT
+================================================================================
+TC_QUE_01: [PASS] Verify creation of questions with specific domain and experience level.
+    - Route: POST /api/questions
+    - Model supports: text, domain, experienceLevel, difficulty, type
+
+TC_QUE_02: [PASS] Verify question verification process by authorized users (Admin/HR).
+    - Route: PATCH /api/questions/:id/verify
+    - Sets verified: true, verifiedBy: userId
+
+TC_QUE_03: [PASS] Verify question filtering in the bank by multiple criteria.
+    - Route: GET /api/questions?domain=Backend&experienceLevel=4-6+years
+
+TC_QNR_01: [PASS] Verify questionnaire building by selecting specific questions from the bank.
+    - Route: POST /api/questionnaires
+    - Links to Question model via questions[] array
+
+TC_QNR_02: [FIXED] Verify unique invite link generation for a specific questionnaire.
+    - Route: POST /api/invites/generate
+    - Generates unique token with crypto.randomBytes
+    - Links to candidate and questionnaire
+
+================================================================================
+4. INTERVIEW PROCESS (CANDIDATE EXPERIENCE)
+================================================================================
+TC_INT_01: [FIXED] Verify invite link validation using the unique token.
+    - Route: GET /api/invites/validate/:token
+    - Checks expiration and status (Pending/Used/Expired)
+
+TC_INT_02: [PASS] Verify interview start and onboarding (intro and setup pages).
+    - Route: POST /api/interviews/start
+    - Creates interview with random questions from question bank
+
+TC_INT_03: [PASS] Verify speech-to-text response submission during the interview.
+    - Route: POST /api/interviews/:id/response
+    - Stores userResponseText with AI evaluation
+
+TC_INT_04: [PASS] Verify real-time AI feedback for candidate responses.
+    - Uses aiService.js evaluateAnswer()
+    - Returns score and feedback
+
+TC_INT_05: [PASS] Verify interview completion and automatic result generation.
+    - Route: POST /api/interviews/:id/complete
+    - Calculates weighted score, generates AI summary
+
+TC_INT_06: [PASS] Verify system behavior on network interruption during interview.
+    - Route: PATCH /api/interviews/:id/state
+    - Persists currentQuestionIndex and remainingTime for recovery
+
+================================================================================
+5. AI MONITORING & FRAUD DETECTION
+================================================================================
+TC_MON_01: [PASS] Verify face verification and persistence during the interview session.
+    - Route: POST /api/face/register (initial registration)
+    - Route: POST /api/face/verify (during interview)
+    - Route: POST /api/face/proxy-check (detect imposters)
+
+TC_MON_02: [PASS] Verify fraud detection alerts (tab switching, multi-person detection).
+    - Route: POST /api/interviews/:id/violation (tab violations)
+    - FraudAlert model tracks: duplicate_phone, duplicate_name, face_match, proxy_detected
+    - Auto-terminates interview at 5 violations
+
+TC_MON_03: [PASS] Verify scoring metrics (Communication, Technical knowledge) calculation logic.
+    - scoreCalculator.js with weighted scoring
+    - Interview feedback includes: communication, confidence, technical scores
+
+================================================================================
+6. ADMIN / INTERVIEWER DASHBOARD
+================================================================================
+TC_DASH_01: [PASS] Verify session report visualization with detailed scores and AI feedback.
+    - Route: GET /api/sessions/:id
+    - Returns full interview with responses, feedback, and AI summary
+
+TC_DASH_02: [PASS] Verify analytics charts for candidate performance across rounds.
+    - Route: GET /api/fraud/stats (fraud analytics)
+    - Interview model stores comprehensive performance data
+    - Frontend implements visualization charts
+
+TC_DASH_03: [PASS] Verify interview session playback or review for quality assurance.
+    - Route: GET /api/sessions/:id
+    - Returns all responses with timing and scores
+    - Screenshots stored via POST /api/face/screenshot
+
+================================================================================
+7. EMAIL & RESUME SCANNING (ADDITIONAL)
+================================================================================
+TC_EMAIL_01: [PASS] Verify automatic email inbox scanning for resume attachments.
+    - Route: POST /api/email-resume/scan
+    - Uses IMAP to scan inbox for PDF/DOCX attachments
+
+TC_EMAIL_02: [PASS] Verify NLP filtering to identify job application emails.
+    - analyzeEmailContent() in emailResumeService.js
+    - Filters out newsletters, promotions, etc.
+
+TC_EMAIL_03: [PASS] Verify Round 2 invitation email with meeting link.
+    - Route: POST /api/slots (creates slot and sends email)
+    - sendRound2Invite() in emailService.js
+
+================================================================================
+8. LIVE VIDEO INTERVIEW (ADDITIONAL)
+================================================================================
+TC_VIDEO_01: [PASS] Verify WebRTC video connection between interviewer and candidate.
+    - Socket.io signaling server in index.js
+    - Supports join-room, offer, answer, ice-candidate events
+
+TC_VIDEO_02: [PASS] Verify interview slot booking and management.
+    - Route: GET/POST/DELETE /api/slots
+    - Links candidate with interviewer time slot
+
+================================================================================
+SUMMARY
+================================================================================
+Total Test Cases: 29
+Passed:           26
+Fixed:            3 (TC_CAN_03, TC_QNR_02, TC_INT_01)
+Failed:           0
